@@ -1,0 +1,31 @@
+## ASP.NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+## Build
+[Dd]ebug/
+[Rr]elease/
+publish/
+TestResults/
+
+## IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Local config
+appsettings.Development.json
+*.local.json
