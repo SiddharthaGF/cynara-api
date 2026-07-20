@@ -3,6 +3,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <NuGetAudit Condition="'$(NuGetAudit)' == ''">false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>

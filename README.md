@@ -27,7 +27,7 @@ Use the fixture suite in [`cynara/tests/fixtures/`](https://github.com/ailuracod
 Prerequisites: [.NET SDK 9](https://dotnet.microsoft.com/download)
 
 ```bash
-dotnet restore
+dotnet restore          # also installs git hooks via Husky.Net
 dotnet run --project src/Cynara.Api
 ```
 
@@ -53,12 +53,14 @@ fuser -k 5080/tcp
 dotnet run --project src/Cynara.Api
 ```
 
-Ensure the .NET SDK is on your PATH (add to `~/.bashrc` if needed):
+For interactive shells, ensure the .NET SDK is on your PATH (add to `~/.bashrc` if needed):
 
 ```bash
 export DOTNET_ROOT="$HOME/.dotnet"
 export PATH="$DOTNET_ROOT:$PATH"
 ```
+
+Git hooks load `.husky/env.sh` automatically so commits from the IDE work even when your shell profile is not sourced.
 
 ## Code quality
 
@@ -75,6 +77,36 @@ make fix           # format + apply safe analyzer fixes
 ```
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.
+
+### Git hooks (Husky.Net)
+
+On `dotnet restore`, [Husky.Net](https://github.com/alirezanet/Husky.Net) installs a `pre-commit` hook that:
+
+1. **Formats** staged `.cs` files (`dotnet format`)
+2. **Lints** the solution (`dotnet build -warnaserror`)
+
+Tests run separately via `make test` or CI (`make check`). Disable hooks with `HUSKY=0 git commit`.
+
+NuGet vulnerability audit is disabled locally (`NuGetAudit=false` in `Directory.Build.props`) so pre-commit does not require nuget.org. Enable it in CI with `-p:NuGetAudit=true` if needed.
+
+If a previous failed restore cached `NU1900` under `obj/`, run once:
+
+```bash
+dotnet clean && dotnet restore
+```
+
+If formatting changes files, re-stage and commit again:
+
+```bash
+git add -u && git commit
+```
+
+Manual hook setup:
+
+```bash
+dotnet tool restore
+dotnet husky install
+```
 
 ## Project layout
 
