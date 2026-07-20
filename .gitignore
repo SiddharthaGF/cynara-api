@@ -29,3 +29,11 @@ Thumbs.db
 ## Local config
 appsettings.Development.json
 *.local.json
+
+## Local databases
+*.db
+*.db-shm
+*.db-wal
+
+## Local tooling caches
+.atl/

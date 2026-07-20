@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "1.0.0",
+  "fields": [
+    {
+      "id": "patient-block",
+      "code": "section.patient",
+      "type": "component-ref",
+      "componentCode": "patient-demographics",
+      "componentVersion": "1.0.0"
+    },
+    {
+      "id": "chief-complaint",
+      "code": "encounter.chief-complaint",
+      "type": "text",
+      "required": true,
+      "minLength": 5,
+      "maxLength": 200
+    },
+    {
+      "id": "clinical-notes",
+      "code": "encounter.notes",
+      "type": "textarea",
+      "maxLength": 4000
+    },
+    {
+      "id": "onset-date",
+      "code": "encounter.onset-date",
+      "type": "date"
+    },
+    {
+      "id": "recorded-at",
+      "code": "encounter.recorded-at",
+      "type": "datetime"
+    },
+    {
+      "id": "callback-time",
+      "code": "encounter.callback-time",
+      "type": "time"
+    },
+    {
+      "id": "blood-pressure",
+      "code": "vital.blood-pressure",
+      "type": "group",
+      "required": true,
+      "items": [
+        {
+          "id": "systolic",
+          "code": "vital.bp.systolic",
+          "type": "integer",
+          "required": true,
+          "minimum": 40,
+          "maximum": 300
+        },
+        {
+          "id": "diastolic",
+          "code": "vital.bp.diastolic",
+          "type": "integer",
+          "required": true,
+          "minimum": 20,
+          "maximum": 200
+        }
+      ]
+    },
+    {
+      "id": "heart-rate",
+      "code": "vital.heart-rate",
+      "type": "integer",
+      "required": true,
+      "minimum": 20,
+      "maximum": 300
+    },
+    {
+      "id": "temperature",
+      "code": "vital.temperature",
+      "type": "number",
+      "minimum": 30,
+      "maximum": 45,
+      "multipleOf": 0.1,
+      "decimalPlaces": 1
+    },
+    {
+      "id": "weight-kg",
+      "code": "body.weight.kg",
+      "type": "number",
+      "minimum": 1,
+      "maximum": 400,
+      "multipleOf": 0.1,
+      "decimalPlaces": 1
+    },
+    {
+      "id": "height-m",
+      "code": "body.height.m",
+      "type": "number",
+      "minimum": 0.3,
+      "maximum": 2.5,
+      "multipleOf": 0.01,
+      "decimalPlaces": 2
+    },
+    {
+      "id": "bmi",
+      "code": "body.bmi",
+      "type": "number",
+      "readOnly": true,
+      "multipleOf": 0.01,
+      "decimalPlaces": 2
+    },
+    {
+      "id": "consciousness",
+      "code": "assessment.consciousness",
+      "type": "choice",
+      "required": true,
+      "options": [
+        { "value": "alert", "label": "Alerta" },
+        { "value": "verbal", "label": "Responde a voz" },
+        { "value": "pain", "label": "Responde al dolor" },
+        { "value": "unresponsive", "label": "Sin respuesta" }
+      ],
+      "default": "alert"
+    },
+    {
+      "id": "pain-details",
+      "code": "assessment.pain-details",
+      "type": "textarea",
+      "maxLength": 1000
+    },
+    {
+      "id": "pain-score",
+      "code": "assessment.pain-score",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    {
+      "id": "pregnancy-weeks",
+      "code": "assessment.pregnancy-weeks",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 45
+    },
+    {
+      "id": "smoker",
+      "code": "history.smoker",
+      "type": "boolean"
+    },
+    {
+      "id": "sex-at-intake",
+      "code": "history.sex-at-intake",
+      "type": "choice",
+      "options": [
+        { "value": "female", "label": "Femenino" },
+        { "value": "male", "label": "Masculino" },
+        { "value": "other", "label": "Otro" }
+      ]
+    },
+    {
+      "id": "allergies",
+      "code": "history.allergies",
+      "type": "choice",
+      "allowMultiple": true,
+      "options": [
+        { "value": "penicillin", "label": "Penicilina" },
+        { "value": "latex", "label": "Látex" },
+        { "value": "nuts", "label": "Frutos secos" },
+        { "value": "none", "label": "Ninguna conocida" }
+      ]
+    },
+    {
+      "id": "medications",
+      "code": "medication.list",
+      "type": "repeater",
+      "repeatable": true,
+      "minItems": 0,
+      "maxItems": 8,
+      "items": [
+        {
+          "id": "medication-name",
+          "code": "medication.name",
+          "type": "text",
+          "required": true,
+          "maxLength": 256
+        },
+        {
+          "id": "medication-dose",
+          "code": "medication.dose",
+          "type": "text",
+          "maxLength": 128
+        },
+        {
+          "id": "medication-route",
+          "code": "medication.route",
+          "type": "choice",
+          "options": [
+            { "value": "oral", "label": "Oral" },
+            { "value": "iv", "label": "Intravenosa" },
+            { "value": "topical", "label": "Tópica" }
+          ]
+        }
+      ]
+    }
+  ]
+}

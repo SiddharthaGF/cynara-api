@@ -12,4 +12,16 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Cynara.Application\Cynara.Application.csproj" />
+    <ProjectReference Include="..\Cynara.Infrastructure\Cynara.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Cynara.Infrastructure\Schemas\**\*.json">
+      <Link>Schemas\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

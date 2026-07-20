@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "fields": [
+    {
+      "id": "patient-name",
+      "code": "patient.name",
+      "type": "text",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120
+    },
+    {
+      "id": "patient-dob",
+      "code": "patient.dob",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "patient-sex",
+      "code": "patient.sex",
+      "type": "choice",
+      "required": true,
+      "options": [
+        { "value": "female", "label": "Femenino" },
+        { "value": "male", "label": "Masculino" },
+        { "value": "other", "label": "Otro" }
+      ]
+    }
+  ]
+}

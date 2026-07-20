@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynara.dev/schemas/v1/ui-schema.schema.json",
+  "title": "Cynara UI Schema",
+  "description": "Presentation and layout schema for clinical forms. References clinical field identifiers and must not redefine clinical constraints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "clinicalSchemaVersion", "fields"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of this meta-schema for tooling."
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Semantic version of the UI schema contract."
+    },
+    "clinicalSchemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Version of the paired clinical schema this UI schema was authored against."
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/fieldPresentation"
+      },
+      "description": "Presentation overrides keyed by clinical field id."
+    },
+    "layout": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/layoutNode" },
+      "description": "Ordered layout tree for rendering. When omitted, fields render in clinical schema order."
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "fieldId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "widget": {
+      "type": "string",
+      "enum": [
+        "text-input",
+        "textarea",
+        "number-input",
+        "integer-input",
+        "checkbox",
+        "toggle",
+        "date-picker",
+        "datetime-picker",
+        "time-picker",
+        "select",
+        "multi-select",
+        "radio-group",
+        "checkbox-group",
+        "coded-value-picker",
+        "group",
+        "repeater",
+        "component",
+        "hidden"
+      ],
+      "description": "Suggested widget for rendering. Implementations may map widgets to platform-specific controls."
+    },
+    "width": {
+      "type": "string",
+      "enum": ["full", "half", "third", "quarter"],
+      "default": "full"
+    },
+    "fieldPresentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Human-readable label shown to users."
+        },
+        "helpText": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Short guidance displayed near the field."
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "widget": { "$ref": "#/$defs/widget" },
+        "width": { "$ref": "#/$defs/width" },
+        "hidden": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the field is hidden by default. Visibility rules may override at runtime."
+        },
+        "timePresets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["now"]
+          },
+          "uniqueItems": true,
+          "description": "Quick-fill presets for time and datetime widgets. 'now' sets the current local time; for datetime fields it also sets today's date."
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sort order when layout is not explicitly defined."
+        },
+        "accessibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ariaLabel": { "type": "string", "maxLength": 256 },
+            "ariaDescribedBy": { "type": "string", "maxLength": 256 }
+          }
+        }
+      }
+    },
+    "layoutNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/sectionLayout" },
+        { "$ref": "#/$defs/fieldLayout" },
+        { "$ref": "#/$defs/groupLayout" },
+        { "$ref": "#/$defs/repeaterLayout" }
+      ]
+    },
+    "sectionLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "title", "children"],
+      "properties": {
+        "type": { "const": "section" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/layoutNode" }
+        }
+      }
+    },
+    "fieldLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "fieldId"],
+      "properties": {
+        "type": { "const": "field" },
+        "fieldId": { "$ref": "#/$defs/fieldId" }
+      }
+    },
+    "groupLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "fieldId", "children"],
+      "properties": {
+        "type": { "const": "group" },
+        "fieldId": { "$ref": "#/$defs/fieldId" },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/layoutNode" }
+        }
+      }
+    },
+    "repeaterLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "fieldId", "itemTemplate"],
+      "properties": {
+        "type": { "const": "repeater" },
+        "fieldId": { "$ref": "#/$defs/fieldId" },
+        "itemTemplate": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/layoutNode" },
+          "description": "Layout applied to each repetition instance."
+        },
+        "addButtonLabel": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "removeButtonLabel": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    }
+  }
+}

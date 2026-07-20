@@ -15,7 +15,7 @@ format-check:
 lint:
 	dotnet build $(SOLUTION) --no-restore -warnaserror -c $(CONFIGURATION)
 
-test:
+test: restore
 	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity minimal
 
 check: restore format-check lint test
