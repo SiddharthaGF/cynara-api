@@ -69,7 +69,7 @@
       "width": "half"
     },
     "bmi": {
-      "label": "IMC (calculado)",
+      "label": "IMC",
       "widget": "number-input",
       "width": "half",
       "helpText": "Se calcula a partir de peso y estatura"
