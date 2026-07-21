@@ -1,4 +1,4 @@
-name: Build, publish and deploy to MonsterASP.NET
+name: Build, publish and deploy
 
 on:
   push:
@@ -52,6 +52,5 @@ jobs:
           server-username: ${{ secrets.SERVER_USERNAME }}
           server-password: ${{ secrets.SERVER_PASSWORD }}
           source-path: '\publish\'
-          # Replace leftover Github Deploy source files; keep SQLite data.
           target-delete: 'true'
           skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
