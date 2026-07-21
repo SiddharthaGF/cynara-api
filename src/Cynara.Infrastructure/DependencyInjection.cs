@@ -15,6 +15,9 @@ namespace Cynara.Infrastructure;
 
 public static class DependencyInjection
 {
+    public const string SqliteProvider = "Sqlite";
+    public const string SqlServerProvider = "SqlServer";
+
     private static readonly string[] RequiredTables =
     [
         "audit_events",
@@ -29,11 +32,21 @@ public static class DependencyInjection
     public static IServiceCollection AddCynaraInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        SchemaFilePaths schemaPaths)
+        SchemaFilePaths schemaPaths,
+        string databaseProvider = SqliteProvider)
     {
         _ = services.AddSingleton(schemaPaths);
         _ = services.AddSingleton<ISchemaValidator, JsonSchemaValidator>();
-        _ = services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(connectionString));
+        _ = services.AddDbContext<CynaraDbContext>(options =>
+        {
+            if (IsSqlServer(databaseProvider))
+            {
+                _ = options.UseSqlServer(connectionString);
+                return;
+            }
+
+            _ = options.UseSqlite(connectionString);
+        });
         _ = services.AddScoped<IComponentRepository, ComponentRepository>();
         _ = services.AddScoped<IFormRepository, FormRepository>();
         _ = services.AddScoped<IFormResponseRepository, FormResponseRepository>();
@@ -48,16 +61,34 @@ public static class DependencyInjection
         return services;
     }
 
-    public static async Task InitializeDatabaseAsync(this IServiceProvider services, CancellationToken cancellationToken = default)
+    public static async Task InitializeDatabaseAsync(
+        this IServiceProvider services,
+        CancellationToken cancellationToken = default)
     {
         await using AsyncServiceScope scope = services.CreateAsyncScope();
-        CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
+        CynaraDbContext dbContext = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+
+        if (dbContext.Database.IsSqlServer())
+        {
+            _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            return;
+        }
+
         bool created = await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         if (!created && !await AllRequiredTablesExistAsync(dbContext, cancellationToken))
         {
             _ = await dbContext.Database.EnsureDeletedAsync(cancellationToken);
             _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         }
+    }
+
+    public static bool IsSqlServer(string? databaseProvider)
+    {
+        return string.Equals(
+            databaseProvider,
+            SqlServerProvider,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> AllRequiredTablesExistAsync(
@@ -75,7 +106,8 @@ public static class DependencyInjection
             await using DbCommand command = connection.CreateCommand();
             command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
             var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            await using DbDataReader reader = await command.ExecuteReaderAsync(
+                cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
                 _ = existingTables.Add(reader.GetString(0));

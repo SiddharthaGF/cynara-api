@@ -26,9 +26,9 @@ TestResults/
 .DS_Store
 Thumbs.db
 
-## Local config
-appsettings.Development.json
+## Local config overrides (keep shared appsettings.*.json)
 *.local.json
+appsettings.*.local.json
 
 ## Local databases
 *.db

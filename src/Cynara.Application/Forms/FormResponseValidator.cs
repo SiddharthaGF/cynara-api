@@ -699,9 +699,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             JsonValueKind.String => value.GetString()?.Length == 0,
             JsonValueKind.Array => value.GetArrayLength() == 0,
             JsonValueKind.Object => !value.EnumerateObject().Any(),
-            JsonValueKind.Number => throw new NotImplementedException(),
-            JsonValueKind.True => throw new NotImplementedException(),
-            JsonValueKind.False => throw new NotImplementedException(),
+            JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => false,
             _ => false,
         };
     }

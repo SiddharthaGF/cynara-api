@@ -7,8 +7,13 @@ using Microsoft.AspNetCore.Diagnostics;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+string databaseProvider = builder.Configuration["Database:Provider"]
+    ?? DependencyInjection.SqliteProvider;
 string connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? "Data Source=cynara.db";
+    ?? (DependencyInjection.IsSqlServer(databaseProvider)
+        ? throw new InvalidOperationException(
+            "ConnectionStrings:Default is required when Database:Provider is SqlServer.")
+        : "Data Source=cynara.db");
 
 string schemaRoot = Path.Combine(AppContext.BaseDirectory, "Schemas");
 var schemaPaths = new SchemaFilePaths
@@ -19,7 +24,10 @@ var schemaPaths = new SchemaFilePaths
 };
 
 builder.Services.AddOpenApi();
-builder.Services.AddCynaraInfrastructure(connectionString, schemaPaths);
+builder.Services.AddCynaraInfrastructure(
+    connectionString,
+    schemaPaths,
+    databaseProvider);
 builder.Services.AddSingleton(TimeProvider.System);
 
 WebApplication app = builder.Build();
