@@ -1,14 +1,13 @@
-name: Publish
+name: Publish preview (develop)
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
 
 concurrency:
-  group: deploy-monsterasp-main
+  group: preview-develop-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,13 +45,21 @@ jobs:
           --runtime win-x86
           --self-contained false
 
-      - name: Deploy to MonsterASP.NET via WebDeploy
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cynara-api-preview
+          path: ./publish/**
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Deploy preview to MonsterASP.NET via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
         with:
-          website-name: ${{ secrets.WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
-          server-username: ${{ secrets.SERVER_USERNAME }}
-          server-password: ${{ secrets.SERVER_PASSWORD }}
+          website-name: ${{ secrets.PREVIEW_WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.PREVIEW_SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.PREVIEW_SERVER_USERNAME }}
+          server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
           source-path: '\publish\'
           target-delete: 'true'
           skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
