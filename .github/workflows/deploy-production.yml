@@ -25,13 +25,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet-and-restore
 
       - name: Publish
-        shell: bash
-        run: |
-          dotnet publish src/Cynara.Api/Cynara.Api.csproj
-            --configuration Release
-            --output ./publish
-            --runtime win-x86
-            --self-contained false
+        run: dotnet publish src/Cynara.Api/Cynara.Api.csproj --configuration Release --output ./publish --runtime win-x86 --self-contained false
 
       - name: Deploy via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
