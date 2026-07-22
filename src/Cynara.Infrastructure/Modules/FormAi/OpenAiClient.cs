@@ -20,12 +20,13 @@ public sealed class OpenAiClient : IOpenAiClient
     public async Task<OpenAiCompletionResult> CreateChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
+        string? cacheScope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(messages);
         ArgumentNullException.ThrowIfNull(config);
         EnsureConfigured(config);
-        using HttpRequestMessage request = CreateRequest(messages, config, stream: false);
+        using HttpRequestMessage request = CreateRequest(messages, config, stream: false, cacheScope);
         using HttpResponseMessage response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -64,20 +65,22 @@ public sealed class OpenAiClient : IOpenAiClient
     public IAsyncEnumerable<OpenAiStreamDelta> StreamChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
+        string? cacheScope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(messages);
         ArgumentNullException.ThrowIfNull(config);
         EnsureConfigured(config);
-        return StreamCoreAsync(httpClient, messages, config, cancellationToken);
+        return StreamCoreAsync(httpClient, messages, config, cacheScope, cancellationToken);
 
         static async IAsyncEnumerable<OpenAiStreamDelta> StreamCoreAsync(
             HttpClient client,
             IReadOnlyList<OpenAiMessage> msgs,
             OpenAiConfig cfg,
+            string? cacheScope,
             [EnumeratorCancellation] CancellationToken ct)
         {
-            using HttpRequestMessage request = CreateRequest(msgs, cfg, stream: true);
+            using HttpRequestMessage request = CreateRequest(msgs, cfg, stream: true, cacheScope);
             using HttpResponseMessage response = await client.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
@@ -167,7 +170,8 @@ public sealed class OpenAiClient : IOpenAiClient
     private static HttpRequestMessage CreateRequest(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
-        bool stream)
+        bool stream,
+        string? cacheScope)
     {
         var body = new Dictionary<string, object?>
         {
@@ -185,6 +189,8 @@ public sealed class OpenAiClient : IOpenAiClient
         {
             body["response_format"] = new { type = "json_object" };
         }
+
+        ApplyPromptCache(body, messages, config, cacheScope);
 
         var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -210,6 +216,91 @@ public sealed class OpenAiClient : IOpenAiClient
         }
 
         return request;
+    }
+
+    private enum PromptCacheMode
+    {
+        None,
+        AnthropicEphemeral,
+        OpenAiPromptKey,
+    }
+
+    private static PromptCacheMode DetectPromptCacheMode(string baseUrl)
+    {
+        string host = baseUrl.ToLowerInvariant();
+        if (host.Contains("api.anthropic.com", StringComparison.OrdinalIgnoreCase)
+            || host.Contains("anthropic.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return PromptCacheMode.AnthropicEphemeral;
+        }
+        if (host.Contains("api.openai.com", StringComparison.OrdinalIgnoreCase)
+            || host.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase))
+        {
+            return PromptCacheMode.OpenAiPromptKey;
+        }
+        return PromptCacheMode.None;
+    }
+
+    private static string BuildPromptCacheKey(string scope)
+    {
+        string lowered = scope.Trim().ToLowerInvariant();
+        var sb = new StringBuilder(lowered.Length);
+        foreach (char c in lowered)
+        {
+            _ = sb.Append(char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '-');
+        }
+        string key = "cynara:" + sb;
+        return key.Length > 64 ? key[..64] : key;
+    }
+
+    private static void ApplyPromptCache(
+        Dictionary<string, object?> body,
+        IReadOnlyList<OpenAiMessage> messages,
+        OpenAiConfig config,
+        string? cacheScope)
+    {
+        if (string.IsNullOrWhiteSpace(cacheScope))
+        {
+            return;
+        }
+        PromptCacheMode mode = DetectPromptCacheMode(config.BaseUrl);
+        if (mode == PromptCacheMode.None)
+        {
+            return;
+        }
+        string key = BuildPromptCacheKey(cacheScope);
+        if (mode == PromptCacheMode.OpenAiPromptKey)
+        {
+            body["prompt_cache_key"] = key;
+            return;
+        }
+        // Anthropic: attach a cache_control breakpoint to the system prompt.
+        // Re-shape the messages list with the breakpoint on the last system entry.
+        var annotated = new List<OpenAiMessage>(messages.Count);
+        bool attached = false;
+        for (int i = messages.Count - 1; i >= 0; i--)
+        {
+            if (!attached
+                && string.Equals(messages[i].Role, "system", StringComparison.OrdinalIgnoreCase))
+            {
+                annotated.Insert(
+                    0,
+                    messages[i] with
+                    {
+                        CacheControl = new Dictionary<string, string>
+                        {
+                            ["type"] = "ephemeral",
+                        },
+                    });
+                attached = true;
+                continue;
+            }
+            annotated.Insert(0, messages[i]);
+        }
+        if (attached)
+        {
+            body["messages"] = annotated;
+        }
     }
 
     private static void EnsureConfigured(OpenAiConfig config)

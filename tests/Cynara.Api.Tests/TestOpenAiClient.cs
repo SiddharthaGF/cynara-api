@@ -13,6 +13,7 @@ internal sealed class TestOpenAiClient : IOpenAiClient
     public Task<OpenAiCompletionResult> CreateChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
+        string? cacheScope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(messages);
@@ -26,6 +27,7 @@ internal sealed class TestOpenAiClient : IOpenAiClient
     public IAsyncEnumerable<OpenAiStreamDelta> StreamChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
+        string? cacheScope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(messages);

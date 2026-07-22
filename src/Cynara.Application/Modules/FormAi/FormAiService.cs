@@ -74,6 +74,7 @@ public sealed partial class FormAiService(
         OpenAiCompletionResult completion = await openAi.CreateChatCompletionAsync(
             BuildMessages(formCode, locale, messages, draft, focus),
             config,
+            formCode,
             cancellationToken).ConfigureAwait(false);
         ParsedAiOutput parsed = ParseModelOutput(completion.Content, draft, locale);
         return PrepareResponse(parsed, draft, completion.Thinking);
@@ -122,6 +123,7 @@ public sealed partial class FormAiService(
             await foreach (OpenAiStreamDelta delta in openAi.StreamChatCompletionAsync(
                                BuildMessages(formCode, locale, messages, draft, focus),
                                config,
+                               formCode,
                                cancellationToken).ConfigureAwait(false))
             {
                 rawContent += delta.Content ?? string.Empty;
