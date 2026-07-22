@@ -9,7 +9,5 @@ public sealed record OpenAiConfig(
 
 public interface IOpenAiConfiguration
 {
-    public bool UseMock { get; }
-
     public OpenAiConfig LoadEnvironment();
 }

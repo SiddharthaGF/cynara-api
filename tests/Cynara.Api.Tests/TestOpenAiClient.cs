@@ -4,9 +4,9 @@ using System.Text.Json.Nodes;
 
 using Cynara.Application.Modules.FormAi;
 
-namespace Cynara.Infrastructure.Modules.FormAi;
+namespace Cynara.Api.Tests;
 
-public sealed class MockOpenAiClient : IOpenAiClient
+internal sealed class TestOpenAiClient : IOpenAiClient
 {
     private const int StreamChunkSize = 48;
 
@@ -55,34 +55,18 @@ public sealed class MockOpenAiClient : IOpenAiClient
     {
         JsonObject turn = ParseUserTurn(messages);
         string locale = turn["locale"]?.GetValue<string>() ?? "en";
-        string userMessage = turn["latestUserMessage"]?.GetValue<string>()
-            ?? string.Empty;
         bool spanish = locale.StartsWith("es", StringComparison.OrdinalIgnoreCase);
-
-        if (!LooksLikeEdit(userMessage))
-        {
-            return new JsonObject
-            {
-                ["summary"] = spanish
-                    ? "Respuesta simulada sin cambios"
-                    : "Mock response without changes",
-                ["assistantMessage"] = spanish
-                    ? "Esta es una respuesta simulada. El formulario no fue modificado."
-                    : "This is a mock response. The form was not changed.",
-                ["mode"] = "unchanged",
-            }.ToJsonString();
-        }
-
         string fieldId = NextFieldId(turn);
-        string label = spanish ? "Pregunta simulada" : "Mock question";
+        string label = spanish ? "Pregunta de prueba" : "Test question";
+
         return new JsonObject
         {
             ["summary"] = spanish
-                ? "Pregunta simulada añadida"
-                : "Mock question added",
+                ? "Pregunta de prueba añadida"
+                : "Test question added",
             ["assistantMessage"] = spanish
-                ? "Añadí una pregunta de texto simulada para probar el chat sin usar un modelo real."
-                : "I added a mock text question so you can test the chat without using a real model.",
+                ? "Añadí una pregunta de texto para probar el formulario."
+                : "I added a text question to test the form.",
             ["mode"] = "patch",
             ["patch"] = new JsonObject
             {
@@ -91,7 +75,7 @@ public sealed class MockOpenAiClient : IOpenAiClient
                     new JsonObject
                     {
                         ["id"] = fieldId,
-                        ["code"] = $"mock.{fieldId}",
+                        ["code"] = $"test.{fieldId}",
                         ["type"] = "text",
                     },
                 },
@@ -160,7 +144,7 @@ public sealed class MockOpenAiClient : IOpenAiClient
             }
         }
 
-        const string baseId = "mock-question";
+        const string baseId = "test-question";
         if (!existingIds.Contains(baseId))
         {
             return baseId;
@@ -174,26 +158,5 @@ public sealed class MockOpenAiClient : IOpenAiClient
                 return candidate;
             }
         }
-    }
-
-    private static bool LooksLikeEdit(string message)
-    {
-        string normalized = message.Trim().ToUpperInvariant();
-        string[] editTerms =
-        [
-            "AGREGA",
-            "AGREGAR",
-            "AÑADE",
-            "AÑADIR",
-            "ANADE",
-            "ANADIR",
-            "CREA",
-            "CREAR",
-            "ADD",
-            "CREATE",
-            "INSERT",
-        ];
-        return editTerms.Any(term =>
-            normalized.Contains(term, StringComparison.Ordinal));
     }
 }
