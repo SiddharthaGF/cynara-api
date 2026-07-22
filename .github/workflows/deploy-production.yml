@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_deploy-monsterasp.yml
+    uses: ./.github/workflows/deploy-monsterasp-reusable.yml
     with:
       website-name: ${{ secrets.WEBSITE_NAME }}
       server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
