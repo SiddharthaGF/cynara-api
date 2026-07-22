@@ -1,11 +1,12 @@
 name: Deploy preview
 
 on:
-  push:
-    branches: [develop]    
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 concurrency:
-  group: preview-develop-${{ github.ref }}
+  group: preview-develop-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 permissions:
@@ -14,9 +15,14 @@ permissions:
 jobs:
   deploy:
     name: Build and deploy
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'develop' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          repository: ${{ github.event.workflow_run.repository.full_name }}
+          fetch-depth: 1
 
       - name: Setup .NET and restore
         uses: ./.github/actions/setup-dotnet-and-restore
