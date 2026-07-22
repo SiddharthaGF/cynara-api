@@ -1,0 +1,82 @@
+name: Pipeline
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  check:
+    name: Format, lint, and test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Check (format + lint + test)
+        run: make check
+
+  deploy-preview:
+    name: Build and deploy preview
+    needs: [check]
+    if: ${{ needs.check.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    runs-on: windows-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET, restore and publish
+        uses: ./.github/actions/setup-and-publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cynara-api-preview
+          path: ./publish/**
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Deploy preview via WebDeploy
+        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
+        with:
+          website-name: ${{ secrets.PREVIEW_WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.PREVIEW_SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.PREVIEW_SERVER_USERNAME }}
+          server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
+          source-path: '\publish\'
+          target-delete: 'true'
+          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
+
+  deploy-production:
+    name: Build and deploy production
+    needs: [check]
+    if: ${{ needs.check.result == 'success' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+    runs-on: windows-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET, restore and publish
+        uses: ./.github/actions/setup-and-publish
+
+      - name: Deploy production via WebDeploy
+        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
+        with:
+          website-name: ${{ secrets.WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.SERVER_USERNAME }}
+          server-password: ${{ secrets.SERVER_PASSWORD }}
+          source-path: '\publish\'
+          target-delete: 'true'
+          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'

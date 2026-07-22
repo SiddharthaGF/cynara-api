@@ -1,0 +1,42 @@
+name: Setup .NET, restore and publish Cynara API
+description: |
+  Run the Cynara API publish pipeline shared by both deploy jobs. Callers
+  must run actions/checkout first so the workspace is populated.
+
+inputs:
+  dotnet-version:
+    description: .NET SDK version to install.
+    required: false
+    default: "9.0.x"
+  solution:
+    description: Path to the solution file to restore.
+    required: false
+    default: "Cynara.Api.sln"
+  project:
+    description: Project to publish.
+    required: false
+    default: "src/Cynara.Api/Cynara.Api.csproj"
+  configuration:
+    description: Build configuration.
+    required: false
+    default: "Release"
+  output:
+    description: Publish output directory.
+    required: false
+    default: "./publish"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET ${{ inputs.dotnet-version }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Restore ${{ inputs.solution }}
+      shell: bash
+      run: dotnet restore ${{ inputs.solution }}
+
+    - name: Publish ${{ inputs.project }}
+      shell: bash
+      run: dotnet publish ${{ inputs.project }} --configuration ${{ inputs.configuration }} --output ${{ inputs.output }} --runtime win-x86 --self-contained false
