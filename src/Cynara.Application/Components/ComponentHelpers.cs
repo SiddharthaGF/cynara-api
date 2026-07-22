@@ -4,7 +4,7 @@ namespace Cynara.Application.Components;
 
 internal static partial class ComponentCodeRules
 {
-    private const string Pattern = @"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
+    private const string Pattern = "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
 
     public static void EnsureValid(string code)
     {

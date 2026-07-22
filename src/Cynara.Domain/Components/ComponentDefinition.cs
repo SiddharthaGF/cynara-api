@@ -14,5 +14,5 @@ public sealed class ComponentDefinition
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public ICollection<ComponentVersion> Versions { get; set; } = [];
+    public ICollection<ComponentVersion> Versions { get; init; } = [];
 }

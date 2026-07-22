@@ -14,5 +14,5 @@ public sealed class FormDefinition
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public ICollection<FormVersion> Versions { get; set; } = [];
+    public ICollection<FormVersion> Versions { get; } = [];
 }

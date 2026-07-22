@@ -1,16 +1,26 @@
-using Cynara.Api.Endpoints;
+using Cynara.Api.Common.ErrorHandling;
+using Cynara.Api.Modules.Audit;
+using Cynara.Api.Modules.Components;
+using Cynara.Api.Modules.FormAi;
+using Cynara.Api.Modules.FormResponses;
+using Cynara.Api.Modules.Forms;
+using Cynara.Api.Modules.Health;
 using Cynara.Application;
 using Cynara.Infrastructure;
+using Cynara.Infrastructure.Modules.Preview;
 using Cynara.Infrastructure.Schemas;
-
-using Microsoft.AspNetCore.Diagnostics;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-string databaseProvider = builder.Configuration["Database:Provider"]
-    ?? DependencyInjection.SqliteProvider;
-string connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? (DependencyInjection.IsSqlServer(databaseProvider)
+bool previewStorage = InfrastructureServiceCollectionExtensions.IsPreviewStorage(builder.Configuration);
+string databaseProvider = previewStorage
+    ? InfrastructureServiceCollectionExtensions.SqliteProvider
+    : builder.Configuration["Database:Provider"]
+        ?? InfrastructureServiceCollectionExtensions.SqliteProvider;
+string connectionString = previewStorage
+    ? "Data Source=:memory:"
+    : builder.Configuration.GetConnectionString("Default")
+        ?? (InfrastructureServiceCollectionExtensions.IsSqlServer(databaseProvider)
         ? throw new InvalidOperationException(
             "ConnectionStrings:Default is required when Database:Provider is SqlServer.")
         : "Data Source=cynara.db");
@@ -24,6 +34,7 @@ var schemaPaths = new SchemaFilePaths
 };
 
 builder.Services.AddOpenApi();
+builder.Services.AddCynaraApplication();
 builder.Services.AddCynaraInfrastructure(
     connectionString,
     schemaPaths,
@@ -32,44 +43,31 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 WebApplication app = builder.Build();
 
-app.UseExceptionHandler(exceptionHandler =>
+_ = app.UseCynaraExceptionHandling();
+
+await app.Services.InitializeDatabaseAsync().ConfigureAwait(false);
+if (previewStorage)
 {
-    exceptionHandler.Run(async context =>
-    {
-        IExceptionHandlerFeature? feature = context.Features.Get<IExceptionHandlerFeature>();
-        if (feature?.Error is CynaraException cynaraException)
-        {
-            IResult result = ProblemDetailsMapping.FromException(cynaraException);
-            await result.ExecuteAsync(context);
-            return;
-        }
-
-        await Results.Problem(
-            detail: feature?.Error.Message,
-            statusCode: StatusCodes.Status500InternalServerError,
-            title: "Unexpected error").ExecuteAsync(context);
-    });
-});
-
-await app.Services.InitializeDatabaseAsync();
+    await app.Services.SeedPreviewDemoAsync().ConfigureAwait(false);
+}
 
 if (app.Environment.IsDevelopment())
 {
     _ = app.MapOpenApi();
 }
 
-app.MapGet("/health", () => Results.Ok(new
-{
-    service = "cynara-api",
-    status = "ok",
-    contract = "https://github.com/ailuracode/cynara",
-}));
-
 app.MapComponentEndpoints();
 app.MapFormEndpoints();
 app.MapFormResponseEndpoints();
+app.MapFormAiEndpoints();
 app.MapAuditEndpoints();
+app.MapHealthEndpoints();
+app.MapGet("/", () => Results.Text("Cynara API"));
 
-app.Run();
+await app.RunAsync().ConfigureAwait(false);
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1515:Consider making public types internal",
+    Justification = "WebApplicationFactory requires the generated host type to be public.")]
 public partial class Program;

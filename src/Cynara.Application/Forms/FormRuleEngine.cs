@@ -169,6 +169,9 @@ public sealed class FormRuleEngine : IFormRuleEngine
     /// <summary>
     /// Returns null when either operand is unset or the result is non-finite (e.g. 0/0 → NaN).
     /// </summary>
+    /// <param name="args"></param>
+    /// <param name="values"></param>
+    /// <param name="compute"></param>
     private static double? Arithmetic(
         JsonArray args,
         IReadOnlyDictionary<string, object?> values,
@@ -217,11 +220,29 @@ public sealed class FormRuleEngine : IFormRuleEngine
 
     private static int CompareValues(object? left, object? right)
     {
-        return left is null || right is null
-            ? left is null && right is null ? 0 : left is null ? -1 : 1
-            : left is string leftText && right is string rightText
-            ? string.Compare(leftText, rightText, StringComparison.Ordinal)
-            : ToDouble(left).CompareTo(ToDouble(right));
+        if (left is null || right is null)
+        {
+            if (left is null && right is null)
+            {
+                return 0;
+            }
+            else if (left is null)
+            {
+                return -1;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+        else if (left is string leftText && right is string rightText)
+        {
+            return string.CompareOrdinal(leftText, rightText);
+        }
+        else
+        {
+            return ToDouble(left).CompareTo(ToDouble(right));
+        }
     }
 
     private static double ToDouble(object? value)

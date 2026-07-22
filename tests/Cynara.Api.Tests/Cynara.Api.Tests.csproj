@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <RootNamespace>Cynara.Api.Tests</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA1062;CA1515;CA1812;CA2007;CS1591;xUnit1030</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

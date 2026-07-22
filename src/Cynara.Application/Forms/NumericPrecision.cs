@@ -48,9 +48,12 @@ internal static class NumericPrecision
 
     private static int ResolveDecimalPlaces(int? decimalPlaces, double? multipleOf)
     {
-        return decimalPlaces is int explicitPlaces
-            ? ClampDecimalPlaces(explicitPlaces)
-            : multipleOf is double step && step > 0 ? DecimalPlacesFromStep(step) : DefaultDecimalPlaces;
+        if (decimalPlaces is int explicitPlaces)
+        {
+            return ClampDecimalPlaces(explicitPlaces);
+        }
+
+        return multipleOf is double step && step > 0 ? DecimalPlacesFromStep(step) : DefaultDecimalPlaces;
     }
 
     private static int ClampDecimalPlaces(int decimals)

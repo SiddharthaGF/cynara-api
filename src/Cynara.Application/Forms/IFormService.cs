@@ -14,14 +14,6 @@ public interface IFormService
 
     public Task<FormVersionDto> UpdateDraftAsync(string code, UpdateFormDraftRequest request, string? actorId, CancellationToken cancellationToken);
 
-    public Task<FormVersionDto> SubmitForReviewAsync(string code, SubmitFormDraftForReviewRequest request, string? actorId, CancellationToken cancellationToken);
-
-    public Task<FormVersionDto> WithdrawFromReviewAsync(string code, WithdrawFormDraftFromReviewRequest request, string? actorId, CancellationToken cancellationToken);
-
-    public Task<FormVersionDto> RejectReviewAsync(string code, RejectFormReviewRequest request, string? actorId, CancellationToken cancellationToken);
-
-    public Task<FormVersionDto> PublishDraftAsync(string code, PublishFormDraftRequest request, string? actorId, CancellationToken cancellationToken);
-
     public Task<FormVersionDto> CreateDraftFromLatestAsync(string code, string? actorId, CancellationToken cancellationToken);
 
     public Task<FormVersionDto> RetireVersionAsync(string code, string version, string? actorId, CancellationToken cancellationToken);

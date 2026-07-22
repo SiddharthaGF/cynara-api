@@ -6,17 +6,14 @@ using Cynara.Application.Forms;
 using Cynara.Domain.Audit;
 using Cynara.Infrastructure.Persistence;
 
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public class FormResponseLifecycleTests : IDisposable
+public sealed class FormResponseLifecycleTests : IDisposable
 {
     public FormResponseLifecycleTests()
     {
@@ -28,19 +25,20 @@ public class FormResponseLifecycleTests : IDisposable
     {
         Client.Dispose();
         Factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
     public async Task CreateResponse_AgainstPublishedForm_Succeeds()
     {
-        await PublishFormAsync("intake", "Intake");
+        await PublishFormAsync("intake", "Intake").ConfigureAwait(false);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync(
             "/api/forms/intake/versions/1.0.0/responses",
-            new CreateFormResponseRequest());
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
+            new CreateFormResponseRequest()).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        FormResponseDto response = (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+        FormResponseDto response = (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
         Assert.Equal("intake", response.FormCode);
         Assert.Equal("1.0.0", response.FormVersion);
         Assert.Equal("draft", response.Status);
@@ -49,7 +47,7 @@ public class FormResponseLifecycleTests : IDisposable
         Assert.Equal(0u, response.RowVersion);
         Assert.Null(response.DeletedAt);
 
-        await AssertAuditEventsRecordedAsync(response.Id, "response.created");
+        await AssertAuditEventsRecordedAsync(response.Id, "response.created").ConfigureAwait(false);
     }
 
     [Fact]
@@ -61,19 +59,19 @@ public class FormResponseLifecycleTests : IDisposable
             MinimalClinicalSchema("notes", "form.notes"),
             null);
 
-        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest);
-        await AssertStatusAsync(createFormResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createFormResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync(
             "/api/forms/draft-only/versions/1.0.0/responses",
-            new CreateFormResponseRequest());
-        await AssertStatusAsync(createResponse, HttpStatusCode.NotFound);
+            new CreateFormResponseRequest()).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
     }
 
     [Fact]
     public async Task UpdateResponse_IncrementsRevisionAndIsReconstructable()
     {
-        FormResponseDto created = await CreatePublishedResponseAsync("revision-test");
+        FormResponseDto created = await CreatePublishedResponseAsync("revision-test").ConfigureAwait(false);
 
         var firstUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
@@ -81,29 +79,29 @@ public class FormResponseLifecycleTests : IDisposable
             created.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
-            firstUpdate);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.OK);
+            firstUpdate).ConfigureAwait(false);
+        await AssertStatusAsync(updateResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
         Assert.Equal(2u, updated.RevisionNumber);
         Assert.Equal(1u, updated.RowVersion);
         Assert.Contains("Ada", updated.AnswersJson, StringComparison.Ordinal);
 
-        using HttpResponseMessage revisionsResponse = await Client.GetAsync($"/api/responses/{created.Id}/revisions");
-        await AssertStatusAsync(revisionsResponse, HttpStatusCode.OK);
+        using HttpResponseMessage revisionsResponse = await Client.GetAsync(new Uri($"/api/responses/{created.Id}/revisions", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(revisionsResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
         List<FormResponseRevisionDto> revisions =
-            (await revisionsResponse.Content.ReadFromJsonAsync<List<FormResponseRevisionDto>>())!;
+            (await revisionsResponse.Content.ReadFromJsonAsync<List<FormResponseRevisionDto>>().ConfigureAwait(false))!;
         Assert.Equal(2, revisions.Count);
         Assert.Equal("{}", revisions[0].AnswersJson);
         Assert.Contains("Ada", revisions[1].AnswersJson, StringComparison.Ordinal);
 
         using HttpResponseMessage revisionOneResponse = await Client.GetAsync(
-            $"/api/responses/{created.Id}/revisions/1");
-        await AssertStatusAsync(revisionOneResponse, HttpStatusCode.OK);
+            new Uri($"/api/responses/{created.Id}/revisions/1", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(revisionOneResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
         FormResponseRevisionDto revisionOne =
-            (await revisionOneResponse.Content.ReadFromJsonAsync<FormResponseRevisionDto>())!;
+            (await revisionOneResponse.Content.ReadFromJsonAsync<FormResponseRevisionDto>().ConfigureAwait(false))!;
         Assert.Equal("{}", revisionOne.AnswersJson);
         Assert.Equal("draft", revisionOne.Status);
     }
@@ -111,7 +109,7 @@ public class FormResponseLifecycleTests : IDisposable
     [Fact]
     public async Task UpdateResponse_WithStaleRowVersion_ReturnsConflict()
     {
-        FormResponseDto created = await CreatePublishedResponseAsync("concurrency-test");
+        FormResponseDto created = await CreatePublishedResponseAsync("concurrency-test").ConfigureAwait(false);
 
         var staleUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
@@ -119,8 +117,8 @@ public class FormResponseLifecycleTests : IDisposable
             created.RowVersion);
         using HttpResponseMessage firstUpdate = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
-            staleUpdate);
-        await AssertStatusAsync(firstUpdate, HttpStatusCode.OK);
+            staleUpdate).ConfigureAwait(false);
+        await AssertStatusAsync(firstUpdate, HttpStatusCode.OK).ConfigureAwait(false);
 
         var conflictingUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
@@ -128,14 +126,14 @@ public class FormResponseLifecycleTests : IDisposable
             created.RowVersion);
         using HttpResponseMessage conflictResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
-            conflictingUpdate);
-        await AssertStatusAsync(conflictResponse, HttpStatusCode.Conflict);
+            conflictingUpdate).ConfigureAwait(false);
+        await AssertStatusAsync(conflictResponse, HttpStatusCode.Conflict).ConfigureAwait(false);
     }
 
     [Fact]
     public async Task CompleteResponse_LocksFurtherEdits()
     {
-        FormResponseDto created = await CreatePublishedResponseAsync("complete-test");
+        FormResponseDto created = await CreatePublishedResponseAsync("complete-test").ConfigureAwait(false);
 
         var updateRequest = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
@@ -143,18 +141,18 @@ public class FormResponseLifecycleTests : IDisposable
             created.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
-            updateRequest);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.OK);
+            updateRequest).ConfigureAwait(false);
+        await AssertStatusAsync(updateResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
 
         var completeRequest = new CompleteFormResponseRequest(updated.RowVersion);
         using HttpResponseMessage completeResponse = await Client.PostAsJsonAsync(
             $"/api/responses/{created.Id}/complete",
-            completeRequest);
-        await AssertStatusAsync(completeResponse, HttpStatusCode.OK);
+            completeRequest).ConfigureAwait(false);
+        await AssertStatusAsync(completeResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        FormResponseDto completed = (await completeResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+        FormResponseDto completed = (await completeResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
         Assert.Equal("completed", completed.Status);
         Assert.NotNull(completed.CompletedAt);
         Assert.Equal(3u, completed.RevisionNumber);
@@ -165,39 +163,39 @@ public class FormResponseLifecycleTests : IDisposable
             completed.RowVersion);
         using HttpResponseMessage editResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
-            editAfterComplete);
-        await AssertStatusAsync(editResponse, HttpStatusCode.Conflict);
+            editAfterComplete).ConfigureAwait(false);
+        await AssertStatusAsync(editResponse, HttpStatusCode.Conflict).ConfigureAwait(false);
 
         await AssertAuditEventsRecordedAsync(
             created.Id,
             "response.created",
             "response.updated",
-            "response.completed");
+            "response.completed").ConfigureAwait(false);
     }
 
     [Fact]
     public async Task SoftDeleteDraft_HidesFromNormalGetButVisibleForAudit()
     {
-        FormResponseDto created = await CreatePublishedResponseAsync("soft-delete-test");
+        FormResponseDto created = await CreatePublishedResponseAsync("soft-delete-test").ConfigureAwait(false);
 
         using HttpResponseMessage deleteResponse = await Client.DeleteAsync(
-            $"/api/responses/{created.Id}?reason=No%20longer%20needed");
-        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent);
+            new Uri($"/api/responses/{created.Id}?reason=No%20longer%20needed", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent).ConfigureAwait(false);
 
-        using HttpResponseMessage getResponse = await Client.GetAsync($"/api/responses/{created.Id}");
-        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound);
+        using HttpResponseMessage getResponse = await Client.GetAsync(new Uri($"/api/responses/{created.Id}", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
 
         using HttpResponseMessage auditGetResponse = await Client.GetAsync(
-            $"/api/responses/{created.Id}?includeDeleted=true");
-        await AssertStatusAsync(auditGetResponse, HttpStatusCode.OK);
+            new Uri($"/api/responses/{created.Id}?includeDeleted=true", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(auditGetResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        FormResponseDto deleted = (await auditGetResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+        FormResponseDto deleted = (await auditGetResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
         Assert.NotNull(deleted.DeletedAt);
 
-        using HttpResponseMessage revisionsResponse = await Client.GetAsync($"/api/responses/{created.Id}/revisions");
-        await AssertStatusAsync(revisionsResponse, HttpStatusCode.OK);
+        using HttpResponseMessage revisionsResponse = await Client.GetAsync(new Uri($"/api/responses/{created.Id}/revisions", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(revisionsResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        await AssertAuditEventsRecordedAsync(created.Id, "response.draft.deleted");
+        await AssertAuditEventsRecordedAsync(created.Id, "response.draft.deleted").ConfigureAwait(false);
     }
 
     private HttpClient Client { get; }
@@ -212,51 +210,51 @@ public class FormResponseLifecycleTests : IDisposable
             MinimalClinicalSchema("field", $"{code}.field"),
             null);
 
-        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest);
-        await AssertStatusAsync(createFormResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createFormResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        FormVersionDto draft = await GetEditableVersionAsync(code);
-        FormVersionDto inReview = await SubmitForReviewAsync(code, draft.RowVersion);
+        FormVersionDto draft = await GetEditableVersionAsync(code).ConfigureAwait(false);
+        FormVersionDto inReview = await SubmitForReviewAsync(code, draft.RowVersion).ConfigureAwait(false);
         using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
             $"/api/forms/{code}/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion));
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK);
+            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
     }
 
     private async Task<FormVersionDto> SubmitForReviewAsync(string code, uint rowVersion)
     {
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
             $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion));
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>())!;
+            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task<FormResponseDto> CreatePublishedResponseAsync(string code)
     {
-        await PublishFormAsync(code, code);
+        await PublishFormAsync(code, code).ConfigureAwait(false);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync(
             $"/api/forms/{code}/versions/1.0.0/responses",
-            new CreateFormResponseRequest());
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
-        return (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>())!;
+            new CreateFormResponseRequest()).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
+        return (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
     }
 
     private async Task<FormVersionDto> GetEditableVersionAsync(string code)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/forms/{code}/draft");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task AssertAuditEventsRecordedAsync(Guid resourceId, params string[] actions)
     {
-        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
-            .ToListAsync())
+            .ToListAsync().ConfigureAwait(false))
             .OrderBy(item => item.OccurredAt)];
 
         foreach (string action in actions)
@@ -272,7 +270,7 @@ public class FormResponseLifecycleTests : IDisposable
             return;
         }
 
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
     }
 

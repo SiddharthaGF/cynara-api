@@ -2,8 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using Cynara.Application;
-
 namespace Cynara.Application.Common;
 
 internal static class ContentHashCalculator

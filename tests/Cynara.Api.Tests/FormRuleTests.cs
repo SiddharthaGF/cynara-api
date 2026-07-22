@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -9,7 +10,7 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public class FormRuleTests
+public sealed class FormRuleTests
 {
     private static readonly string FixtureRoot = Path.GetFullPath(
         Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "cynara", "tests", "fixtures", "rules"));
@@ -51,7 +52,9 @@ public class FormRuleTests
                     continue;
                 }
 
-                Assert.Equal(property.Value.GetDouble(), Convert.ToDouble(actual));
+                Assert.Equal(
+                    property.Value.GetDouble(),
+                    Convert.ToDouble(actual, CultureInfo.InvariantCulture));
             }
         }
 
@@ -88,7 +91,7 @@ public class FormRuleTests
         using HttpClient client = factory.CreateClient();
 
         string clinical = MinimalClinicalSchema();
-        string rules = /*lang=json,strict*/ """
+        const string rules = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "clinicalSchemaVersion": "1.0.0",
@@ -101,10 +104,10 @@ public class FormRuleTests
             """;
 
         var createRequest = new CreateFormRequest("rules-form", "Rules form", clinical, null, rules);
-        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest);
+        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, createResponse.StatusCode);
-        string body = await createResponse.Content.ReadAsStringAsync();
+        string body = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Contains("RULE_CALCULATE_NOT_READONLY", body, StringComparison.Ordinal);
     }
 
@@ -114,7 +117,7 @@ public class FormRuleTests
         await using FormWebApplicationFactory factory = new();
         using HttpClient client = factory.CreateClient();
 
-        string clinical = /*lang=json,strict*/ """
+        const string clinical = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "fields": [
@@ -124,7 +127,7 @@ public class FormRuleTests
               ]
             }
             """;
-        string rules = /*lang=json,strict*/ """
+        const string rules = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "clinicalSchemaVersion": "1.0.0",
@@ -143,24 +146,24 @@ public class FormRuleTests
             """;
 
         var createRequest = new CreateFormRequest("bmi-form", "BMI form", clinical, null, rules);
-        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest);
+        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        FormVersionDto draft = await createResponse.Content.ReadFromJsonAsync<FormVersionDto>()
-            ?? throw new InvalidOperationException("Missing draft response.");
+        FormVersionDto draft = await createResponse.Content
+            .ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false) ?? throw new InvalidOperationException("Missing draft response.");
 
         using HttpResponseMessage submitResponse = await client.PostAsJsonAsync(
             "/api/forms/bmi-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion));
+            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, submitResponse.StatusCode);
 
-        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>())!;
+        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
         using HttpResponseMessage publishResponse = await client.PostAsJsonAsync(
             "/api/forms/bmi-form/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion));
+            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
 
-        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>())!;
+        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
         Assert.NotNull(published.RulesSchemaJson);
         Assert.Contains("body.weight.kg", published.RulesSchemaJson, StringComparison.Ordinal);
         Assert.NotNull(published.DependencyMetadataJson);

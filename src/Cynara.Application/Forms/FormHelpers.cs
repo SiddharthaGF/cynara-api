@@ -4,7 +4,7 @@ namespace Cynara.Application.Forms;
 
 internal static partial class FormCodeRules
 {
-    private const string Pattern = @"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
+    private const string Pattern = "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
 
     public static void EnsureValid(string code)
     {

@@ -202,7 +202,7 @@ public static class FormRuleAnalyzer
         IReadOnlyList<string> calculatedFieldIds,
         Dictionary<string, HashSet<string>> dependencies)
     {
-        var inDegree = calculatedFieldIds.ToDictionary(static id => id, static id => 0, StringComparer.Ordinal);
+        var inDegree = calculatedFieldIds.ToDictionary(static id => id, static _ => 0, StringComparer.Ordinal);
         foreach (string fieldId in calculatedFieldIds)
         {
             foreach (string dependencyId in dependencies.GetValueOrDefault(fieldId) ?? [])

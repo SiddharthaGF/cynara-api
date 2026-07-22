@@ -1,5 +1,3 @@
-using System.Text.Json.Nodes;
-
 namespace Cynara.Application.Forms;
 
 public sealed record RuleValidationError(string Code, string Message);

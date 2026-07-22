@@ -6,14 +6,14 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public class FormResponseValidatorTests
+public sealed class FormResponseValidatorTests
 {
     private readonly FormResponseValidator _validator = new(new FormRuleEngine());
 
     [Fact]
     public void ValidateComplete_RejectsMissingRequiredField()
     {
-        string clinical = /*lang=json,strict*/ """
+        const string clinical = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "fields": [
@@ -37,7 +37,7 @@ public class FormResponseValidatorTests
     [Fact]
     public void ValidateDraft_OverwritesTamperedCalculatedField()
     {
-        string clinical = /*lang=json,strict*/ """
+        const string clinical = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "fields": [
@@ -47,7 +47,7 @@ public class FormResponseValidatorTests
               ]
             }
             """;
-        string rules = /*lang=json,strict*/ """
+        const string rules = /*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
               "clinicalSchemaVersion": "1.0.0",

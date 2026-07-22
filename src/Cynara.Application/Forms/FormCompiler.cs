@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Cynara.Application.Common;
-using Cynara.Application.Persistence;
+using Cynara.Application.Modules.Components.Persistence;
 using Cynara.Domain.Components;
 
 namespace Cynara.Application.Forms;
@@ -23,7 +23,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         JsonArray compiledFields = await CompileFieldArrayAsync(
             RequireArray(clinicalRoot["fields"], "/fields"),
             "/fields",
-            context);
+            context).ConfigureAwait(false);
 
         var compiledClinical = new JsonObject
         {
@@ -214,7 +214,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         for (int index = 0; index < fields.Count; index++)
         {
             JsonObject field = fields[index]!.AsObject();
-            compiledFields.Add(await CompileFieldAsync(field, $"{path}/{index}", context));
+            compiledFields.Add(await CompileFieldAsync(field, $"{path}/{index}", context).ConfigureAwait(false));
         }
 
         return compiledFields;
@@ -225,13 +225,13 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         string type = RequireString(field["type"], $"{path}/type");
         if (type == "component-ref")
         {
-            return await ExpandComponentReferenceAsync(field, path, context);
+            return await ExpandComponentReferenceAsync(field, path, context).ConfigureAwait(false);
         }
 
         JsonObject compiled = CloneFieldShell(field);
         if (field["items"] is JsonArray items)
         {
-            compiled["items"] = await CompileFieldArrayAsync(items, $"{path}/items", context);
+            compiled["items"] = await CompileFieldArrayAsync(items, $"{path}/items", context).ConfigureAwait(false);
         }
 
         return compiled;
@@ -258,7 +258,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
                 $"CIRCULAR_COMPONENT_REFERENCE: component '{componentCode}' references itself through {string.Join(" -> ", context.ResolutionStack)} -> {componentCode}.");
         }
 
-        ResolvedComponentDependency dependency = await context.ResolveAsync(componentCode, componentVersion, path);
+        ResolvedComponentDependency dependency = await context.ResolveAsync(componentCode, componentVersion, path).ConfigureAwait(false);
         JsonObject componentClinical = ParseObject(dependency.ClinicalSchemaJson, $"component '{componentCode}' clinical schema");
         JsonArray componentFields = RequireArray(componentClinical["fields"], $"/components/{componentCode}/fields");
 
@@ -266,7 +266,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         JsonArray compiledItems;
         try
         {
-            compiledItems = await CompileFieldArrayAsync(componentFields, $"/components/{componentCode}/fields", context);
+            compiledItems = await CompileFieldArrayAsync(componentFields, $"/components/{componentCode}/fields", context).ConfigureAwait(false);
         }
         finally
         {
@@ -383,7 +383,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
             ComponentVersion version = await components.FindPublishedVersionAsync(
                 componentCode,
                 componentVersion,
-                cancellationToken)
+                cancellationToken).ConfigureAwait(false)
                 ?? throw new ValidationException(
                     $"COMPONENT_VERSION_NOT_FOUND: component '{componentCode}' version '{componentVersion}' referenced at {refPath} was not found or is not published.");
 

@@ -1,5 +1,4 @@
-using Cynara.Application;
-using Cynara.Application.Persistence;
+using Cynara.Application.Modules.Audit.Persistence;
 using Cynara.Domain.Audit;
 
 namespace Cynara.Application.Audit;
@@ -10,6 +9,8 @@ public sealed class AuditService(IAuditRepository audit) : IAuditService
 
     public async Task<IReadOnlyList<AuditEventDto>> ListAsync(AuditQuery query, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         if (query.ResourceId is null
             && string.IsNullOrWhiteSpace(query.ResourceType)
             && string.IsNullOrWhiteSpace(query.ActorId))
@@ -23,7 +24,7 @@ public sealed class AuditService(IAuditRepository audit) : IAuditService
             query.ResourceId,
             query.ActorId,
             limit,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return [.. events.Select(ToDto)];
     }

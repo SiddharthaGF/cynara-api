@@ -2,8 +2,8 @@ namespace Cynara.Application.Forms;
 
 public enum FormResponseValidationMode
 {
-    Draft,
-    Complete,
+    Draft = 0,
+    Complete = 1,
 }
 
 public sealed record FormResponseFieldError(string Code, string Path, string Message);

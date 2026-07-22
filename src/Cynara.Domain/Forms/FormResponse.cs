@@ -24,5 +24,5 @@ public sealed class FormResponse
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public ICollection<FormResponseRevision> Revisions { get; set; } = [];
+    public ICollection<FormResponseRevision> Revisions { get; init; } = [];
 }

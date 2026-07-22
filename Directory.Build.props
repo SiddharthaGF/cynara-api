@@ -1,6 +1,8 @@
 <Project>
   <PropertyGroup>
     <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <AnalysisModeStyle>All</AnalysisModeStyle>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <NuGetAudit Condition="'$(NuGetAudit)' == ''">false</NuGetAudit>

@@ -14,8 +14,8 @@ behavior. Do not silently drop unknown fields or weaken contract checks.
 ## Stack
 
 - .NET 9 / ASP.NET Core minimal APIs
-- Clean-ish layered solution: Api → Application → Domain; Infrastructure wires
-  persistence and schema validation
+- Modular layered solution: Api modules → Application modules → Domain;
+  Infrastructure modules provide persistence and schema validation
 - EF Core + SQLite (default local DB)
 - JSON Schema Draft 2020-12 via `JsonSchema.Net`
 - xUnit + `WebApplicationFactory` integration tests
@@ -46,22 +46,45 @@ again. Disable hooks only with `HUSKY=0` when the user explicitly asks.
 
 ## Source Layout
 
-- `src/Cynara.Api/`: host, `Program.cs`, endpoint mapping, exception → Problem
-  Details.
-- `src/Cynara.Api/Endpoints/`: minimal API route groups
-  (`/api/forms`, `/api/components`, `/api/responses`, `/api/audit`).
-- `src/Cynara.Application/`: services, DTOs, compilers, validators, rule engine,
-  `CynaraException` hierarchy.
+- `src/Cynara.Api/`: host, composition root, cross-cutting HTTP concerns, and
+  feature endpoint modules under `Modules/`.
+- `src/Cynara.Api/Modules/`: minimal API route groups for Forms, Components,
+  FormResponses, Audit, and Health.
+- `src/Cynara.Application/`: business workflows, contracts, DTOs, compilers,
+  validators, rule engine, audit writer, and `CynaraException` hierarchy.
+- `src/Cynara.Application/Modules/`: feature-owned services, contracts, and
+  persistence ports. Separate query and lifecycle services when a feature has
+  distinct read and state-transition workflows.
 - `src/Cynara.Domain/`: entities and status enums (forms, components, responses,
   audit).
-- `src/Cynara.Infrastructure/`: EF Core (`CynaraDbContext`), repositories, DI,
-  embedded JSON Schema files under `Schemas/v1/`.
+- `src/Cynara.Infrastructure/`: EF Core database context, module repositories,
+  module entity configurations, DI, and embedded JSON Schema files under
+  `Schemas/v1/`.
 - `tests/Cynara.Api.Tests/`: integration and workflow tests against the API.
 - `scripts/`: seed helpers and sample clinical/UI/rules JSON.
 
-Keep HTTP concerns in Api endpoints. Put domain workflows in Application
-services. Persistence implementations stay in Infrastructure behind Application
-interfaces (`IFormRepository`, etc.).
+Keep HTTP concerns in Api modules. Put workflows and persistence ports in the
+owning Application module. Keep EF implementations and entity configurations in
+the matching Infrastructure module. The composition root only wires modules;
+it must not contain business rules.
+
+### Module boundaries
+
+Each feature module follows the same shape:
+
+```text
+Api/Modules/<Feature>/                 HTTP endpoints
+Application/Modules/<Feature>/        use cases, DTO contracts, ports
+Infrastructure/Modules/<Feature>/     EF repositories and configurations
+Domain/<Feature>/                     entities and status rules
+```
+
+Application services depend on ports, not EF or `CynaraDbContext`. Repositories
+track and stage changes only. Workflows inject `IUnitOfWork` and own the single
+`SaveChangesAsync` boundary for each operation.
+
+`IAuditWriter` stages audit events through the current unit of work; it must not
+persist independently. Mutations and their audit records must commit together.
 
 ## Endpoint Surface (mental map)
 
@@ -95,6 +118,10 @@ audit emission on mutating workflows.
   `ConcurrencyException` rather than overwriting.
 - Keep canonical JSON serialization and content hashing behavior stable when
   touching compilation or persistence of schema payloads.
+- Keep EF entity mappings in module-owned `IEntityTypeConfiguration<T>` classes;
+  `CynaraDbContext` should only expose sets and compose configurations.
+- Keep repository methods free of commits. Use `IUnitOfWork` from the workflow
+  that coordinates the mutation.
 - Discard assignments (`_ =`) only where the codebase already does for
   deliberately unused returns; do not “clean” that style casually.
 - Do not overwrite or revert unrelated work already present in the working tree.
@@ -125,7 +152,6 @@ make check
 |------------|------|
 | `cynara` | Schema contract, docs, fixtures |
 | `cynara-web` | Primary React frontend |
-| `cynara-api-nest` | NestJS reference/alternate API |
 
 When authoring form schema triples (clinical / UI / rules), use the
-`form-schema-authoring` skill (canonical copy in `cynara-api-nest`).
+`form-schema-authoring` skill.

@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public class ComponentLifecycleTests : IDisposable
+public sealed class ComponentLifecycleTests : IDisposable
 {
     public ComponentLifecycleTests()
     {
@@ -29,6 +29,7 @@ public class ComponentLifecycleTests : IDisposable
     {
         Client.Dispose();
         Factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -40,56 +41,56 @@ public class ComponentLifecycleTests : IDisposable
             MinimalClinicalSchema("patient-name", "patient.name"),
             MinimalUiSchema("patient-name"));
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        ComponentSummaryDto created = (await createResponse.Content.ReadFromJsonAsync<ComponentSummaryDto>())!;
+        ComponentSummaryDto created = (await createResponse.Content.ReadFromJsonAsync<ComponentSummaryDto>().ConfigureAwait(false))!;
         Assert.Equal("patient-demographics", created.Code);
         Assert.NotNull(created.DraftVersionId);
 
-        ComponentVersionDto draft = await GetDraftAsync("patient-demographics");
+        ComponentVersionDto draft = await GetDraftAsync("patient-demographics").ConfigureAwait(false);
         Assert.Equal("draft", draft.Status);
         Assert.Equal(0u, draft.RowVersion);
 
         string updatedClinical = MinimalClinicalSchema("patient-full-name", "patient.full-name");
         var updateRequest = new UpdateComponentDraftRequest(updatedClinical, draft.UiSchemaJson, draft.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/components/patient-demographics/draft", updateRequest);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.OK);
+        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/components/patient-demographics/draft", updateRequest).ConfigureAwait(false);
+        await AssertStatusAsync(updateResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        ComponentVersionDto updatedDraft = (await updateResponse.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        ComponentVersionDto updatedDraft = (await updateResponse.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
         Assert.Equal(1u, updatedDraft.RowVersion);
         Assert.Contains("patient-full-name", updatedDraft.ClinicalSchemaJson, StringComparison.Ordinal);
 
         var publishRequest = new PublishComponentDraftRequest(updatedDraft.RowVersion);
         using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
             "/api/components/patient-demographics/draft/publish",
-            publishRequest);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK);
+            publishRequest).ConfigureAwait(false);
+        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        ComponentVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        ComponentVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
         Assert.Equal("published", published.Status);
         Assert.Equal("1.0.0", published.Version);
         Assert.False(string.IsNullOrWhiteSpace(published.ContentHash));
 
-        ComponentVersionDto resolved = await GetVersionAsync("patient-demographics", "1.0.0");
+        ComponentVersionDto resolved = await GetVersionAsync("patient-demographics", "1.0.0").ConfigureAwait(false);
         Assert.Equal(published.Id, resolved.Id);
         Assert.Equal(published.ClinicalSchemaJson, resolved.ClinicalSchemaJson);
 
         using HttpResponseMessage retireResponse = await Client.PostAsync(
-            "/api/components/patient-demographics/versions/1.0.0/retire",
-            content: null);
-        await AssertStatusAsync(retireResponse, HttpStatusCode.OK);
+            new Uri("/api/components/patient-demographics/versions/1.0.0/retire", UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        await AssertStatusAsync(retireResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        ComponentVersionDto retired = (await retireResponse.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        ComponentVersionDto retired = (await retireResponse.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
         Assert.Equal("retired", retired.Status);
 
-        ComponentVersionDto stillResolvable = await GetVersionAsync("patient-demographics", "1.0.0");
+        ComponentVersionDto stillResolvable = await GetVersionAsync("patient-demographics", "1.0.0").ConfigureAwait(false);
         Assert.Equal("retired", stillResolvable.Status);
 
         await AssertAuditEventsRecordedAsync(
             published.Id,
             "component.version.published",
-            "component.version.retired");
+            "component.version.retired").ConfigureAwait(false);
     }
 
     [Fact]
@@ -101,14 +102,14 @@ public class ComponentLifecycleTests : IDisposable
             MinimalClinicalSchema("section-notes", "section.notes"),
             null);
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        using HttpResponseMessage deleteResponse = await Client.DeleteAsync("/api/components/unused-section/draft");
-        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent);
+        using HttpResponseMessage deleteResponse = await Client.DeleteAsync(new Uri("/api/components/unused-section/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent).ConfigureAwait(false);
 
-        using HttpResponseMessage getResponse = await Client.GetAsync("/api/components/unused-section");
-        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound);
+        using HttpResponseMessage getResponse = await Client.GetAsync(new Uri("/api/components/unused-section", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
     }
 
     [Fact]
@@ -120,31 +121,31 @@ public class ComponentLifecycleTests : IDisposable
             MinimalClinicalSchema("notes", "section.notes"),
             null);
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        ComponentVersionDto draft = await GetDraftAsync("retired-only");
+        ComponentVersionDto draft = await GetDraftAsync("retired-only").ConfigureAwait(false);
         var publishRequest = new PublishComponentDraftRequest(draft.RowVersion);
         using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
             "/api/components/retired-only/draft/publish",
-            publishRequest);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK);
+            publishRequest).ConfigureAwait(false);
+        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
         using HttpResponseMessage retireResponse = await Client.PostAsync(
-            "/api/components/retired-only/versions/1.0.0/retire",
-            content: null);
-        await AssertStatusAsync(retireResponse, HttpStatusCode.OK);
+            new Uri("/api/components/retired-only/versions/1.0.0/retire", UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        await AssertStatusAsync(retireResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
         using HttpResponseMessage createDraftResponse = await Client.PostAsync(
-            "/api/components/retired-only/draft",
-            content: null);
-        await AssertStatusAsync(createDraftResponse, HttpStatusCode.Created);
+            new Uri("/api/components/retired-only/draft", UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        await AssertStatusAsync(createDraftResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        using HttpResponseMessage deleteResponse = await Client.DeleteAsync("/api/components/retired-only/draft");
-        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent);
+        using HttpResponseMessage deleteResponse = await Client.DeleteAsync(new Uri("/api/components/retired-only/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent).ConfigureAwait(false);
 
-        using HttpResponseMessage getResponse = await Client.GetAsync("/api/components/retired-only");
-        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound);
+        using HttpResponseMessage getResponse = await Client.GetAsync(new Uri("/api/components/retired-only", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
     }
 
     [Fact]
@@ -156,24 +157,24 @@ public class ComponentLifecycleTests : IDisposable
             MinimalClinicalSchema("vitals-systolic", "vitals.systolic"),
             MinimalUiSchema("vitals-systolic"));
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created);
+        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
+        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        ComponentVersionDto draft = await GetDraftAsync("vitals-panel");
+        ComponentVersionDto draft = await GetDraftAsync("vitals-panel").ConfigureAwait(false);
         var publishRequest = new PublishComponentDraftRequest(draft.RowVersion);
         using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            "/api/components/vitals-panel/draft/publish",
-            publishRequest);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK);
+            new Uri("/api/components/vitals-panel/draft/publish", UriKind.Relative),
+            publishRequest).ConfigureAwait(false);
+        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
 
-        ComponentVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        ComponentVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
         var staleUpdate = new UpdateComponentDraftRequest(
             MinimalClinicalSchema("vitals-diastolic", "vitals.diastolic"),
             published.UiSchemaJson,
             published.RowVersion);
 
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/components/vitals-panel/draft", staleUpdate);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.NotFound);
+        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/components/vitals-panel/draft", staleUpdate).ConfigureAwait(false);
+        await AssertStatusAsync(updateResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
     }
 
     private HttpClient Client { get; }
@@ -182,25 +183,25 @@ public class ComponentLifecycleTests : IDisposable
 
     private async Task<ComponentVersionDto> GetDraftAsync(string code)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/components/{code}/draft");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/components/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task<ComponentVersionDto> GetVersionAsync(string code, string version)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/components/{code}/versions/{version}");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/components/{code}/versions/{version}", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task AssertAuditEventsRecordedAsync(Guid resourceId, params string[] actions)
     {
-        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
-            .ToListAsync())
+            .ToListAsync().ConfigureAwait(false))
             .OrderBy(item => item.OccurredAt)];
 
         foreach (string action in actions)
@@ -216,7 +217,7 @@ public class ComponentLifecycleTests : IDisposable
             return;
         }
 
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
     }
 

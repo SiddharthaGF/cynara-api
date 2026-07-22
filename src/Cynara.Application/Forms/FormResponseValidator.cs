@@ -315,15 +315,12 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
                 ? null
                 : JsonElementToObject(submittedElement);
 
-            if (submittedValue is not null && !ValuesEqual(submittedValue, calculatedValue))
+            if (submittedValue is not null && !ValuesEqual(submittedValue, calculatedValue) && mode == FormResponseValidationMode.Complete)
             {
-                if (mode == FormResponseValidationMode.Complete)
-                {
-                    errors.Add(new FormResponseFieldError(
-                        "CALCULATED_VALUE_MISMATCH",
-                        field.Path,
-                        $"Field '{field.Code}' must match the server-calculated value."));
-                }
+                errors.Add(new FormResponseFieldError(
+                    "CALCULATED_VALUE_MISMATCH",
+                    field.Path,
+                    $"Field '{field.Code}' must match the server-calculated value."));
             }
 
             if (calculatedValue is double number && !double.IsFinite(number))
@@ -717,13 +714,20 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
 
     private static bool ValuesEqual(object left, object? right)
     {
-        return left is double leftNumber && right is double rightNumber
-            ? Math.Abs(leftNumber - rightNumber) < 0.000001
-            : left is long leftInteger && right is long rightInteger
-            ? leftInteger == rightInteger
-            : left is IList<string> leftChoices && right is IList<string> rightChoices
-            ? leftChoices.SequenceEqual(rightChoices, StringComparer.Ordinal)
-            : Equals(left, right);
+        if (left is double leftNumber && right is double rightNumber)
+        {
+            return Math.Abs(leftNumber - rightNumber) < 0.000001;
+        }
+        else if (left is long leftInteger && right is long rightInteger)
+        {
+            return leftInteger == rightInteger;
+        }
+        else
+        {
+            return left is IList<string> leftChoices && right is IList<string> rightChoices
+                ? leftChoices.SequenceEqual(rightChoices, StringComparer.Ordinal)
+                : Equals(left, right);
+        }
     }
 
     private static object? JsonElementToObject(JsonElement value)

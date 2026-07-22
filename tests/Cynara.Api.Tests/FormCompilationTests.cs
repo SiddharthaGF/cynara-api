@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public class FormCompilationTests : IDisposable
+public sealed class FormCompilationTests : IDisposable
 {
     public FormCompilationTests()
     {
@@ -20,6 +20,7 @@ public class FormCompilationTests : IDisposable
     {
         Client.Dispose();
         Factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -28,15 +29,15 @@ public class FormCompilationTests : IDisposable
         await CreateAndPublishComponentAsync(
             "patient-demographics",
             MinimalComponentClinicalSchema("patient-name", "patient.name"),
-            MinimalUiSchema("patient-name", "Patient name"));
+            MinimalUiSchema("patient-name", "Patient name")).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("patient-section", "section.patient", "patient-demographics", "1.0.0");
         string formUi = FormUiWithComponentRef("patient-section", "Demographics");
 
-        await CreateFormAsync("intake-form", "Intake form", formClinical, formUi);
-        FormVersionDto draft = await GetEditableVersionAsync("intake-form");
+        await CreateFormAsync("intake-form", "Intake form", formClinical, formUi).ConfigureAwait(false);
+        FormVersionDto draft = await GetEditableVersionAsync("intake-form").ConfigureAwait(false);
 
-        FormVersionDto published = await PublishDraftAsync("intake-form", draft.RowVersion);
+        FormVersionDto published = await PublishDraftAsync("intake-form", draft.RowVersion).ConfigureAwait(false);
 
         Assert.Equal("published", published.Status);
         Assert.DoesNotContain("component-ref", published.ClinicalSchemaJson, StringComparison.Ordinal);
@@ -55,25 +56,25 @@ public class FormCompilationTests : IDisposable
         await CreateAndPublishComponentAsync(
             "vitals-panel",
             MinimalComponentClinicalSchema("heart-rate", "vital.heart-rate"),
-            MinimalUiSchema("heart-rate", "Heart rate"));
+            MinimalUiSchema("heart-rate", "Heart rate")).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("vitals", "section.vitals", "vitals-panel", "1.0.0");
-        await CreateFormAsync("vitals-form", "Vitals form", formClinical, null);
-        FormVersionDto draft = await GetEditableVersionAsync("vitals-form");
-        FormVersionDto published = await PublishDraftAsync("vitals-form", draft.RowVersion);
+        await CreateFormAsync("vitals-form", "Vitals form", formClinical, null).ConfigureAwait(false);
+        FormVersionDto draft = await GetEditableVersionAsync("vitals-form").ConfigureAwait(false);
+        FormVersionDto published = await PublishDraftAsync("vitals-form", draft.RowVersion).ConfigureAwait(false);
 
         using HttpResponseMessage createComponentDraftResponse = await Client.PostAsync(
-            "/api/components/vitals-panel/draft",
-            content: null);
-        await AssertStatusAsync(createComponentDraftResponse, HttpStatusCode.Created);
+            new Uri("/api/components/vitals-panel/draft", UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        await AssertStatusAsync(createComponentDraftResponse, HttpStatusCode.Created).ConfigureAwait(false);
 
-        ComponentVersionDto componentDraft = await GetComponentDraftAsync("vitals-panel");
+        ComponentVersionDto componentDraft = await GetComponentDraftAsync("vitals-panel").ConfigureAwait(false);
         string updatedClinical = MinimalComponentClinicalSchema("heart-rate-updated", "vital.heart-rate-updated");
-        await UpdateComponentDraftAsync("vitals-panel", updatedClinical, componentDraft.UiSchemaJson, componentDraft.RowVersion);
-        componentDraft = await GetComponentDraftAsync("vitals-panel");
-        await PublishComponentDraftAsync("vitals-panel", componentDraft.RowVersion);
+        await UpdateComponentDraftAsync("vitals-panel", updatedClinical, componentDraft.UiSchemaJson, componentDraft.RowVersion).ConfigureAwait(false);
+        componentDraft = await GetComponentDraftAsync("vitals-panel").ConfigureAwait(false);
+        await PublishComponentDraftAsync("vitals-panel", componentDraft.RowVersion).ConfigureAwait(false);
 
-        FormVersionDto resolved = await GetVersionAsync("vitals-form", published.Version!);
+        FormVersionDto resolved = await GetVersionAsync("vitals-form", published.Version!).ConfigureAwait(false);
         Assert.Equal(published.ClinicalSchemaJson, resolved.ClinicalSchemaJson);
         Assert.Equal(published.ContentHash, resolved.ContentHash);
         Assert.Contains("heart-rate", resolved.ClinicalSchemaJson, StringComparison.Ordinal);
@@ -84,15 +85,15 @@ public class FormCompilationTests : IDisposable
     public async Task PublishDraft_FailsWhenComponentVersionIsMissing()
     {
         string formClinical = FormWithComponentRef("patient-section", "section.patient", "missing-component", "9.9.9");
-        await CreateFormAsync("broken-form", "Broken form", formClinical, null);
-        FormVersionDto draft = await GetEditableVersionAsync("broken-form");
+        await CreateFormAsync("broken-form", "Broken form", formClinical, null).ConfigureAwait(false);
+        FormVersionDto draft = await GetEditableVersionAsync("broken-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/forms/broken-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion));
+            new Uri("/api/forms/broken-form/draft/submit-review", UriKind.Relative),
+            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Contains("COMPONENT_VERSION_NOT_FOUND", body, StringComparison.Ordinal);
     }
 
@@ -102,18 +103,18 @@ public class FormCompilationTests : IDisposable
         await CreateAndPublishComponentAsync(
             "allergies",
             MinimalComponentClinicalSchema("allergy-list", "allergy.list"),
-            null);
+            null).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("allergy-section", "section.allergies", "allergies", componentVersion: null);
-        await CreateFormAsync("allergy-form", "Allergy form", formClinical, null);
-        FormVersionDto draft = await GetEditableVersionAsync("allergy-form");
+        await CreateFormAsync("allergy-form", "Allergy form", formClinical, null).ConfigureAwait(false);
+        FormVersionDto draft = await GetEditableVersionAsync("allergy-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
             "/api/forms/allergy-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion));
+            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Contains("COMPONENT_VERSION_REQUIRED", body, StringComparison.Ordinal);
     }
 
@@ -124,29 +125,29 @@ public class FormCompilationTests : IDisposable
             "component-a",
             "Component A",
             ComponentRefClinicalSchema("ref-b", "component.b", "component-b", "1.0.0"),
-            null);
+            null).ConfigureAwait(false);
 
         await CreateComponentAsync(
             "component-b",
             "Component B",
             ComponentRefClinicalSchema("ref-a", "component.a", "component-a", "1.0.0"),
-            null);
+            null).ConfigureAwait(false);
 
-        ComponentVersionDto draftA = await GetComponentDraftAsync("component-a");
-        await PublishComponentDraftAsync("component-a", draftA.RowVersion);
-        ComponentVersionDto draftB = await GetComponentDraftAsync("component-b");
-        await PublishComponentDraftAsync("component-b", draftB.RowVersion);
+        ComponentVersionDto draftA = await GetComponentDraftAsync("component-a").ConfigureAwait(false);
+        await PublishComponentDraftAsync("component-a", draftA.RowVersion).ConfigureAwait(false);
+        ComponentVersionDto draftB = await GetComponentDraftAsync("component-b").ConfigureAwait(false);
+        await PublishComponentDraftAsync("component-b", draftB.RowVersion).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("section-a", "section.a", "component-a", "1.0.0");
-        await CreateFormAsync("circular-form", "Circular form", formClinical, null);
-        FormVersionDto draft = await GetEditableVersionAsync("circular-form");
+        await CreateFormAsync("circular-form", "Circular form", formClinical, null).ConfigureAwait(false);
+        FormVersionDto draft = await GetEditableVersionAsync("circular-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
             "/api/forms/circular-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion));
+            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Contains("CIRCULAR_COMPONENT_REFERENCE", body, StringComparison.Ordinal);
     }
 
@@ -156,17 +157,17 @@ public class FormCompilationTests : IDisposable
         await CreateAndPublishComponentAsync(
             "consent-block",
             MinimalComponentClinicalSchema("consent-given", "consent.given"),
-            MinimalUiSchema("consent-given", "Consent given"));
+            MinimalUiSchema("consent-given", "Consent given")).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("consent-section", "section.consent", "consent-block", "1.0.0");
-        await CreateFormAsync("consent-form-a", "Consent form A", formClinical, null);
-        await CreateFormAsync("consent-form-b", "Consent form B", formClinical, null);
+        await CreateFormAsync("consent-form-a", "Consent form A", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("consent-form-b", "Consent form B", formClinical, null).ConfigureAwait(false);
 
-        FormVersionDto draftA = await GetEditableVersionAsync("consent-form-a");
-        FormVersionDto draftB = await GetEditableVersionAsync("consent-form-b");
+        FormVersionDto draftA = await GetEditableVersionAsync("consent-form-a").ConfigureAwait(false);
+        FormVersionDto draftB = await GetEditableVersionAsync("consent-form-b").ConfigureAwait(false);
 
-        FormVersionDto publishedA = await PublishDraftAsync("consent-form-a", draftA.RowVersion);
-        FormVersionDto publishedB = await PublishDraftAsync("consent-form-b", draftB.RowVersion);
+        FormVersionDto publishedA = await PublishDraftAsync("consent-form-a", draftA.RowVersion).ConfigureAwait(false);
+        FormVersionDto publishedB = await PublishDraftAsync("consent-form-b", draftB.RowVersion).ConfigureAwait(false);
 
         Assert.Equal(publishedA.ClinicalSchemaJson, publishedB.ClinicalSchemaJson);
         Assert.Equal(publishedA.UiSchemaJson, publishedB.UiSchemaJson);
@@ -183,9 +184,9 @@ public class FormCompilationTests : IDisposable
         string clinicalSchemaJson,
         string? uiSchemaJson)
     {
-        await CreateComponentAsync(code, code, clinicalSchemaJson, uiSchemaJson);
-        ComponentVersionDto draft = await GetComponentDraftAsync(code);
-        await PublishComponentDraftAsync(code, draft.RowVersion);
+        await CreateComponentAsync(code, code, clinicalSchemaJson, uiSchemaJson).ConfigureAwait(false);
+        ComponentVersionDto draft = await GetComponentDraftAsync(code).ConfigureAwait(false);
+        await PublishComponentDraftAsync(code, draft.RowVersion).ConfigureAwait(false);
     }
 
     private async Task CreateComponentAsync(
@@ -195,8 +196,8 @@ public class FormCompilationTests : IDisposable
         string? uiSchemaJson)
     {
         var request = new CreateComponentRequest(code, name, clinicalSchemaJson, uiSchemaJson);
-        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/components", request);
-        await AssertStatusAsync(response, HttpStatusCode.Created);
+        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/components", request).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.Created).ConfigureAwait(false);
     }
 
     private async Task CreateFormAsync(
@@ -206,44 +207,44 @@ public class FormCompilationTests : IDisposable
         string? uiSchemaJson)
     {
         var request = new CreateFormRequest(code, name, clinicalSchemaJson, uiSchemaJson);
-        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/forms", request);
-        await AssertStatusAsync(response, HttpStatusCode.Created);
+        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/forms", request).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.Created).ConfigureAwait(false);
     }
 
     private async Task<FormVersionDto> GetEditableVersionAsync(string code)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/forms/{code}/draft");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task<FormVersionDto> GetVersionAsync(string code, string version)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/forms/{code}/versions/{version}");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/versions/{version}", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task<FormVersionDto> PublishDraftAsync(string code, uint rowVersion)
     {
         using HttpResponseMessage submitResponse = await Client.PostAsJsonAsync(
             $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion));
-        await AssertStatusAsync(submitResponse, HttpStatusCode.OK);
-        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>())!;
+            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(submitResponse, HttpStatusCode.OK).ConfigureAwait(false);
+        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
             $"/api/forms/{code}/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion));
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>())!;
+            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task<ComponentVersionDto> GetComponentDraftAsync(string code)
     {
-        using HttpResponseMessage response = await Client.GetAsync($"/api/components/{code}/draft");
-        await AssertStatusAsync(response, HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>())!;
+        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/components/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
+        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
     }
 
     private async Task UpdateComponentDraftAsync(
@@ -254,16 +255,16 @@ public class FormCompilationTests : IDisposable
     {
         using HttpResponseMessage response = await Client.PutAsJsonAsync(
             $"/api/components/{code}/draft",
-            new UpdateComponentDraftRequest(clinicalSchemaJson, uiSchemaJson, rowVersion));
-        await AssertStatusAsync(response, HttpStatusCode.OK);
+            new UpdateComponentDraftRequest(clinicalSchemaJson, uiSchemaJson, rowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
     }
 
     private async Task PublishComponentDraftAsync(string code, uint rowVersion)
     {
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
             $"/api/components/{code}/draft/publish",
-            new PublishComponentDraftRequest(rowVersion));
-        await AssertStatusAsync(response, HttpStatusCode.OK);
+            new PublishComponentDraftRequest(rowVersion)).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
     }
 
     private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
@@ -273,7 +274,7 @@ public class FormCompilationTests : IDisposable
             return;
         }
 
-        string body = await response.Content.ReadAsStringAsync();
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
     }
 
