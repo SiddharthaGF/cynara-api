@@ -7,6 +7,7 @@ using Cynara.Domain.Audit;
 using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -303,10 +304,12 @@ public sealed class FormLifecycleTests : IDisposable
 
 public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"cynara-form-tests-{Guid.NewGuid():N}.db");
+    private readonly SqliteConnection _sharedConnection = new("Data Source=:memory:");
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
+        _sharedConnection.Open();
+
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddJsonFile(
@@ -326,17 +329,17 @@ public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<CynaraDbContext>();
 
-            string connectionString = $"Data Source={_databasePath}";
-            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(connectionString));
+            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(_sharedConnection));
         });
     }
 
     protected override void Dispose(bool disposing)
     {
-        base.Dispose(disposing);
-        if (File.Exists(_databasePath))
+        if (disposing)
         {
-            File.Delete(_databasePath);
+            _sharedConnection.Dispose();
         }
+
+        base.Dispose(disposing);
     }
 }
