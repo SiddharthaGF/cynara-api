@@ -3,58 +3,11 @@ name: Deploy preview
 on:
   push:
     branches: [develop]
-  pull_request:
-    branches: [develop]
-
-concurrency:
-  group: preview-develop-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  actions: read
 
 jobs:
-  deploy:
-    name: Build and deploy
-    runs-on: windows-latest
+  smoke:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup .NET and restore
-        uses: ./.github/actions/setup-dotnet-and-restore
-
-      - name: Smoke (this is a probe)
-        shell: bash
-        run: |
-          echo "started at $(date -u)"
-          echo "branch=${{ github.ref }}"
-          echo "secret_website_name_set=$([ -n \"${{ secrets.PREVIEW_WEBSITE_NAME }}\" ] && echo yes || echo no)"
-
-      - name: Publish
-        shell: bash
-        run: |
-          dotnet publish src/Cynara.Api/Cynara.Api.csproj
-            --configuration Release
-            --output ./publish
-            --runtime win-x86
-            --self-contained false
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cynara-api-preview
-          path: ./publish/**
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Deploy via WebDeploy
-        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
-        with:
-          website-name: ${{ secrets.PREVIEW_WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.PREVIEW_SERVER_COMPUTER_NAME }}
-          server-username: ${{ secrets.PREVIEW_SERVER_USERNAME }}
-          server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
-          source-path: '\publish\'
-          target-delete: 'true'
-          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
+      - name: hello
+        run: echo "hello from $(uname -a)"
