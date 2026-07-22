@@ -1,7 +1,9 @@
 using System.Data.Common;
 
+using Cynara.Application.Failures;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
+using Cynara.Infrastructure.Failures;
 using Cynara.Infrastructure.Modules.Audit;
 using Cynara.Infrastructure.Modules.Components;
 using Cynara.Infrastructure.Modules.FormAi;
@@ -32,6 +34,7 @@ public static class InfrastructureServiceCollectionExtensions
         "form_responses",
         "form_response_revisions",
         "ai_provider_settings",
+        "failure_logs",
     ];
 
     public static IServiceCollection AddCynaraInfrastructure(
@@ -100,6 +103,7 @@ public static class InfrastructureServiceCollectionExtensions
         _ = services.AddFormsPersistenceModule();
         _ = services.AddFormResponsesPersistenceModule();
         _ = services.AddFormAiPersistenceModule();
+        _ = services.AddSingleton<IFailureLogWriter, FailureLogWriter>();
 
         return services;
     }

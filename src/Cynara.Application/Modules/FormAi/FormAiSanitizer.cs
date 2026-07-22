@@ -17,6 +17,14 @@ internal static partial class FormAiSanitizer
 
     private static readonly HashSet<string> AllowedWidths = ["full", "half", "third", "quarter"];
 
+    private static readonly HashSet<string> AllowedRuleOperators =
+    [
+        "eq", "neq", "gt", "gte", "lt", "lte",
+        "and", "or", "not",
+        "empty", "coalesce",
+        "add", "sub", "mul", "div",
+    ];
+
     private static readonly Dictionary<string, string> TypeAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         ["text"] = "text",
@@ -522,6 +530,11 @@ internal static partial class FormAiSanitizer
         else if (expression is JsonObject expressionObject
                                 && expressionObject["args"] is JsonArray args)
         {
+            if (expressionObject["op"]?.GetValue<string>() is string op
+                && !AllowedRuleOperators.Contains(op))
+            {
+                return false;
+            }
             return args.All(item => item is JsonNode node && ExpressionReferencesKnown(node, knownCodes));
         }
         else

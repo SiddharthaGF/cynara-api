@@ -12,7 +12,8 @@ public sealed partial class FormAiService(
     IFormService forms,
     IOpenAiClient openAi,
     IAiProviderSettingsService settings,
-    ISchemaValidator schemaValidator) : IFormAiService
+    ISchemaValidator schemaValidator,
+    IFormAiSkillLoader skillLoader) : IFormAiService
 {
     private const int MaxMessages = 24;
     private const int MaxFocusedFields = 12;
@@ -224,16 +225,17 @@ public sealed partial class FormAiService(
             draft.RulesSchemaJson);
     }
 
-    private static IReadOnlyList<OpenAiMessage> BuildMessages(
+    private IReadOnlyList<OpenAiMessage> BuildMessages(
         string formCode,
         string locale,
         IReadOnlyList<FormAiChatMessage> messages,
         DraftContext draft,
         FocusContext focus)
     {
+        string skillBody = skillLoader.GetSkillBody();
         return
         [
-            new("system", FormAiPromptBuilder.BuildSystemPrompt(locale)),
+            new("system", FormAiPromptBuilder.BuildSystemPrompt(locale, skillBody)),
             new(
                 "user",
                 FormAiPromptBuilder.BuildUserTurn(

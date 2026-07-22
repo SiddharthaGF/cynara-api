@@ -1,0 +1,169 @@
+using Cynara.Application.Failures;
+using Cynara.Domain.Failures;
+using Cynara.Infrastructure.Failures;
+using Cynara.Infrastructure.Persistence;
+
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Xunit;
+
+namespace Cynara.Api.Tests.Failures;
+
+public sealed class FailureLogWriterTests : IDisposable
+{
+    private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly ServiceProvider _serviceProvider;
+
+    public FailureLogWriterTests()
+    {
+        _connection.Open();
+
+        DbContextOptions<CynaraDbContext> options =
+            new DbContextOptionsBuilder<CynaraDbContext>()
+                .UseSqlite(_connection)
+                .Options;
+
+        using (CynaraDbContext dbContext = new(options))
+        {
+            _ = dbContext.Database.EnsureCreated();
+        }
+
+        ServiceCollection services = new();
+        _ = services.AddScoped(_ => new CynaraDbContext(options));
+        _serviceProvider = services.BuildServiceProvider();
+    }
+
+    public void Dispose()
+    {
+        _serviceProvider.Dispose();
+        _connection.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public async Task RecordAsync_PersistsEntryWithAllFields()
+    {
+        FailureLogWriter writer = CreateWriter();
+        Exception exception = CaptureException(() =>
+            throw new InvalidOperationException("boom-unhandled"));
+        var request = new FailureRequestContext(
+            Method: "GET",
+            Path: "/test/throw",
+            Query: "?x=1",
+            ActorId: "actor-1",
+            TraceId: "trace-1");
+
+        await writer.RecordAsync(exception, request, 500, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        FailureLog entry = Assert.Single(LoadEntries());
+        Assert.Equal("System.InvalidOperationException", entry.ExceptionType);
+        Assert.Equal("boom-unhandled", entry.Message);
+        Assert.Equal(500, entry.StatusCode);
+        Assert.Equal("GET", entry.RequestMethod);
+        Assert.Equal("/test/throw", entry.RequestPath);
+        Assert.Equal("?x=1", entry.RequestQuery);
+        Assert.Equal("actor-1", entry.ActorId);
+        Assert.Equal("trace-1", entry.TraceId);
+        Assert.NotNull(entry.StackTrace);
+        Assert.False(string.IsNullOrWhiteSpace(entry.MetadataJson));
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Test helper captures any thrown exception to assert stack trace population.")]
+    private static Exception CaptureException(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            return ex;
+        }
+
+        throw new InvalidOperationException("Expected an exception to be thrown.");
+    }
+
+    [Fact]
+    public async Task RecordAsync_TruncatesOversizedMessageAndStackTrace()
+    {
+        FailureLogWriter writer = CreateWriter();
+        string huge = new('a', 10_000);
+        var exception = new InvalidOperationException(huge);
+        var request = new FailureRequestContext("GET", "/x", null, null, null);
+
+        await writer.RecordAsync(exception, request, 500, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        FailureLog entry = Assert.Single(LoadEntries());
+        Assert.Equal(2048, entry.Message.Length);
+    }
+
+    [Fact]
+    public async Task RecordAsync_StillReturnsWhenPersistenceFails()
+    {
+        DbContextOptions<CynaraDbContext> badOptions =
+            new DbContextOptionsBuilder<CynaraDbContext>()
+                .UseSqlite("Data Source=/nonexistent/path/db.sqlite")
+                .Options;
+
+        ServiceCollection services = new();
+        _ = services.AddScoped(_ => new CynaraDbContext(badOptions));
+        await using ServiceProvider provider = services.BuildServiceProvider();
+
+        var writer = new FailureLogWriter(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            TimeProvider.System,
+            NullLogger<FailureLogWriter>.Instance);
+
+        var request = new FailureRequestContext("GET", "/x", null, null, null);
+
+        await writer.RecordAsync(
+            new InvalidOperationException("anything"),
+            request,
+            500,
+            CancellationToken.None).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public void FailureRequestContext_HandlesNullActorIdAndTraceId()
+    {
+        var request = new FailureRequestContext("POST", null, null, null, null);
+
+        Assert.Null(request.ActorId);
+        Assert.Null(request.TraceId);
+    }
+
+    private FailureLogWriter CreateWriter()
+    {
+        var time = new FixedTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+        return new FailureLogWriter(
+            _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            time,
+            NullLogger<FailureLogWriter>.Instance);
+    }
+
+    private List<FailureLog> LoadEntries()
+    {
+        using CynaraDbContext dbContext = _serviceProvider
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateScope()
+            .ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+        return [.. dbContext.FailureLogs.AsNoTracking().ToList()];
+    }
+}
+
+internal sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow()
+    {
+        return now;
+    }
+}

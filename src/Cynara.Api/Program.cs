@@ -64,6 +64,21 @@ app.MapAuditEndpoints();
 app.MapHealthEndpoints();
 app.MapGet("/", () => Results.Text("Cynara API"));
 
+if (string.Equals(
+        builder.Configuration["CYNARA_ENABLE_TEST_ENDPOINTS"],
+        "true",
+        StringComparison.OrdinalIgnoreCase))
+{
+    _ = app.MapGet("/test/throw-unhandled", () =>
+    {
+        throw new InvalidOperationException("boom-unhandled");
+    });
+    _ = app.MapGet("/test/throw-validation", () =>
+    {
+        throw new ValidationException("validation failure");
+    });
+}
+
 await app.RunAsync().ConfigureAwait(false);
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage(

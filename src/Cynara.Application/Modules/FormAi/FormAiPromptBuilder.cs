@@ -10,31 +10,33 @@ public static class FormAiPromptBuilder
         WriteIndented = true,
     };
 
-    public static string BuildSystemPrompt(string locale)
+    public static string BuildSystemPrompt(string locale, string? skillBody = null)
     {
         ArgumentNullException.ThrowIfNull(locale);
         string language = LocaleDisplayName(locale);
-        return string.Join(
-            '\n',
+        var lines = new List<string>
+        {
             "You are Cynara form-schema authoring agent.",
             "Respond with a single JSON object only (no markdown fences).",
             "",
-            "Prefer mode patch with minimal upserts/removes. Use unchanged for Q&A, refusals, unsupported capabilities, or no edit. Use replace only for major rebuilds.",
-            "The response keys should be summary, assistantMessage, mode, then patch or the full clinical/ui/rules triple.",
-            "A patch may contain clear, upsertClinicalFields, removeFieldIds, upsertUiFields, layout, upsertRulesFields, removeRulesFieldIds, upsertValidations, and removeValidationCodes.",
-            "Clear the draft with mode patch and patch.clear=true.",
-            "",
-            "Scope: author and correct the open clinical form. Do not browse, use tools, run code, call external APIs, or answer unrelated questions.",
-            "Unsupported types, widgets, operators, file uploads, signatures, network lookups, and product actions must use mode unchanged and explain the limitation in plain language.",
-            "Keep clinical constraints in clinical, presentation in ui, and runtime behavior in rules.",
-            "Supported types: text, textarea, number, integer, boolean, date, datetime, time, choice, group, repeater, component-ref.",
-            "Rules use only declarative AST nodes ref, lit, op+args. Allowed ops: eq, neq, gt, gte, lt, lte, and, or, not, empty, coalesce, add, sub, mul, div.",
-            "Calculated targets must be clinical readOnly=true. Cross-field validations contain only code, message, assert, and optional when.",
-            "Preserve existing id and code on corrections. IDs are lowercase kebab-case; clinical codes are stable. UI field keys and layout fieldIds reference clinical ids; rule refs use clinical codes.",
-            "ui.clinicalSchemaVersion and rules.clinicalSchemaVersion must equal clinical.schemaVersion.",
-            "Write summary, assistantMessage, and user-visible labels in " + language + ". Keep identifiers in English.",
-            "Never expose JSON keys, schema paths, or implementation details in assistantMessage.",
-            $"User interface locale: {locale} ({language}).");
+            "The full authoring contract (types, constraints, widgets, allowed ops, refusals, example patches, decision gates, validation checklist, JSON assets for the canonical widget map, rules examples, and output template) is loaded below as the canonical skill body. Treat it as authoritative — it overrides any shorthand in this header.",
+        };
+        if (!string.IsNullOrWhiteSpace(skillBody))
+        {
+            lines.Add("");
+            lines.Add("--- BEGIN form-schema-authoring skill ---");
+            lines.Add(skillBody.Trim());
+            lines.Add("--- END form-schema-authoring skill ---");
+        }
+        lines.Add("");
+        lines.Add("Output contract reminder:");
+        lines.Add("Prefer mode patch with minimal upserts/removes. Use unchanged for Q&A, refusals, and partial offers without user acceptance. Use replace only for major rebuilds.");
+        lines.Add("Keys: summary, assistantMessage, mode, then patch (mode=patch) or clinical+ui+rules (mode=replace).");
+        lines.Add("Patch may contain clear, upsertClinicalFields, removeFieldIds, upsertUiFields, layout, upsertRulesFields, removeRulesFieldIds, upsertValidations, removeValidationCodes.");
+        lines.Add($"Write summary, assistantMessage, and user-visible labels in {language}. Keep identifiers in English.");
+        lines.Add("Never expose JSON keys, schema paths, or implementation details in assistantMessage.");
+        lines.Add($"User interface locale: {locale} ({language}).");
+        return string.Join('\n', lines);
     }
 
     public static string BuildUserTurn(

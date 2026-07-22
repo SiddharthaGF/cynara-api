@@ -1,6 +1,7 @@
 using Cynara.Application.Persistence;
 using Cynara.Domain.Audit;
 using Cynara.Domain.Components;
+using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
 
@@ -26,6 +27,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     public DbSet<AiProviderSettings> AiProviderSettings => Set<AiProviderSettings>();
+
+    public DbSet<FailureLog> FailureLogs => Set<FailureLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

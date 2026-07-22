@@ -1,0 +1,141 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+
+using Cynara.Application.Modules.FormAi;
+
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+using Xunit;
+
+namespace Cynara.Api.Tests;
+
+public sealed class FormAiRuleOperatorGuardTests : IClassFixture<GuardFactory>
+{
+    private readonly GuardFactory factory;
+
+    public FormAiRuleOperatorGuardTests(GuardFactory factory)
+    {
+        this.factory = factory;
+    }
+
+    [Fact]
+    public async Task Chat_WithRegexValidation_RemovesBadValidationFromRules()
+    {
+        const string clinical = /*lang=json,strict*/ """
+            {
+              "schemaVersion":"1.0.0",
+              "fields":[{"id":"cedula","code":"patient.cedula","type":"text","required":true}]
+            }
+            """;
+        const string ui = /*lang=json,strict*/ """
+            {"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{"cedula":{"label":"Cédula","widget":"text-input"}},"layout":[]}
+            """;
+        const string rules = /*lang=json,strict*/ """
+            {"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{},"validations":[]}
+            """;
+
+        HttpClient client = factory.WithRegexValidationResponse().CreateClient();
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/forms/demo/draft/ai-chat",
+            new
+            {
+                messages = new[]
+                {
+                    new { role = "user", content = "agregá una validación regex al campo cédula" },
+                },
+                locale = "es",
+                clinicalSchemaJson = clinical,
+                uiSchemaJson = ui,
+                rulesSchemaJson = rules,
+            }).ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        string returnedRules = body.RootElement.GetProperty("rulesSchemaJson").GetString()!;
+        using var returned = JsonDocument.Parse(returnedRules);
+        JsonElement validations = returned.RootElement.GetProperty("validations");
+        Assert.Equal(0, validations.GetArrayLength());
+    }
+
+    [Fact]
+    public void Skill_LoaderReturnsCanonicalSkillBody()
+    {
+        IFormAiSkillLoader loader = factory.Services.GetRequiredService<IFormAiSkillLoader>();
+        string body = loader.GetSkillBody();
+
+        Assert.False(string.IsNullOrWhiteSpace(body),
+            $"skill loader returned empty body. baseDir={AppContext.BaseDirectory} cwd={Directory.GetCurrentDirectory()}");
+        Assert.Contains("form-schema-authoring", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Allowed ops", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("`pattern`", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Clinical constraints", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Skill_LoaderIncludesEveryAssetBlockAsParseableJson()
+    {
+        IFormAiSkillLoader loader = factory.Services.GetRequiredService<IFormAiSkillLoader>();
+        string body = loader.GetSkillBody();
+
+        string[] expectedAssets = ["output-template.json", "widget-map.json", "rules-examples.json"];
+        foreach (string name in expectedAssets)
+        {
+            string header = $"## assets/{name}";
+            Assert.Contains(header, body, StringComparison.Ordinal);
+            int headerIndex = body.IndexOf(header, StringComparison.Ordinal);
+            Assert.True(headerIndex >= 0, $"missing {header}");
+            int fenceStart = body.IndexOf("```json\n", headerIndex, StringComparison.Ordinal);
+            Assert.True(fenceStart >= 0, $"missing json fence after {header}");
+            int jsonStart = fenceStart + "```json\n".Length;
+            int fenceEnd = body.IndexOf("\n```", jsonStart, StringComparison.Ordinal);
+            Assert.True(fenceEnd > jsonStart, $"unterminated json fence for {header}");
+            string json = body[jsonStart..fenceEnd];
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+            }
+            catch (JsonException ex)
+            {
+                throw new Xunit.Sdk.XunitException($"asset {name} is not valid JSON: {ex.Message}");
+            }
+        }
+    }
+}
+
+public sealed class GuardFactory : WebApplicationFactory<Program>
+{
+    private RegexOpenAiClientStub? stubOverride;
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["CYNARA_ENV"] = "preview",
+                ["OPENAI_API_KEY"] = "test-api-key",
+                ["OPENAI_BASE_URL"] = "https://example.test/v1",
+                ["OPENAI_MODEL"] = "test-model",
+            });
+        });
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IOpenAiClient>();
+            services.AddSingleton<IOpenAiClient>(_ =>
+                stubOverride ?? new RegexOpenAiClientStub(emitRegexValidation: false));
+        });
+    }
+
+    public GuardFactory WithRegexValidationResponse()
+    {
+        stubOverride = new RegexOpenAiClientStub(emitRegexValidation: true);
+        return this;
+    }
+}
