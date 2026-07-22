@@ -39,7 +39,7 @@ jobs:
       - name: Setup .NET, restore and publish
         uses: ./.github/actions/setup-and-publish
 
-      - name: Render production appsettings with DB connection string
+      - name: Render production appsettings and web.config with DB connection string
         shell: bash
         env:
           DB_CONNECTION_STRING: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
@@ -47,14 +47,63 @@ jobs:
           mkdir -p ./publish
           python - <<'PY'
           import json, os, pathlib
+          from xml.etree import ElementTree as ET
+
+          cs = os.environ["DB_CONNECTION_STRING"]
+
           cfg = {
             "Database": {"Provider": "SqlServer"},
-            "ConnectionStrings": {"Default": os.environ["DB_CONNECTION_STRING"]},
+            "ConnectionStrings": {"Default": cs},
           }
           pathlib.Path("./publish/appsettings.Production.json").write_text(
             json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
           )
-          print(f"Wrote {pathlib.Path('./publish/appsettings.Production.json').stat().st_size} bytes")
+          print(f"Wrote appsettings.Production.json ({len(json.dumps(cfg))} bytes)")
+
+          webconfig = pathlib.Path("./publish/web.config")
+          if webconfig.exists():
+            xml_text = webconfig.read_text(encoding="utf-8")
+          else:
+            xml_text = (
+              "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+              "<configuration>\n"
+              "  <location path=\".\" inheritInChildApplications=\"false\">\n"
+              "    <system.webServer>\n"
+              "      <handlers>\n"
+              "        <add name=\"aspNetCore\" path=\"*\" verb=\"*\" modules=\"AspNetCoreModuleV2\" resourceType=\"Unspecified\" />\n"
+              "      </handlers>\n"
+              "      <aspNetCore processPath=\".\\Cynara.Api.exe\" arguments=\"\" stdoutLogEnabled=\"true\" stdoutLogFile=\".\\Logs\\stdout\" hostingModel=\"InProcess\" />\n"
+              "    </system.webServer>\n"
+              "  </location>\n"
+              "</configuration>\n"
+            )
+
+          ET.register_namespace("", "")
+          root = ET.fromstring(xml_text)
+          aspnetcore = root.find(".//{*}aspNetCore")
+          if aspnetcore is None:
+            raise SystemExit("aspNetCore element not found in web.config")
+
+          for child in list(aspnetcore):
+            if child.tag.endswith("}environmentVariables") or child.tag == "environmentVariables":
+              aspnetcore.remove(child)
+              break
+
+          env_vars = ET.SubElement(aspnetcore, "environmentVariables")
+          ET.SubElement(env_vars, "environmentVariable", {
+            "name": "ASPNETCORE_ENVIRONMENT", "value": "Production",
+          })
+          ET.SubElement(env_vars, "environmentVariable", {
+            "name": "ConnectionStrings__Default", "value": cs,
+          })
+
+          out_path = pathlib.Path("./publish/web.config")
+          ET.indent(root, space="  ")
+          out_path.write_bytes(
+            b'<?xml version="1.0" encoding="utf-8"?>\n'
+            + ET.tostring(root, encoding="utf-8", xml_declaration=False)
+          )
+          print(f"Wrote web.config ({out_path.stat().st_size} bytes)")
           PY
 
       - name: Upload artifact
@@ -88,7 +137,7 @@ jobs:
       - name: Setup .NET, restore and publish
         uses: ./.github/actions/setup-and-publish
 
-      - name: Render production appsettings with DB connection string
+      - name: Render production appsettings and web.config with DB connection string
         shell: bash
         env:
           DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
@@ -96,14 +145,63 @@ jobs:
           mkdir -p ./publish
           python - <<'PY'
           import json, os, pathlib
+          from xml.etree import ElementTree as ET
+
+          cs = os.environ["DB_CONNECTION_STRING"]
+
           cfg = {
             "Database": {"Provider": "SqlServer"},
-            "ConnectionStrings": {"Default": os.environ["DB_CONNECTION_STRING"]},
+            "ConnectionStrings": {"Default": cs},
           }
           pathlib.Path("./publish/appsettings.Production.json").write_text(
             json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
           )
-          print(f"Wrote {pathlib.Path('./publish/appsettings.Production.json').stat().st_size} bytes")
+          print(f"Wrote appsettings.Production.json ({len(json.dumps(cfg))} bytes)")
+
+          webconfig = pathlib.Path("./publish/web.config")
+          if webconfig.exists():
+            xml_text = webconfig.read_text(encoding="utf-8")
+          else:
+            xml_text = (
+              "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+              "<configuration>\n"
+              "  <location path=\".\" inheritInChildApplications=\"false\">\n"
+              "    <system.webServer>\n"
+              "      <handlers>\n"
+              "        <add name=\"aspNetCore\" path=\"*\" verb=\"*\" modules=\"AspNetCoreModuleV2\" resourceType=\"Unspecified\" />\n"
+              "      </handlers>\n"
+              "      <aspNetCore processPath=\".\\Cynara.Api.exe\" arguments=\"\" stdoutLogEnabled=\"true\" stdoutLogFile=\".\\Logs\\stdout\" hostingModel=\"InProcess\" />\n"
+              "    </system.webServer>\n"
+              "  </location>\n"
+              "</configuration>\n"
+            )
+
+          ET.register_namespace("", "")
+          root = ET.fromstring(xml_text)
+          aspnetcore = root.find(".//{*}aspNetCore")
+          if aspnetcore is None:
+            raise SystemExit("aspNetCore element not found in web.config")
+
+          for child in list(aspnetcore):
+            if child.tag.endswith("}environmentVariables") or child.tag == "environmentVariables":
+              aspnetcore.remove(child)
+              break
+
+          env_vars = ET.SubElement(aspnetcore, "environmentVariables")
+          ET.SubElement(env_vars, "environmentVariable", {
+            "name": "ASPNETCORE_ENVIRONMENT", "value": "Production",
+          })
+          ET.SubElement(env_vars, "environmentVariable", {
+            "name": "ConnectionStrings__Default", "value": cs,
+          })
+
+          out_path = pathlib.Path("./publish/web.config")
+          ET.indent(root, space="  ")
+          out_path.write_bytes(
+            b'<?xml version="1.0" encoding="utf-8"?>\n'
+            + ET.tostring(root, encoding="utf-8", xml_declaration=False)
+          )
+          print(f"Wrote web.config ({out_path.stat().st_size} bytes)")
           PY
 
       - name: Deploy production via WebDeploy
