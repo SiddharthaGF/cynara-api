@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynara.dev/schemas/v1/rules-schema.schema.json",
+  "title": "Cynara Rules Schema",
+  "description": "Declarative visibility, enablement, required, validation, and calculation rules for clinical forms. Expressions are JSON AST nodes — no executable code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "clinicalSchemaVersion", "fields"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of this meta-schema for tooling."
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Semantic version of the rules schema contract."
+    },
+    "clinicalSchemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Version of the paired clinical schema this rules schema was authored against."
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/fieldRules"
+      },
+      "description": "Per-field rules keyed by clinical field id."
+    },
+    "validations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/crossFieldValidation" },
+      "description": "Cross-field validation rules evaluated at runtime."
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "fieldId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "fieldCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "literal": {
+      "description": "Literal JSON value.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "integer" },
+        { "type": "boolean" },
+        { "type": "null" },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ]
+    },
+    "fieldRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/fieldCode",
+          "description": "Clinical field code to read at evaluation time."
+        }
+      }
+    },
+    "literalNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lit"],
+      "properties": {
+        "lit": { "$ref": "#/$defs/literal" }
+      }
+    },
+    "comparisonOp": {
+      "type": "string",
+      "enum": ["eq", "neq", "gt", "gte", "lt", "lte"]
+    },
+    "booleanOp": {
+      "type": "string",
+      "enum": ["and", "or", "not"]
+    },
+    "utilityOp": {
+      "type": "string",
+      "enum": ["empty", "coalesce"]
+    },
+    "arithmeticOp": {
+      "type": "string",
+      "enum": ["add", "sub", "mul", "div"]
+    },
+    "expression": {
+      "description": "Restricted declarative expression AST node.",
+      "oneOf": [
+        { "$ref": "#/$defs/fieldRef" },
+        { "$ref": "#/$defs/literalNode" },
+        { "$ref": "#/$defs/comparisonExpression" },
+        { "$ref": "#/$defs/booleanExpression" },
+        { "$ref": "#/$defs/utilityExpression" },
+        { "$ref": "#/$defs/arithmeticExpression" }
+      ]
+    },
+    "comparisonExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/comparisonOp" },
+        "args": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      }
+    },
+    "booleanExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/booleanOp" },
+        "args": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "const": "not" } },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "args": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "utilityExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/utilityOp" },
+        "args": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "const": "empty" } },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "args": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "arithmeticExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/arithmeticOp" },
+        "args": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      }
+    },
+    "booleanExpressionOnly": {
+      "description": "Expression that must evaluate to boolean at runtime.",
+      "oneOf": [
+        { "$ref": "#/$defs/comparisonExpression" },
+        { "$ref": "#/$defs/booleanExpression" },
+        { "$ref": "#/$defs/utilityExpression" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/fieldRef" },
+            {
+              "not": {
+                "required": ["lit", "op"]
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/literalNode" },
+            {
+              "properties": {
+                "lit": { "type": "boolean" }
+              },
+              "required": ["lit"]
+            }
+          ]
+        }
+      ]
+    },
+    "fieldRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "visibleWhen": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "When false, the field is hidden. Omitted means visible (subject to UI hidden default)."
+        },
+        "enabledWhen": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "When false, the field is disabled/read-only at runtime."
+        },
+        "requiredWhen": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "When true, the field is required at runtime."
+        },
+        "calculate": {
+          "$ref": "#/$defs/expression",
+          "description": "Derived value expression. Target field must be readOnly in the clinical schema."
+        }
+      }
+    },
+    "crossFieldValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "assert"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+          "description": "Stable machine-readable validation code."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "when": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "When omitted or true, the assertion is evaluated."
+        },
+        "assert": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "Must evaluate to true for the validation to pass."
+        }
+      }
+    }
+  }
+}

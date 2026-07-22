@@ -1,0 +1,22 @@
+name: Deploy preview
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+concurrency:
+  group: preview-develop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy-monsterasp.yml
+    with:
+      website-name: ${{ secrets.PREVIEW_WEBSITE_NAME }}
+      server-computer-name: ${{ secrets.PREVIEW_SERVER_COMPUTER_NAME }}
+      server-username: ${{ secrets.PREVIEW_SERVER_USERNAME }}
+      server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
+      upload-artifact: true
+      artifact-name: cynara-api-preview

@@ -1,0 +1,81 @@
+---
+description: Pull request title and body conventions for cynara-api
+alwaysApply: true
+---
+
+# Pull Requests
+
+Only open a PR when the user explicitly asks. Use `gh` for GitHub tasks.
+Write titles and bodies in English (match existing PRs).
+
+## Before opening
+
+1. Inspect branch state vs base (`git status`, `git diff`, `git log`,
+   `git diff main...HEAD` or the repo’s default base).
+2. Push with `-u` if the branch is not on the remote yet.
+3. Prefer focused PRs; if a change is large, ask about splitting before opening.
+
+## Title
+
+- Imperative, specific, ≤90 chars, no trailing period
+- Prefer the same Conventional Commit shape as commits when it fits:
+  `feat(forms): add draft withdraw-review endpoint (CYN-11)`
+- Or a clear outcome title with ticket ids:
+  `Form review workflow and audit coverage (CYN-11/12)`
+- Include Linear/issue ids when known (`CYN-N`)
+
+## Body
+
+Pass the body via HEREDOC to `gh pr create`. Required sections:
+
+```markdown
+## Summary
+- 1–3 bullets: API/contract outcome or why this change exists
+- Not a file list
+
+## Test plan
+- [ ] Concrete checks a reviewer can run
+- [ ] Prefer `make test` or `make check` when lifecycle, validation, or
+      endpoints changed
+- [ ] Call out schema contract, review/publish, concurrency, or audit when
+      those areas moved
+
+Linear:
+- https://linear.app/ailuracode/issue/CYN-N
+```
+
+Omit the Linear block only when no issue exists. Use `Closes #N` /
+`Fixes #N` when linking a GitHub issue.
+
+## Examples
+
+**Title:** `feat(forms): gate publish behind review approval (CYN-11)`
+
+```markdown
+## Summary
+- Require an approved review before publishing a form draft
+- Emit audit events for submit, reject, and publish transitions
+
+## Test plan
+- [ ] `make test`
+- [ ] `make check`
+- [ ] Publish without review → 409/invalid state
+- [ ] Submit → approve path → publish succeeds; audit list shows events
+
+Linear:
+- https://linear.app/ailuracode/issue/CYN-11
+```
+
+## Anti-patterns
+
+```
+# ❌ vague title
+Update api
+WIP
+fix stuff
+
+# ❌ body is a file dump / no test plan
+## Summary
+- Changed FormService.cs
+- Updated tests
+```

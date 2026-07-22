@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "1.0.0",
+  "clinicalSchemaVersion": "1.0.0",
+  "fields": {
+    "temperature": {
+      "enabledWhen": {
+        "op": "neq",
+        "args": [
+          { "ref": "assessment.consciousness" },
+          { "lit": "unresponsive" }
+        ]
+      }
+    },
+    "pain-details": {
+      "visibleWhen": {
+        "op": "eq",
+        "args": [
+          { "ref": "assessment.consciousness" },
+          { "lit": "pain" }
+        ]
+      }
+    },
+    "pain-score": {
+      "requiredWhen": {
+        "op": "eq",
+        "args": [
+          { "ref": "assessment.consciousness" },
+          { "lit": "pain" }
+        ]
+      }
+    },
+    "pregnancy-weeks": {
+      "visibleWhen": {
+        "op": "eq",
+        "args": [
+          { "ref": "history.sex-at-intake" },
+          { "lit": "female" }
+        ]
+      }
+    },
+    "bmi": {
+      "calculate": {
+        "op": "div",
+        "args": [
+          { "ref": "body.weight.kg" },
+          {
+            "op": "mul",
+            "args": [
+              { "ref": "body.height.m" },
+              { "ref": "body.height.m" }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "validations": [
+    {
+      "code": "BP_SYSTOLIC_GT_DIASTOLIC",
+      "message": "La sistólica debe ser mayor que la diastólica",
+      "when": {
+        "op": "and",
+        "args": [
+          {
+            "op": "not",
+            "args": [{ "op": "empty", "args": [{ "ref": "vital.bp.systolic" }] }]
+          },
+          {
+            "op": "not",
+            "args": [{ "op": "empty", "args": [{ "ref": "vital.bp.diastolic" }] }]
+          }
+        ]
+      },
+      "assert": {
+        "op": "gt",
+        "args": [
+          { "ref": "vital.bp.systolic" },
+          { "ref": "vital.bp.diastolic" }
+        ]
+      }
+    },
+    {
+      "code": "PAIN_SCORE_REQUIRES_DETAILS",
+      "message": "Indique el detalle del dolor cuando la escala es mayor o igual a 7",
+      "when": {
+        "op": "gte",
+        "args": [
+          { "ref": "assessment.pain-score" },
+          { "lit": "7" }
+        ]
+      },
+      "assert": {
+        "op": "not",
+        "args": [{ "op": "empty", "args": [{ "ref": "assessment.pain-details" }] }]
+      }
+    }
+  ]
+}

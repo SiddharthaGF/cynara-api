@@ -61,12 +61,23 @@ csharp_style_prefer_pattern_matching = true:suggestion
 csharp_style_prefer_not_pattern = true:suggestion
 
 dotnet_diagnostic.IDE0055.severity = warning
-dotnet_diagnostic.IDE0005.severity = none
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0079.severity = warning
 
 dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.CA1848.severity = suggestion
 
 dotnet_diagnostic.CA1505.severity = suggestion
+
+# Roslynator: opt into the analyzer bundle so its default-disabled rules start
+# emitting as warnings during build.
+dotnet_analyzer_diagnostic.Roslynator_CSharp.Analyzers.severity = warning
+
+# Form AI providers sometimes accept partial URLs (e.g. "/v1" without scheme)
+# that we want to round-trip as strings without forcing callers to parse System.Uri.
+[src/**/Modules/FormAi/**/*.cs, src/**/Domain/FormAi/**/*.cs]
+dotnet_diagnostic.CA1056.severity = none
+dotnet_diagnostic.CA1054.severity = none
 
 [tests/**/*.cs]
 dotnet_style_require_accessibility_modifiers = omit_if_default:silent

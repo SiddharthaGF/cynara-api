@@ -78,6 +78,52 @@ make fix           # format + apply safe analyzer fixes
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.
 
+## Architecture
+
+Cynara API is a modular monolith. The HTTP contract remains stable while each
+feature owns its endpoints, application workflows, persistence ports, and EF
+adapters.
+
+| Module | Responsibility |
+|--------|----------------|
+| `Forms` | Form definitions, drafts, versioning, review, publication, compilation |
+| `Components` | Reusable component definitions and versions |
+| `FormResponses` | Response drafts, completion, validation, and revisions |
+| `Audit` | Audit event writing and filtered audit queries |
+| `Health` | Service health endpoint |
+
+### Feature structure
+
+```text
+src/Cynara.Api/Modules/<Feature>/
+src/Cynara.Application/Modules/<Feature>/
+src/Cynara.Infrastructure/Modules/<Feature>/
+src/Cynara.Domain/<Feature>/
+```
+
+Application modules expose ports and workflows. Infrastructure modules implement
+those ports with EF Core repositories and entity configurations. API modules only
+translate HTTP requests into application calls.
+
+### Transaction boundary
+
+Repositories stage changes but do not call `SaveChangesAsync`. Each mutating
+workflow injects `IUnitOfWork` and commits once. `IAuditWriter` stages the audit
+event in the same unit of work, so a business mutation and its audit record cannot
+commit independently.
+
+### Service responsibilities
+
+Features with separate read and state-transition concerns use distinct services:
+
+- Forms: `FormService` and `FormReviewService`
+- Components: `ComponentQueriesService` and `ComponentLifecycleService`
+- Form responses: `FormResponseQueriesService` and `FormResponseLifecycleService`
+
+Avoid adding a generic repository or moving business rules into endpoints. Keep
+state transitions and validation in Application, domain entities in Domain, and
+database concerns in Infrastructure.
+
 ### Git hooks (Husky.Net)
 
 On `dotnet restore`, [Husky.Net](https://github.com/alirezanet/Husky.Net) installs a `pre-commit` hook that:
@@ -111,16 +157,12 @@ dotnet husky install
 ## Project layout
 
 ```
-src/Cynara.Api/          ASP.NET Core Web API
-tests/Cynara.Api.Tests/  Integration tests
-schemas/                 Git submodule → ailuracode/cynara (contract files)
-```
-
-### Schema submodule
-
-```bash
-git submodule add https://github.com/ailuracode/cynara.git schemas
-git submodule update --init --recursive
+src/Cynara.Api/                 ASP.NET Core host and HTTP modules
+src/Cynara.Application/         Workflows, ports, DTOs, validators, compilers
+src/Cynara.Domain/               Entities and domain status models
+src/Cynara.Infrastructure/      EF Core, repositories, configurations, schemas
+tests/Cynara.Api.Tests/         Integration and workflow tests
+scripts/                         Seed data and schema fixtures
 ```
 
 ## License

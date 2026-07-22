@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynara.dev/schemas/v1/clinical-schema.schema.json",
+  "title": "Cynara Clinical Schema",
+  "description": "Canonical, versioned schema for describing configurable clinical forms. Defines field identity, types, constraints, and structure. Presentation is defined separately in the UI schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "fields"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of this meta-schema for tooling."
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Semantic version of the clinical schema contract (e.g. 1.0.0)."
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/field"
+      },
+      "description": "Top-level clinical fields."
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "description": "Semantic version string."
+    },
+    "fieldId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Stable identifier unique within its sibling scope. Lowercase kebab-case."
+    },
+    "fieldCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable clinical code unique across the entire schema. Immutable once published."
+    },
+    "choiceOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "label"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "codedValueConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system"],
+      "properties": {
+        "system": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Coding system URI or identifier (e.g. LOINC, SNOMED CT subset)."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Specific code within the system."
+        },
+        "display": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "Human-readable display for the code."
+        }
+      }
+    },
+    "textField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "text" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string" }
+      }
+    },
+    "textareaField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "textarea" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "numberField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "number" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "number" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "multipleOf": { "type": "number", "exclusiveMinimum": 0 },
+        "decimalPlaces": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Decimal places for display and rounding. When omitted, derived from multipleOf or defaults to 2."
+        }
+      }
+    },
+    "integerField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "integer" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "integer" },
+        "minimum": { "type": "integer" },
+        "maximum": { "type": "integer" }
+      }
+    },
+    "booleanField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "boolean" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "boolean" }
+      }
+    },
+    "dateField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "date" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string", "format": "date" },
+        "minimum": { "type": "string", "format": "date" },
+        "maximum": { "type": "string", "format": "date" }
+      }
+    },
+    "datetimeField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "datetime" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string", "format": "date-time" },
+        "minimum": { "type": "string", "format": "date-time" },
+        "maximum": { "type": "string", "format": "date-time" }
+      }
+    },
+    "timeField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type"],
+      "properties": {
+        "type": { "const": "time" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string", "format": "time" },
+        "minimum": { "type": "string", "format": "time" },
+        "maximum": { "type": "string", "format": "time" }
+      }
+    },
+    "choiceField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type", "options"],
+      "properties": {
+        "type": { "const": "choice" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "type": "string" },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/choiceOption" }
+        },
+        "allowMultiple": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether multiple options may be selected."
+        }
+      }
+    },
+    "codedValueField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type", "coding"],
+      "properties": {
+        "type": { "const": "coded-value" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "default": { "$ref": "#/$defs/codedValueConstraint" },
+        "coding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["system"],
+          "properties": {
+            "system": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "allowedCodes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/codedValueConstraint" },
+              "description": "Optional allow-list of codes. When omitted, any code from the system is accepted."
+            }
+          }
+        }
+      }
+    },
+    "groupField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type", "items"],
+      "properties": {
+        "type": { "const": "group" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/field" }
+        }
+      }
+    },
+    "repeaterField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type", "items"],
+      "properties": {
+        "type": { "const": "repeater" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "repeatable": {
+          "type": "boolean",
+          "description": "Must be true when present. Repeaters are always repeatable."
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Minimum number of repetitions."
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of repetitions."
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/field" }
+        }
+      }
+    },
+    "componentRefField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "type", "componentCode"],
+      "properties": {
+        "type": { "const": "component-ref" },
+        "id": { "$ref": "#/$defs/fieldId" },
+        "code": { "$ref": "#/$defs/fieldCode" },
+        "required": { "type": "boolean", "default": false },
+        "readOnly": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 2000 },
+        "componentCode": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Stable code of the referenced reusable component."
+        },
+        "componentVersion": {
+          "$ref": "#/$defs/semver",
+          "description": "Pinned component version. Required for published forms; optional in drafts."
+        }
+      }
+    },
+    "field": {
+      "oneOf": [
+        { "$ref": "#/$defs/textField" },
+        { "$ref": "#/$defs/textareaField" },
+        { "$ref": "#/$defs/numberField" },
+        { "$ref": "#/$defs/integerField" },
+        { "$ref": "#/$defs/booleanField" },
+        { "$ref": "#/$defs/dateField" },
+        { "$ref": "#/$defs/datetimeField" },
+        { "$ref": "#/$defs/timeField" },
+        { "$ref": "#/$defs/choiceField" },
+        { "$ref": "#/$defs/codedValueField" },
+        { "$ref": "#/$defs/groupField" },
+        { "$ref": "#/$defs/repeaterField" },
+        { "$ref": "#/$defs/componentRefField" }
+      ]
+    }
+  }
+}

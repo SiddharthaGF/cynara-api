@@ -1,25 +1,29 @@
 SOLUTION := Cynara.Api.sln
 CONFIGURATION := Debug
 
-.PHONY: restore format format-check lint test check fix
+.PHONY: restore fmt fmt\:check lint lint\:fix test check fix
 
 restore:
 	dotnet restore $(SOLUTION)
 
-format:
+fmt:
 	dotnet format $(SOLUTION)
 
-format-check:
+fmt\:check:
 	dotnet format $(SOLUTION) --verify-no-changes
 
 lint:
-	dotnet build $(SOLUTION) --no-restore -warnaserror -c $(CONFIGURATION)
+	dotnet build $(SOLUTION) --no-restore -warnaserror -c $(CONFIGURATION) --verbosity normal
 
-test:
-	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity minimal
+lint\:fix: restore
+	dotnet format $(SOLUTION) analyzers --severity info --verbosity diagnostic
+	$(MAKE) lint
 
-check: restore format-check lint test
+test: restore
+	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity normal --logger "console;verbosity=normal"
 
-fix: restore format
+check: restore fmt\:check lint test
+
+fix: restore fmt
 	dotnet format $(SOLUTION) style --severity info
 	dotnet format $(SOLUTION) analyzers --severity info

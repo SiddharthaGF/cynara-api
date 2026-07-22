@@ -1,0 +1,52 @@
+{
+  "description": "BMI stays unset when weight/height are missing (no NaN)",
+  "clinical": {
+    "schemaVersion": "1.0.0",
+    "fields": [
+      {
+        "id": "weight-kg",
+        "code": "body.weight.kg",
+        "type": "number"
+      },
+      {
+        "id": "height-m",
+        "code": "body.height.m",
+        "type": "number"
+      },
+      {
+        "id": "bmi",
+        "code": "body.bmi",
+        "type": "number",
+        "readOnly": true,
+        "multipleOf": 0.01
+      }
+    ]
+  },
+  "rules": {
+    "schemaVersion": "1.0.0",
+    "clinicalSchemaVersion": "1.0.0",
+    "fields": {
+      "bmi": {
+        "calculate": {
+          "op": "div",
+          "args": [
+            { "ref": "body.weight.kg" },
+            {
+              "op": "mul",
+              "args": [
+                { "ref": "body.height.m" },
+                { "ref": "body.height.m" }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "values": {},
+  "expected": {
+    "calculatedValues": {
+      "body.bmi": null
+    }
+  }
+}
