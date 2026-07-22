@@ -12,8 +12,10 @@ namespace Cynara.Api.Tests;
 
 public sealed class FormRuleTests
 {
-    private static readonly string FixtureRoot = Path.GetFullPath(
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "cynara", "tests", "fixtures", "rules"));
+    private static readonly string FixtureRoot = Path.Combine(
+        AppContext.BaseDirectory,
+        "Fixtures",
+        "rules");
 
     [Theory]
     [InlineData("evaluate-visibility.json")]
@@ -179,8 +181,7 @@ public sealed class FormRuleTests
 
     private static JsonDocument LoadInvalidFixture(string fixtureName)
     {
-        string path = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "cynara", "tests", "fixtures", "invalid", fixtureName));
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "invalid", fixtureName);
         return JsonDocument.Parse(File.ReadAllText(path));
     }
 

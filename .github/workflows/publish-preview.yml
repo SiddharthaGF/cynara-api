@@ -3,15 +3,14 @@ name: Publish preview (develop)
 on:
   push:
     branches: [develop]
-  pull_request:
-    branches: [develop]
 
 concurrency:
   group: preview-develop-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build_and_deploy:
+  preview:
+    name: Preview
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
