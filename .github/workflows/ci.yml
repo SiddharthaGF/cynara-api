@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Format, lint, and test
+    runs-on: windows-latest
+    steps:
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Check (format + lint + test)
+        run: make check
