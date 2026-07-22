@@ -39,6 +39,24 @@ jobs:
       - name: Setup .NET, restore and publish
         uses: ./.github/actions/setup-and-publish
 
+      - name: Render production appsettings with DB connection string
+        shell: bash
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
+        run: |
+          mkdir -p ./publish
+          python - <<'PY'
+          import json, os, pathlib
+          cfg = {
+            "Database": {"Provider": "SqlServer"},
+            "ConnectionStrings": {"Default": os.environ["DB_CONNECTION_STRING"]},
+          }
+          pathlib.Path("./publish/appsettings.Production.json").write_text(
+            json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"Wrote {pathlib.Path('./publish/appsettings.Production.json').stat().st_size} bytes")
+          PY
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -69,6 +87,24 @@ jobs:
 
       - name: Setup .NET, restore and publish
         uses: ./.github/actions/setup-and-publish
+
+      - name: Render production appsettings with DB connection string
+        shell: bash
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+        run: |
+          mkdir -p ./publish
+          python - <<'PY'
+          import json, os, pathlib
+          cfg = {
+            "Database": {"Provider": "SqlServer"},
+            "ConnectionStrings": {"Default": os.environ["DB_CONNECTION_STRING"]},
+          }
+          pathlib.Path("./publish/appsettings.Production.json").write_text(
+            json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"Wrote {pathlib.Path('./publish/appsettings.Production.json').stat().st_size} bytes")
+          PY
 
       - name: Deploy production via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
