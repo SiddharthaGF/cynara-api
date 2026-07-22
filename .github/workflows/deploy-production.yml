@@ -3,19 +3,35 @@ name: Deploy production
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: deploy-monsterasp-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
-    uses: ./.github/workflows/_deploy-monsterasp.yml
-    with:
-      website-name: ${{ secrets.WEBSITE_NAME }}
-      server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
-      server-username: ${{ secrets.SERVER_USERNAME }}
-      server-password: ${{ secrets.SERVER_PASSWORD }}
+    name: Build and deploy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Publish
+        run: dotnet publish src/Cynara.Api/Cynara.Api.csproj --configuration Release --output ./publish --runtime win-x86 --self-contained false
+
+      - name: Deploy via WebDeploy
+        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
+        with:
+          website-name: ${{ secrets.WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.SERVER_USERNAME }}
+          server-password: ${{ secrets.SERVER_PASSWORD }}
+          source-path: '\publish\'
+          target-delete: 'true'
+          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
