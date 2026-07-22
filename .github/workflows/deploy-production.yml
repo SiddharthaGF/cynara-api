@@ -11,6 +11,10 @@ concurrency:
   group: deploy-monsterasp-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   deploy:
     uses: ./.github/workflows/_deploy-monsterasp.yml

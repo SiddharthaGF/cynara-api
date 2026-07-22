@@ -10,6 +10,10 @@ concurrency:
   group: preview-develop-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   deploy:
     uses: ./.github/workflows/_deploy-monsterasp.yml
