@@ -1,5 +1,5 @@
 name: Setup .NET and restore
-description: Checkout, set up .NET, and restore the Cynara API solution.
+description: Set up .NET and restore the Cynara API solution. Callers must run actions/checkout first so the workspace is populated.
 
 inputs:
   dotnet-version:
@@ -14,8 +14,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-
     - name: Setup .NET ${{ inputs.dotnet-version }}
       uses: actions/setup-dotnet@v4
       with:
