@@ -34,6 +34,18 @@ var schemaPaths = new SchemaFilePaths
 };
 
 builder.Services.AddOpenApi();
+string[] allowedCorsOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
+    ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        policy => policy
+            .WithOrigins(allowedCorsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 builder.Services.AddCynaraApplication();
 builder.Services.AddCynaraInfrastructure(
     connectionString,
@@ -44,6 +56,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 WebApplication app = builder.Build();
 
 _ = app.UseCynaraExceptionHandling();
+_ = app.UseCors();
 
 await app.Services.InitializeDatabaseAsync().ConfigureAwait(false);
 if (previewStorage)
