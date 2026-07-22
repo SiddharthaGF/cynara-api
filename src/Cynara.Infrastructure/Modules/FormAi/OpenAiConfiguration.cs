@@ -7,9 +7,21 @@ namespace Cynara.Infrastructure.Modules.FormAi;
 public sealed class OpenAiConfiguration(IConfiguration configuration)
     : IOpenAiConfiguration
 {
+    public bool UseMock => configuration.GetValue<bool>("FormAi:UseMock");
+
     public OpenAiConfig LoadEnvironment()
     {
         string? apiKey = configuration["OPENAI_API_KEY"];
+        if (UseMock)
+        {
+            return new OpenAiConfig(
+                null,
+                "mock://local",
+                "mock-form-ai",
+                true,
+                true);
+        }
+
         string baseUrl = NormalizeBaseUrl(
             configuration["OPENAI_BASE_URL"]
             ?? "https://api.openai.com/v1");

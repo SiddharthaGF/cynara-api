@@ -267,7 +267,7 @@ public sealed partial class FormAiService(
                 draft);
         }
 
-        string mode = ReadText(parsed["mode"])?.ToUpperInvariant() ?? ResolveMode(parsed);
+        string mode = ReadText(parsed["mode"])?.ToLowerInvariant() ?? ResolveMode(parsed);
         if (mode == "unchanged")
         {
             return ParsedAiOutput.Unchanged(summary, assistantMessage, draft);

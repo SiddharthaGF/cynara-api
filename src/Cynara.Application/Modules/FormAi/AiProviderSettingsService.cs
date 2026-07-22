@@ -34,6 +34,11 @@ public sealed class AiProviderSettingsService(
     public async Task<OpenAiConfig> ResolveActiveConfigAsync(
         CancellationToken cancellationToken)
     {
+        if (environmentConfiguration.UseMock)
+        {
+            return environmentConfiguration.LoadEnvironment();
+        }
+
         AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
         return IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model)
             ? Resolve(
@@ -47,6 +52,14 @@ public sealed class AiProviderSettingsService(
     public async Task<FormAiSettingsResponse> GetPublicViewAsync(
         CancellationToken cancellationToken)
     {
+        if (environmentConfiguration.UseMock)
+        {
+            return ToSettingsResponse(
+                environmentConfiguration.LoadEnvironment(),
+                "mock",
+                Suggestions);
+        }
+
         AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
         if (IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model))
         {
@@ -78,6 +91,12 @@ public sealed class AiProviderSettingsService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (environmentConfiguration.UseMock)
+        {
+            return await GetPublicViewAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         AiProviderSettings? existing = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
         string? apiKey = existing?.ApiKey;
         if (request.ClearApiKey)
