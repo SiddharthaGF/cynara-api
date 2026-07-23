@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -33,7 +34,7 @@ public sealed class FormResponseValidationTests
               "vital.bp.diastolic": 130
             }
             """,
-            response.RowVersion);
+                                 response.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{response.Id}",
             updateRequest).ConfigureAwait(false);
@@ -51,7 +52,7 @@ public sealed class FormResponseValidationTests
         JsonElement errors = document.RootElement.GetProperty("errors");
         Assert.Contains(
             errors.EnumerateArray(),
-            error => error.GetProperty("code").GetString() == "BP_SYSTOLIC_GT_DIASTOLIC");
+            error => string.Equals(error.GetProperty("code").GetString(), "BP_SYSTOLIC_GT_DIASTOLIC", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -69,8 +70,8 @@ public sealed class FormResponseValidationTests
         JsonElement errors = document.RootElement.GetProperty("errors");
         Assert.Contains(
             errors.EnumerateArray(),
-            error => error.GetProperty("code").GetString() == "REQUIRED_FIELD_MISSING"
-                && error.GetProperty("path").GetString() == "/fields/0");
+            error => string.Equals(error.GetProperty("code").GetString(), "REQUIRED_FIELD_MISSING"
+, StringComparison.Ordinal) && string.Equals(error.GetProperty("path").GetString(), "/fields/0", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public sealed class FormResponseValidationTests
               "secret.backdoor": "tampered"
             }
             """,
-            response.RowVersion);
+                                 response.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{response.Id}",
             updateRequest).ConfigureAwait(false);
@@ -110,7 +111,7 @@ public sealed class FormResponseValidationTests
               "body.bmi": 999
             }
             """,
-            response.RowVersion);
+                                 response.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{response.Id}",
             updateRequest).ConfigureAwait(false);
@@ -149,13 +150,13 @@ public sealed class FormResponseValidationTests
             clinical,
             ui,
             rulesSchemaJson: null,
-                                 /*lang=json,strict*/
-                                 """{"form.notes":"visible","form.secret":"tampered"}""",
+            /*lang=json,strict*/
+            """{"form.notes":"visible","form.secret":"tampered"}""",
             FormResponseValidationMode.Draft);
 
         Assert.Contains(
             result.Errors,
-            error => error.Code == "HIDDEN_FIELD_VALUE" && error.Path == "/fields/1");
+            error => string.Equals(error.Code, "HIDDEN_FIELD_VALUE", StringComparison.Ordinal) && string.Equals(error.Path, "/fields/1", StringComparison.Ordinal));
     }
 
     private async Task<FormResponseDto> CreatePublishedBpResponseAsync()
@@ -252,13 +253,13 @@ public sealed class FormResponseValidationTests
         string clinical,
         string? rulesSchemaJson)
     {
-        var createFormRequest = new CreateFormRequest(code, code, clinical, null, rulesSchemaJson);
+        var createFormRequest = new CreateFormRequest(code, code, clinical, UiSchemaJson: null, rulesSchemaJson);
         using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
         if (createFormResponse.StatusCode != HttpStatusCode.Created)
         {
             string body = await createFormResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
             Assert.Fail(
-                $"Expected form creation to succeed, got {(int)createFormResponse.StatusCode} {createFormResponse.StatusCode}. Body: {body}");
+                string.Create(CultureInfo.InvariantCulture, $"Expected form creation to succeed, got {(int)createFormResponse.StatusCode} {createFormResponse.StatusCode}. Body: {body}"));
         }
 
         FormVersionDto draft = await GetEditableVersionAsync(code).ConfigureAwait(false);

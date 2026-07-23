@@ -6,15 +6,17 @@ internal static partial class FormCodeRules
 {
     private const string Pattern = "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
 
+    [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex MyRegex { get; }
+
     public static void EnsureValid(string code)
     {
-        if (string.IsNullOrWhiteSpace(code) || code.Length > 128 || !MyRegex().IsMatch(code))
+        if (string.IsNullOrWhiteSpace(code)
+            || code.Length > 128
+            || !MyRegex.IsMatch(code))
         {
             throw new ValidationException(
                 "Form code must match pattern ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$ and be at most 128 characters.");
         }
     }
-
-    [GeneratedRegex(Pattern)]
-    private static partial Regex MyRegex();
 }

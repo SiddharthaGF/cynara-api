@@ -14,13 +14,21 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public sealed class FormAiEndpointTests : IClassFixture<FormAiWebApplicationFactory>
+public sealed class FormAiEndpointTests : IDisposable
 {
+    private readonly FormAiWebApplicationFactory factory = new();
     private readonly HttpClient client;
 
-    public FormAiEndpointTests(FormAiWebApplicationFactory factory)
+    public FormAiEndpointTests()
     {
         client = factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        client.Dispose();
+        factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -177,7 +185,7 @@ public sealed class FormAiEndpointTests : IClassFixture<FormAiWebApplicationFact
             new
             {
                 messages = new[] { new { role = "user", content = "Tell me a joke" } },
-                clinicalSchemaJson = /*lang=json,strict*/ "{\"schemaVersion\":\"1.0.0\",\"fields\":[{\"id\":\"name\",\"code\":\"patient.name\",\"type\":\"text\"}]}"
+                clinicalSchemaJson = /*lang=json,strict*/ "{\"schemaVersion\":\"1.0.0\",\"fields\":[{\"id\":\"name\",\"code\":\"patient.name\",\"type\":\"text\"}]}",
             }).ConfigureAwait(false);
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -187,13 +195,14 @@ public sealed class FormAiEndpointTests : IClassFixture<FormAiWebApplicationFact
     }
 }
 
-public sealed class FormAiWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class FormAiWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
+(StringComparer.Ordinal)
             {
                 ["CYNARA_ENV"] = "preview",
                 ["OPENAI_API_KEY"] = "test-api-key",

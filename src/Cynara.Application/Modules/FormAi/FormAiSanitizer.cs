@@ -3,19 +3,25 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
+using Cynara.Application.Common;
+
 namespace Cynara.Application.Modules.FormAi;
 
 internal static partial class FormAiSanitizer
 {
     private static readonly HashSet<string> AllowedWidgets =
     [
-        "text-input", "textarea", "number-input", "integer-input", "checkbox",
-        "toggle", "date-picker", "datetime-picker", "time-picker", "select",
-        "multi-select", "radio-group", "checkbox-group", "group", "repeater",
+        WidgetNames.TextInput, WidgetNames.Textarea, WidgetNames.NumberInput,
+        WidgetNames.IntegerInput, "checkbox",
+        WidgetNames.Toggle, WidgetNames.DatePicker, WidgetNames.DateTimePicker,
+        WidgetNames.TimePicker, WidgetNames.Select,
+        "multi-select", "radio-group", "checkbox-group", WidgetNames.Group,
+        WidgetNames.Repeater,
         "component", "hidden",
     ];
 
-    private static readonly HashSet<string> AllowedWidths = ["full", "half", "third", "quarter"];
+    private static readonly HashSet<string> AllowedWidths =
+        ["full", "half", "third", "quarter"];
 
     private static readonly HashSet<string> AllowedRuleOperators =
     [
@@ -25,70 +31,99 @@ internal static partial class FormAiSanitizer
         "add", "sub", "mul", "div",
     ];
 
-    private static readonly Dictionary<string, string> TypeAliases = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["text"] = "text",
-        ["string"] = "text",
-        ["email"] = "text",
-        ["phone"] = "text",
-        ["tel"] = "text",
-        ["short"] = "text",
-        ["short-answer"] = "text",
-        ["short_text"] = "text",
-        ["textarea"] = "textarea",
-        ["paragraph"] = "textarea",
-        ["longtext"] = "textarea",
-        ["long-text"] = "textarea",
-        ["note"] = "textarea",
-        ["notes"] = "textarea",
-        ["number"] = "number",
-        ["float"] = "number",
-        ["decimal"] = "number",
-        ["double"] = "number",
-        ["integer"] = "integer",
-        ["int"] = "integer",
-        ["whole"] = "integer",
-        ["boolean"] = "boolean",
-        ["bool"] = "boolean",
-        ["checkbox"] = "boolean",
-        ["toggle"] = "boolean",
-        ["yes-no"] = "boolean",
-        ["date"] = "date",
-        ["datetime"] = "datetime",
-        ["date-time"] = "datetime",
-        ["timestamp"] = "datetime",
-        ["time"] = "time",
-        ["choice"] = "choice",
-        ["select"] = "choice",
-        ["radio"] = "choice",
-        ["dropdown"] = "choice",
-        ["enum"] = "choice",
-        ["options"] = "choice",
-        ["group"] = "group",
-        ["section"] = "group",
-        ["object"] = "group",
-        ["repeater"] = "repeater",
-        ["list"] = "repeater",
-        ["array"] = "repeater",
-        ["component-ref"] = "component-ref",
-        ["component"] = "component-ref",
-    };
+    private static readonly Dictionary<string, string> TypeAliases =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            [FieldTypeNames.Text] = FieldTypeNames.Text,
+            ["string"] = FieldTypeNames.Text,
+            ["email"] = FieldTypeNames.Text,
+            ["phone"] = FieldTypeNames.Text,
+            ["tel"] = FieldTypeNames.Text,
+            ["short"] = FieldTypeNames.Text,
+            ["short-answer"] = FieldTypeNames.Text,
+            ["short_text"] = FieldTypeNames.Text,
+            [FieldTypeNames.Textarea] = FieldTypeNames.Textarea,
+            ["paragraph"] = FieldTypeNames.Textarea,
+            ["longtext"] = FieldTypeNames.Textarea,
+            ["long-text"] = FieldTypeNames.Textarea,
+            ["note"] = FieldTypeNames.Textarea,
+            ["notes"] = FieldTypeNames.Textarea,
+            [FieldTypeNames.Number] = FieldTypeNames.Number,
+            ["float"] = FieldTypeNames.Number,
+            ["decimal"] = FieldTypeNames.Number,
+            ["double"] = FieldTypeNames.Number,
+            [FieldTypeNames.Integer] = FieldTypeNames.Integer,
+            ["int"] = FieldTypeNames.Integer,
+            ["whole"] = FieldTypeNames.Integer,
+            [FieldTypeNames.Boolean] = FieldTypeNames.Boolean,
+            ["bool"] = FieldTypeNames.Boolean,
+            ["checkbox"] = FieldTypeNames.Boolean,
+            ["toggle"] = FieldTypeNames.Boolean,
+            ["yes-no"] = FieldTypeNames.Boolean,
+            [FieldTypeNames.Date] = FieldTypeNames.Date,
+            [FieldTypeNames.DateTime] = FieldTypeNames.DateTime,
+            ["date-time"] = FieldTypeNames.DateTime,
+            ["timestamp"] = FieldTypeNames.DateTime,
+            [FieldTypeNames.Time] = FieldTypeNames.Time,
+            [FieldTypeNames.Choice] = FieldTypeNames.Choice,
+            ["select"] = FieldTypeNames.Choice,
+            ["radio"] = FieldTypeNames.Choice,
+            ["dropdown"] = FieldTypeNames.Choice,
+            ["enum"] = FieldTypeNames.Choice,
+            ["options"] = FieldTypeNames.Choice,
+            [FieldTypeNames.Group] = FieldTypeNames.Group,
+            ["section"] = FieldTypeNames.Group,
+            ["object"] = FieldTypeNames.Group,
+            [FieldTypeNames.Repeater] = FieldTypeNames.Repeater,
+            ["list"] = FieldTypeNames.Repeater,
+            ["array"] = FieldTypeNames.Repeater,
+            [FieldTypeNames.ComponentRef] = FieldTypeNames.ComponentRef,
+            ["component"] = FieldTypeNames.ComponentRef,
+        };
 
-    private static readonly Dictionary<string, string> DefaultWidgets = new(StringComparer.Ordinal)
-    {
-        ["text"] = "text-input",
-        ["textarea"] = "textarea",
-        ["number"] = "number-input",
-        ["integer"] = "integer-input",
-        ["boolean"] = "checkbox",
-        ["date"] = "date-picker",
-        ["datetime"] = "datetime-picker",
-        ["time"] = "time-picker",
-        ["choice"] = "select",
-        ["group"] = "group",
-        ["repeater"] = "repeater",
-        ["component-ref"] = "component",
-    };
+    private static readonly Dictionary<string, string> DefaultWidgets =
+        new(StringComparer.Ordinal)
+        {
+            [FieldTypeNames.Text] = WidgetNames.TextInput,
+            [FieldTypeNames.Textarea] = WidgetNames.Textarea,
+            [FieldTypeNames.Number] = WidgetNames.NumberInput,
+            [FieldTypeNames.Integer] = WidgetNames.IntegerInput,
+            [FieldTypeNames.Boolean] = "checkbox",
+            [FieldTypeNames.Date] = WidgetNames.DatePicker,
+            [FieldTypeNames.DateTime] = WidgetNames.DateTimePicker,
+            [FieldTypeNames.Time] = WidgetNames.TimePicker,
+            [FieldTypeNames.Choice] = WidgetNames.Select,
+            [FieldTypeNames.Group] = WidgetNames.Group,
+            [FieldTypeNames.Repeater] = WidgetNames.Repeater,
+            [FieldTypeNames.ComponentRef] = "component",
+        };
+
+    private static readonly string[] PresentationKeys =
+    [
+        SchemaJsonKeys.Label, "helpText", "placeholder", SchemaJsonKeys.Widget,
+        SchemaJsonKeys.Width, "hidden", "order",
+        "timePresets", "accessibility",
+    ];
+
+    private static readonly string[] FieldRuleKeys =
+    [
+        "visibleWhen", "enabledWhen", "requiredWhen", SchemaJsonKeys.Calculate,
+    ];
+
+    [GeneratedRegex("-+", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex HyphenRegex { get; }
+
+    [GeneratedRegex(
+        "[^A-Z0-9]+",
+        RegexOptions.None,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex InvalidValidationCharactersRegex { get; }
+
+    [GeneratedRegex(
+        @"^\d+\.\d+\.\d+",
+        RegexOptions.None,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex SemverPrefixRegex { get; }
 
     public static SanitizedAiTriple Sanitize(
         JsonNode? clinicalNode,
@@ -107,10 +142,12 @@ internal static partial class FormAiSanitizer
         Dictionary<string, JsonObject> stolenUi)
     {
         JsonObject source = AsObject(raw);
-        string schemaVersion = AsSemver(source["schemaVersion"]?.GetValue<string>()) ?? "1.0.0";
+        string schemaVersion =
+            AsSemver(source[SchemaJsonKeys.SchemaVersion]?.GetValue<string>())
+            ?? "1.0.0";
         var usedIds = new HashSet<string>(StringComparer.Ordinal);
         var fields = new JsonArray();
-        if (source["fields"] is JsonArray inputFields)
+        if (source[SchemaJsonKeys.Fields] is JsonArray inputFields)
         {
             int index = 0;
             foreach (JsonNode? item in inputFields)
@@ -119,7 +156,9 @@ internal static partial class FormAiSanitizer
                     item,
                     stolenUi,
                     usedIds,
-                    $"field-{++index}");
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"field-{++index}"));
                 if (field is not null)
                 {
                     fields.Add(field);
@@ -131,21 +170,21 @@ internal static partial class FormAiSanitizer
         {
             fields.Add(new JsonObject
             {
-                ["id"] = "field-1",
-                ["code"] = "field.1",
-                ["type"] = "text",
+                [SchemaJsonKeys.Id] = "field-1",
+                [SchemaJsonKeys.Code] = "field.1",
+                [SchemaJsonKeys.Type] = FieldTypeNames.Text,
             });
             stolenUi["field-1"] = new JsonObject
             {
-                ["label"] = "Field 1",
-                ["widget"] = "text-input",
+                [SchemaJsonKeys.Label] = "Field 1",
+                [SchemaJsonKeys.Widget] = WidgetNames.TextInput,
             };
         }
 
         return new JsonObject
         {
-            ["schemaVersion"] = schemaVersion,
-            ["fields"] = fields,
+            [SchemaJsonKeys.SchemaVersion] = schemaVersion,
+            [SchemaJsonKeys.Fields] = fields,
         };
     }
 
@@ -155,85 +194,137 @@ internal static partial class FormAiSanitizer
         HashSet<string> usedIds,
         string fallbackId)
     {
-        if (raw is not JsonObject source)
+        if (raw is not JsonObject source
+            || !TryResolveFieldType(source, out string type))
         {
             return null;
         }
 
-        string? rawType = source["type"]?.GetValue<string>();
-        if (rawType is null || !TypeAliases.TryGetValue(rawType.Trim(), out string? type))
-        {
-            return null;
-        }
-
-        string id = UniqueId(SlugifyKebab(
-            source["id"]?.GetValue<string>() ?? fallbackId), usedIds);
+        string id = UniqueId(
+            SlugifyKebab(
+                source[SchemaJsonKeys.Id]?.GetValue<string>() ?? fallbackId),
+            usedIds);
         _ = usedIds.Add(id);
-        string code = SlugifyCode(source["code"]?.GetValue<string>() ?? id);
+        string code = SlugifyCode(
+            source[SchemaJsonKeys.Code]?.GetValue<string>() ?? id);
         var result = new JsonObject
         {
-            ["id"] = id,
-            ["code"] = string.IsNullOrWhiteSpace(code) ? $"field.{id}" : code,
-            ["type"] = type,
+            [SchemaJsonKeys.Id] = id,
+            [SchemaJsonKeys.Code] =
+                string.IsNullOrWhiteSpace(code) ? $"field.{id}" : code,
+            [SchemaJsonKeys.Type] = type,
         };
 
+        if (!TryBuildNormalizedField(
+                source,
+                type,
+                id,
+                stolenUi,
+                result))
+        {
+            return null;
+        }
+
+        stolenUi[id] = StealPresentation(source, type, id);
+        return result;
+    }
+
+    private static bool TryResolveFieldType(JsonObject source, out string type)
+    {
+        string? rawType = source[SchemaJsonKeys.Type]?.GetValue<string>();
+        if (rawType is null
+            || !TypeAliases.TryGetValue(rawType.Trim(), out string? resolved))
+        {
+            type = string.Empty;
+            return false;
+        }
+
+        type = resolved;
+        return true;
+    }
+
+    private static bool TryBuildNormalizedField(
+        JsonObject source,
+        string type,
+        string id,
+        Dictionary<string, JsonObject> stolenUi,
+        JsonObject result)
+    {
         CopyCommonClinical(source, result);
         switch (type)
         {
-            case "text":
+            case FieldTypeNames.Text:
                 Copy(source, result, "minLength", "maxLength", "pattern");
                 break;
-            case "textarea":
+            case FieldTypeNames.Textarea:
                 Copy(source, result, "minLength", "maxLength");
                 break;
-            case "number":
-                Copy(source, result, "minimum", "maximum", "multipleOf", "decimalPlaces");
+            case FieldTypeNames.Number:
+                Copy(
+                    source,
+                    result,
+                    "minimum",
+                    "maximum",
+                    "multipleOf",
+                    "decimalPlaces");
                 break;
-            case "integer":
-            case "date":
-            case "datetime":
-            case "time":
+            case FieldTypeNames.Integer:
+            case FieldTypeNames.Date:
+            case FieldTypeNames.DateTime:
+            case FieldTypeNames.Time:
                 Copy(source, result, "minimum", "maximum");
                 break;
-            case "choice":
-                result["options"] = SanitizeOptions(source["options"] as JsonArray);
+            case FieldTypeNames.Choice:
+                result[SchemaJsonKeys.Options] =
+                    SanitizeOptions(source[SchemaJsonKeys.Options] as JsonArray);
                 Copy(source, result, "allowMultiple");
                 break;
-            case "boolean":
+            case FieldTypeNames.Boolean:
                 break;
-            case "group":
-            case "repeater":
-                result["items"] = SanitizeChildren(
-                    source["items"] as JsonArray,
+            case FieldTypeNames.Group:
+            case FieldTypeNames.Repeater:
+                result[SchemaJsonKeys.Items] = SanitizeChildren(
+                    source[SchemaJsonKeys.Items] as JsonArray,
                     stolenUi,
                     id,
                     type);
-                if (type == "repeater")
+                if (string.Equals(
+                        type,
+                        FieldTypeNames.Repeater,
+                        StringComparison.Ordinal))
                 {
                     result["repeatable"] = true;
                     Copy(source, result, "minItems", "maxItems");
                 }
+
                 break;
-            case "component-ref":
-                if (source["componentCode"]?.GetValue<string>() is not string componentCode
+            case FieldTypeNames.ComponentRef:
+                if (source["componentCode"]?.GetValue<string>()
+                        is not string componentCode
                     || string.IsNullOrWhiteSpace(componentCode))
                 {
-                    return null;
+                    return false;
                 }
 
                 result["componentCode"] = componentCode.Trim();
                 Copy(source, result, "componentVersion");
                 break;
             default:
-                throw new ArgumentException($"Unknown field type: {type}");
+                throw new ArgumentException(
+                    $"Unknown field type: {type}",
+                    nameof(source));
         }
 
+        return true;
+    }
+
+    private static JsonObject StealPresentation(
+        JsonObject source,
+        string type,
+        string id)
+    {
         var presentation = new JsonObject();
-        foreach (string key in new[]
-        {
-            "label", "helpText", "placeholder", "widget", "width", "hidden", "order",
-            "timePresets", "accessibility",
-        })
+        foreach (string key in PresentationKeys)
         {
             if (source[key] is JsonNode value)
             {
@@ -243,29 +334,30 @@ internal static partial class FormAiSanitizer
 
         if (source["title"]?.GetValue<string>() is string title
             && !string.IsNullOrWhiteSpace(title)
-            && presentation["label"] is null)
+            && presentation[SchemaJsonKeys.Label] is null)
         {
-            presentation["label"] = title.Trim();
+            presentation[SchemaJsonKeys.Label] = title.Trim();
         }
 
-        string widget = presentation["widget"]?.GetValue<string>() ?? "";
-        presentation["widget"] = AllowedWidgets.Contains(widget)
+        string widget =
+            presentation[SchemaJsonKeys.Widget]?.GetValue<string>()
+            ?? string.Empty;
+        presentation[SchemaJsonKeys.Widget] = AllowedWidgets.Contains(widget)
             ? widget
             : DefaultWidgets[type];
-        if (presentation["width"]?.GetValue<string>() is string width
+        if (presentation[SchemaJsonKeys.Width]?.GetValue<string>() is string width
             && !AllowedWidths.Contains(width))
         {
-            _ = presentation.Remove("width");
+            _ = presentation.Remove(SchemaJsonKeys.Width);
         }
 
-        if (presentation["label"] is not JsonValue label
+        if (presentation[SchemaJsonKeys.Label] is not JsonValue label
             || string.IsNullOrWhiteSpace(label.GetValue<string>()))
         {
-            presentation["label"] = Humanize(id);
+            presentation[SchemaJsonKeys.Label] = Humanize(id);
         }
 
-        stolenUi[id] = presentation;
-        return result;
+        return presentation;
     }
 
     private static JsonArray SanitizeChildren(
@@ -285,7 +377,9 @@ internal static partial class FormAiSanitizer
                     item,
                     stolenUi,
                     usedIds,
-                    $"{parentId}-item-{++index}");
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{parentId}-item-{++index}"));
                 if (field is not null)
                 {
                     children.Add(field);
@@ -297,14 +391,19 @@ internal static partial class FormAiSanitizer
         {
             children.Add(new JsonObject
             {
-                ["id"] = $"{parentId}-item",
-                ["code"] = $"{parentId}.item",
-                ["type"] = "text",
+                [SchemaJsonKeys.Id] = $"{parentId}-item",
+                [SchemaJsonKeys.Code] = $"{parentId}.item",
+                [SchemaJsonKeys.Type] = FieldTypeNames.Text,
             });
             stolenUi[$"{parentId}-item"] = new JsonObject
             {
-                ["label"] = type == "repeater" ? "Item" : "Value",
-                ["widget"] = "text-input",
+                [SchemaJsonKeys.Label] = string.Equals(
+                    type,
+                    FieldTypeNames.Repeater,
+                    StringComparison.Ordinal)
+                    ? "Item"
+                    : "Value",
+                [SchemaJsonKeys.Widget] = WidgetNames.TextInput,
             };
         }
 
@@ -317,19 +416,19 @@ internal static partial class FormAiSanitizer
         Dictionary<string, JsonObject> stolenUi)
     {
         JsonObject source = AsObject(raw);
-        string version = AsSemver(clinical["schemaVersion"]?.GetValue<string>()) ?? "1.0.0";
+        string version =
+            AsSemver(clinical[SchemaJsonKeys.SchemaVersion]?.GetValue<string>())
+            ?? "1.0.0";
         var fields = new JsonObject();
-        foreach (JsonObject clinicalField in EnumerateFields(clinical["fields"] as JsonArray))
+        foreach (JsonObject clinicalField in EnumerateFields(
+                     clinical[SchemaJsonKeys.Fields] as JsonArray))
         {
-            string id = clinicalField["id"]!.GetValue<string>();
-            JsonObject fromModel = source["fields"]?[id] as JsonObject ?? [];
+            string id = clinicalField[SchemaJsonKeys.Id]!.GetValue<string>();
+            JsonObject fromModel =
+                source[SchemaJsonKeys.Fields]?[id] as JsonObject ?? [];
             JsonObject fromClinical = stolenUi.GetValueOrDefault(id) ?? [];
             var presentation = new JsonObject();
-            foreach (string key in new[]
-            {
-                "label", "helpText", "placeholder", "widget", "width", "hidden", "order",
-                "timePresets", "accessibility",
-            })
+            foreach (string key in PresentationKeys)
             {
                 JsonNode? value = fromModel[key] ?? fromClinical[key];
                 if (value is not null)
@@ -338,61 +437,54 @@ internal static partial class FormAiSanitizer
                 }
             }
 
-            string type = clinicalField["type"]!.GetValue<string>();
-            if (presentation["widget"]?.GetValue<string>() is not string widget
+            string type = clinicalField[SchemaJsonKeys.Type]!.GetValue<string>();
+            if (presentation[SchemaJsonKeys.Widget]?.GetValue<string>()
+                    is not string widget
                 || !AllowedWidgets.Contains(widget))
             {
-                presentation["widget"] = DefaultWidgets[type];
+                presentation[SchemaJsonKeys.Widget] = DefaultWidgets[type];
             }
 
-            if (presentation["label"] is not JsonValue label
+            if (presentation[SchemaJsonKeys.Label] is not JsonValue label
                 || string.IsNullOrWhiteSpace(label.GetValue<string>()))
             {
-                presentation["label"] = Humanize(id);
+                presentation[SchemaJsonKeys.Label] = Humanize(id);
             }
+
             fields[id] = presentation;
         }
 
         return new JsonObject
         {
-            ["schemaVersion"] = AsSemver(source["schemaVersion"]?.GetValue<string>()) ?? version,
-            ["clinicalSchemaVersion"] = version,
-            ["fields"] = fields,
-            ["layout"] = SanitizeLayout(source["layout"], fields),
+            [SchemaJsonKeys.SchemaVersion] =
+                AsSemver(source[SchemaJsonKeys.SchemaVersion]?.GetValue<string>())
+                ?? version,
+            [SchemaJsonKeys.ClinicalSchemaVersion] = version,
+            [SchemaJsonKeys.Fields] = fields,
+            [SchemaJsonKeys.Layout] =
+                SanitizeLayout(source[SchemaJsonKeys.Layout], fields),
         };
     }
 
     private static JsonObject SanitizeRules(JsonNode? raw, JsonObject clinical)
     {
         JsonObject source = AsObject(raw);
-        var knownIds = new HashSet<string>(StringComparer.Ordinal);
-        var knownCodes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (JsonObject field in EnumerateFields(clinical["fields"] as JsonArray))
-        {
-            _ = knownIds.Add(field["id"]!.GetValue<string>());
-            _ = knownCodes.Add(field["code"]!.GetValue<string>());
-        }
+        CollectKnownFieldKeys(
+            clinical,
+            out HashSet<string> knownIds,
+            out HashSet<string> knownCodes);
 
         var fields = new JsonObject();
-        if (source["fields"] is JsonObject fieldRules)
+        if (source[SchemaJsonKeys.Fields] is JsonObject fieldRules)
         {
             foreach ((string id, JsonNode? value) in fieldRules)
             {
-                if (!knownIds.Contains(id) || value is not JsonObject rules)
-                {
-                    continue;
-                }
-
-                var next = new JsonObject();
-                foreach (string key in new[] { "visibleWhen", "enabledWhen", "requiredWhen", "calculate" })
-                {
-                    if (rules[key] is JsonNode expression
-                        && ExpressionReferencesKnown(expression, knownCodes))
-                    {
-                        next[key] = expression.DeepClone();
-                    }
-                }
-                if (next.Count > 0)
+                JsonObject? next = SanitizeFieldRuleObject(
+                    id,
+                    value,
+                    knownIds,
+                    knownCodes);
+                if (next is not null)
                 {
                     fields[id] = next;
                 }
@@ -401,55 +493,125 @@ internal static partial class FormAiSanitizer
 
         var validations = new JsonArray();
         var usedCodes = new HashSet<string>(StringComparer.Ordinal);
-        if (source["validations"] is JsonArray inputValidations)
+        if (source[SchemaJsonKeys.Validations] is JsonArray inputValidations)
         {
             int index = 0;
             foreach (JsonNode? value in inputValidations)
             {
-                if (value is not JsonObject validation
-                    || validation["assert"] is not JsonNode assert
-                    || validation["message"]?.GetValue<string>() is not string message
-                    || !ExpressionReferencesKnown(assert, knownCodes))
+                JsonObject? clean = SanitizeValidationEntry(
+                    value,
+                    knownCodes,
+                    usedCodes,
+                    ref index);
+                if (clean is not null)
                 {
-                    continue;
+                    validations.Add(clean);
                 }
-
-                if (validation["when"] is JsonNode when
-                    && !ExpressionReferencesKnown(when, knownCodes))
-                {
-                    continue;
-                }
-
-                string code = ToValidationCode(
-                    validation["code"]?.GetValue<string>(),
-                    $"VALIDATION_{++index}");
-                while (!usedCodes.Add(code))
-                {
-                    code = ToValidationCode($"{code}_{index + 1}", $"VALIDATION_{++index}");
-                }
-
-                var clean = new JsonObject
-                {
-                    ["code"] = code,
-                    ["message"] = message[..Math.Min(message.Length, 500)],
-                    ["assert"] = assert.DeepClone(),
-                };
-                if (validation["when"] is JsonNode validWhen)
-                {
-                    clean["when"] = validWhen.DeepClone();
-                }
-                validations.Add(clean);
             }
         }
 
-        string version = AsSemver(clinical["schemaVersion"]?.GetValue<string>()) ?? "1.0.0";
+        string version =
+            AsSemver(clinical[SchemaJsonKeys.SchemaVersion]?.GetValue<string>())
+            ?? "1.0.0";
         return new JsonObject
         {
-            ["schemaVersion"] = AsSemver(source["schemaVersion"]?.GetValue<string>()) ?? version,
-            ["clinicalSchemaVersion"] = version,
-            ["fields"] = fields,
-            ["validations"] = validations,
+            [SchemaJsonKeys.SchemaVersion] =
+                AsSemver(source[SchemaJsonKeys.SchemaVersion]?.GetValue<string>())
+                ?? version,
+            [SchemaJsonKeys.ClinicalSchemaVersion] = version,
+            [SchemaJsonKeys.Fields] = fields,
+            [SchemaJsonKeys.Validations] = validations,
         };
+    }
+
+    private static void CollectKnownFieldKeys(
+        JsonObject clinical,
+        out HashSet<string> knownIds,
+        out HashSet<string> knownCodes)
+    {
+        knownIds = new HashSet<string>(StringComparer.Ordinal);
+        knownCodes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (JsonObject field in EnumerateFields(
+                     clinical[SchemaJsonKeys.Fields] as JsonArray))
+        {
+            _ = knownIds.Add(field[SchemaJsonKeys.Id]!.GetValue<string>());
+            _ = knownCodes.Add(field[SchemaJsonKeys.Code]!.GetValue<string>());
+        }
+    }
+
+    private static JsonObject? SanitizeFieldRuleObject(
+        string id,
+        JsonNode? value,
+        HashSet<string> knownIds,
+        HashSet<string> knownCodes)
+    {
+        if (!knownIds.Contains(id) || value is not JsonObject rules)
+        {
+            return null;
+        }
+
+        var next = new JsonObject();
+        foreach (string key in FieldRuleKeys)
+        {
+            if (rules[key] is JsonNode expression
+                && ExpressionReferencesKnown(expression, knownCodes))
+            {
+                next[key] = expression.DeepClone();
+            }
+        }
+
+        return next.Count > 0 ? next : null;
+    }
+
+    private static JsonObject? SanitizeValidationEntry(
+        JsonNode? value,
+        HashSet<string> knownCodes,
+        HashSet<string> usedCodes,
+        ref int index)
+    {
+        if (value is not JsonObject validation
+            || validation["assert"] is not JsonNode assert
+            || validation[SchemaJsonKeys.Message]?.GetValue<string>()
+                is not string message
+            || !ExpressionReferencesKnown(assert, knownCodes))
+        {
+            return null;
+        }
+
+        if (validation["when"] is JsonNode when
+            && !ExpressionReferencesKnown(when, knownCodes))
+        {
+            return null;
+        }
+
+        string code = ToValidationCode(
+            validation[SchemaJsonKeys.Code]?.GetValue<string>(),
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"VALIDATION_{++index}"));
+        while (!usedCodes.Add(code))
+        {
+            code = ToValidationCode(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{code}_{index + 1}"),
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"VALIDATION_{++index}"));
+        }
+
+        var clean = new JsonObject
+        {
+            [SchemaJsonKeys.Code] = code,
+            [SchemaJsonKeys.Message] = message[..Math.Min(message.Length, 500)],
+            ["assert"] = assert.DeepClone(),
+        };
+        if (validation["when"] is JsonNode validWhen)
+        {
+            clean["when"] = validWhen.DeepClone();
+        }
+
+        return clean;
     }
 
     private static JsonArray SanitizeLayout(JsonNode? raw, JsonObject fields)
@@ -468,80 +630,133 @@ internal static partial class FormAiSanitizer
                 result.Add(clean);
             }
         }
+
         return result;
     }
 
-    private static JsonObject? SanitizeLayoutNode(JsonNode? raw, JsonObject fields)
+    private static JsonObject? SanitizeLayoutNode(
+        JsonNode? raw,
+        JsonObject fields)
     {
-        if (raw is not JsonObject source || source["type"]?.GetValue<string>() is not string type)
+        if (raw is not JsonObject source
+            || source[SchemaJsonKeys.Type]?.GetValue<string>() is not string type)
         {
             return null;
         }
 
-        if (type == "field")
+        if (string.Equals(type, "field", StringComparison.Ordinal))
         {
-            string? fieldId = source["fieldId"]?.GetValue<string>();
-            return fieldId is not null && fields.ContainsKey(fieldId)
-                ? new JsonObject { ["type"] = "field", ["fieldId"] = fieldId }
-                : null;
+            return TrySanitizeFieldLayout(source, fields);
         }
 
-        if (type == "section")
+        if (string.Equals(type, "section", StringComparison.Ordinal))
         {
-            JsonArray children = SanitizeLayout(source["children"], fields);
-            string title = source["title"]?.GetValue<string>()?.Trim() ?? "Section";
-            return children.Count == 0
-                ? null
-                : new JsonObject
-                {
-                    ["type"] = "section",
-                    ["title"] = title[..Math.Min(title.Length, 256)],
-                    ["children"] = children,
-                };
+            return TrySanitizeSectionLayout(source, fields);
         }
 
-        if (type is "group" or "repeater")
+        if (type is FieldTypeNames.Group or FieldTypeNames.Repeater)
         {
-            string? fieldId = source["fieldId"]?.GetValue<string>();
-            JsonNode? childrenNode = type == "group"
-                ? source["children"]
-                : source["itemTemplate"];
-            JsonArray children = SanitizeLayout(childrenNode, fields);
-            return fieldId is null || !fields.ContainsKey(fieldId) || children.Count == 0
-                ? null
-                : new JsonObject
-                {
-                    ["type"] = type,
-                    ["fieldId"] = fieldId,
-                    [type == "group" ? "children" : "itemTemplate"] = children,
-                };
+            return TrySanitizeGroupOrRepeaterLayout(source, type, fields);
         }
 
         return null;
     }
 
-    private static bool ExpressionReferencesKnown(JsonNode expression, HashSet<string> knownCodes)
+    private static JsonObject? TrySanitizeFieldLayout(
+        JsonObject source,
+        JsonObject fields)
+    {
+        string? fieldId = source[SchemaJsonKeys.FieldId]?.GetValue<string>();
+        return fieldId is not null && fields.ContainsKey(fieldId)
+            ? new JsonObject
+            {
+                [SchemaJsonKeys.Type] = "field",
+                [SchemaJsonKeys.FieldId] = fieldId,
+            }
+            : null;
+    }
+
+    private static JsonObject? TrySanitizeSectionLayout(
+        JsonObject source,
+        JsonObject fields)
+    {
+        JsonArray children =
+            SanitizeLayout(source[SchemaJsonKeys.Children], fields);
+        string title =
+            source["title"]?.GetValue<string>()?.Trim() ?? "Section";
+        return children.Count == 0
+            ? null
+            : new JsonObject
+            {
+                [SchemaJsonKeys.Type] = "section",
+                ["title"] = title[..Math.Min(title.Length, 256)],
+                [SchemaJsonKeys.Children] = children,
+            };
+    }
+
+    private static JsonObject? TrySanitizeGroupOrRepeaterLayout(
+        JsonObject source,
+        string type,
+        JsonObject fields)
+    {
+        string? fieldId = source[SchemaJsonKeys.FieldId]?.GetValue<string>();
+        JsonNode? childrenNode = string.Equals(
+                type,
+                FieldTypeNames.Group,
+                StringComparison.Ordinal)
+            ? source[SchemaJsonKeys.Children]
+            : source["itemTemplate"];
+        JsonArray children = SanitizeLayout(childrenNode, fields);
+        if (fieldId is null
+            || !fields.ContainsKey(fieldId)
+            || children.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new JsonObject
+        {
+            [SchemaJsonKeys.Type] = type,
+            [SchemaJsonKeys.FieldId] = fieldId,
+        };
+        if (string.Equals(type, FieldTypeNames.Group, StringComparison.Ordinal))
+        {
+            result[SchemaJsonKeys.Children] = children;
+        }
+        else
+        {
+            result["itemTemplate"] = children;
+        }
+
+        return result;
+    }
+
+    private static bool ExpressionReferencesKnown(
+        JsonNode expression,
+        HashSet<string> knownCodes)
     {
         if (expression is JsonObject obj
             && obj["ref"]?.GetValue<string>() is string reference)
         {
             return knownCodes.Contains(reference);
         }
-        else if (expression is JsonObject expressionObject
-                                && expressionObject["args"] is JsonArray args)
+
+        if (expression is JsonObject expressionObject
+            && expressionObject["args"] is JsonArray args)
         {
             if (expressionObject["op"]?.GetValue<string>() is string op
                 && !AllowedRuleOperators.Contains(op))
             {
                 return false;
             }
-            return args.All(item => item is JsonNode node && ExpressionReferencesKnown(node, knownCodes));
+
+            return args.All(
+                item => item is JsonNode node
+                    && ExpressionReferencesKnown(node, knownCodes));
         }
-        else
-        {
-            return expression is JsonObject objWithoutRef
-                                && objWithoutRef.ContainsKey("lit");
-        }
+
+        return expression is JsonObject objWithoutRef
+            && objWithoutRef.ContainsKey("lit");
     }
 
     private static IEnumerable<JsonObject> EnumerateFields(JsonArray? fields)
@@ -559,7 +774,7 @@ internal static partial class FormAiSanitizer
             }
 
             yield return field;
-            if (field["items"] is JsonArray children)
+            if (field[SchemaJsonKeys.Items] is JsonArray children)
             {
                 foreach (JsonObject child in EnumerateFields(children))
                 {
@@ -574,7 +789,10 @@ internal static partial class FormAiSanitizer
         Copy(source, result, "required", "readOnly", "description", "default");
     }
 
-    private static void Copy(JsonObject source, JsonObject result, params string[] keys)
+    private static void Copy(
+        JsonObject source,
+        JsonObject result,
+        params string[] keys)
     {
         foreach (string key in keys)
         {
@@ -599,20 +817,31 @@ internal static partial class FormAiSanitizer
                 }
 
                 string optionValue = option["value"]?.GetValue<string>()?.Trim()
-                    ?? $"option-{++index}";
-                string label = option["label"]?.GetValue<string>()?.Trim() ?? optionValue;
+                    ?? string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"option-{++index}");
+                string label =
+                    option[SchemaJsonKeys.Label]?.GetValue<string>()?.Trim()
+                    ?? optionValue;
                 options.Add(new JsonObject
                 {
-                    ["value"] = optionValue[..Math.Min(optionValue.Length, 128)],
-                    ["label"] = label[..Math.Min(label.Length, 256)],
+                    ["value"] =
+                        optionValue[..Math.Min(optionValue.Length, 128)],
+                    [SchemaJsonKeys.Label] =
+                        label[..Math.Min(label.Length, 256)],
                 });
             }
         }
 
         if (options.Count == 0)
         {
-            options.Add(new JsonObject { ["value"] = "option-1", ["label"] = "Option 1" });
+            options.Add(new JsonObject
+            {
+                ["value"] = "option-1",
+                [SchemaJsonKeys.Label] = "Option 1",
+            });
         }
+
         return options;
     }
 
@@ -625,12 +854,15 @@ internal static partial class FormAiSanitizer
 
         for (int suffix = 2; suffix < 1000; suffix++)
         {
-            string candidate = $"{id}-{suffix}";
+            string candidate = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{id}-{suffix}");
             if (!used.Contains(candidate))
             {
                 return candidate;
             }
         }
+
         return $"{id}-x";
     }
 
@@ -640,15 +872,22 @@ internal static partial class FormAiSanitizer
         var builder = new StringBuilder();
         foreach (char character in normalized)
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            if (CharUnicodeInfo.GetUnicodeCategory(character)
+                == UnicodeCategory.NonSpacingMark)
             {
                 continue;
             }
-            _ = builder.Append(char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-');
+
+            _ = builder.Append(
+                char.IsLetterOrDigit(character)
+                    ? char.ToLowerInvariant(character)
+                    : '-');
         }
 
-        string result = HyphenRegex().Replace(builder.ToString(), "-").Trim('-');
-        return result.Length > 0 && char.IsLetter(result[0]) ? result[..Math.Min(result.Length, 64)] : "field";
+        string result = HyphenRegex.Replace(builder.ToString(), "-").Trim('-');
+        return result.Length > 0 && char.IsLetter(result[0])
+            ? result[..Math.Min(result.Length, 64)]
+            : "field";
     }
 
     private static string SlugifyCode(string value)
@@ -660,22 +899,26 @@ internal static partial class FormAiSanitizer
     private static string ToValidationCode(string? raw, string fallback)
     {
         string source = string.IsNullOrWhiteSpace(raw) ? fallback : raw;
-        string code = InvalidValidationCharactersRegex()
+        string code = InvalidValidationCharactersRegex
             .Replace(source.ToUpperInvariant(), "_")
             .Trim('_');
         if (code.Length == 0 || !char.IsLetter(code[0]))
         {
             code = $"V_{code}";
         }
+
         code = code[..Math.Min(code.Length, 64)];
         return code.Length >= 3 ? code : fallback;
     }
 
     private static string? AsSemver(string? value)
     {
-        return value is not null && SemverPrefixRegex().IsMatch(value)
-            ? value.Split(['-', '+'])[0]
-            : null;
+        if (value is null || !SemverPrefixRegex.IsMatch(value))
+        {
+            return null;
+        }
+
+        return value.Split(['-', '+'], count: 2)[0];
     }
 
     private static JsonObject AsObject(JsonNode? node)
@@ -690,15 +933,6 @@ internal static partial class FormAiSanitizer
             ? "Field"
             : char.ToUpperInvariant(text[0]) + text[1..];
     }
-
-    [GeneratedRegex("-+")]
-    private static partial Regex HyphenRegex();
-
-    [GeneratedRegex("[^A-Z0-9]+")]
-    private static partial Regex InvalidValidationCharactersRegex();
-
-    [GeneratedRegex(@"^\d+\.\d+\.\d+")]
-    private static partial Regex SemverPrefixRegex();
 }
 
 internal sealed record SanitizedAiTriple(

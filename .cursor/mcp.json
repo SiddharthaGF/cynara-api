@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sonarqube": {
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/.cursor/sonarqube-mcp.sh"
+      ]
+    }
+  }
+}

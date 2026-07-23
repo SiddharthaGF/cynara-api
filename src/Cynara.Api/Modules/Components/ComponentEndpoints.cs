@@ -6,6 +6,8 @@ namespace Cynara.Api.Modules.Components;
 
 internal static class ComponentEndpoints
 {
+    private const string DraftRoute = "/{code}/draft";
+
     public static IEndpointRouteBuilder MapComponentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder group = endpoints.MapGroup("/api/components").WithTags("Components");
@@ -13,11 +15,11 @@ internal static class ComponentEndpoints
         _ = group.MapPost("/", CreateComponentAsync);
         _ = group.MapGet("/", ListComponentsAsync);
         _ = group.MapGet("/{code}", GetComponentAsync);
-        _ = group.MapGet("/{code}/draft", GetDraftAsync);
-        _ = group.MapPut("/{code}/draft", UpdateDraftAsync);
-        _ = group.MapPost("/{code}/draft/publish", PublishDraftAsync);
-        _ = group.MapPost("/{code}/draft", CreateDraftAsync);
-        _ = group.MapDelete("/{code}/draft", SoftDeleteDraftAsync);
+        _ = group.MapGet(DraftRoute, GetDraftAsync);
+        _ = group.MapPut(DraftRoute, UpdateDraftAsync);
+        _ = group.MapPost($"{DraftRoute}/publish", PublishDraftAsync);
+        _ = group.MapPost(DraftRoute, CreateDraftAsync);
+        _ = group.MapDelete(DraftRoute, SoftDeleteDraftAsync);
         _ = group.MapGet("/{code}/versions/{version}", GetVersionAsync);
         _ = group.MapPost("/{code}/versions/{version}/retire", RetireVersionAsync);
 

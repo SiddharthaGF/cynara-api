@@ -13,17 +13,34 @@ internal sealed record FormAiGuardViolation(FormAiGuardCode Code, string Message
 
 internal static partial class FormAiGuardrails
 {
-    [GeneratedRegex(@"\b(search|browse|google|bing)\s+(the\s+)?(web|internet|online)\b|\b(web|internet|online)\s+search\b|\b(fetch|scrape|crawl|download)\b[\s\S]{0,40}\b(url|website|web\s*page|site|internet)\b|\b(open|visit|navigate\s+to)\b[\s\S]{0,40}\b(https?://|www\.)|\bbusca(?:r)?\s+(en\s+)?(internet|la\s+web|google|bing)\b|\bnavega(?:r)?\b[\s\S]{0,40}\b(web|internet|url|sitio|p[aá]gina)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex NetworkPattern();
+    private const RegexOptions GuardOptions =
+        RegexOptions.IgnoreCase
+        | RegexOptions.CultureInvariant
+        | RegexOptions.ExplicitCapture;
 
-    [GeneratedRegex(@"\b(tool[_ -]?calls?|function[_ -]?calls?|mcp\b|plugins?)\b|\b(ejecuta(?:r)?|run|execute)\b[\s\S]{0,40}\b(c[oó]digo|code|shell|terminal|comando|command|script)\b|\b(instala(?:r)?|install)\b[\s\S]{0,30}\b(paquete|package|npm|pip|dependency)\b|\b(llama(?:r)?|call)\b[\s\S]{0,30}\b(api\s+externa|external\s+api|third[ -]party\s+api)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex CapabilityPattern();
+    [GeneratedRegex(
+        @"\b(search|browse|google|bing)\s+(the\s+)?(web|internet|online)\b|\b(web|internet|online)\s+search\b|\b(fetch|scrape|crawl|download)\b[\s\S]{0,40}\b(url|website|web\s*page|site|internet)\b|\b(open|visit|navigate\s+to)\b[\s\S]{0,40}\b(https?://|www\.)|\bbusca(?:r)?\s+(en\s+)?(internet|la\s+web|google|bing)\b|\bnavega(?:r)?\b[\s\S]{0,40}\b(web|internet|url|sitio|p[aá]gina)\b",
+        GuardOptions,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex NetworkPattern { get; }
 
-    [GeneratedRegex(@"\b(cu[eé]ntame\s+un\s+chiste|tell\s+me\s+a\s+joke|escribe\s+un\s+poema|write\s+a\s+poem)\b|\b(ignora(?:r)?\s+(las\s+)?(reglas|instrucciones)|ignore\s+(all\s+)?(previous\s+)?(rules|instructions))\b|\b(act[uú]a\s+como|pretend\s+you\s+are|jailbreak|dan\s+mode)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex OutOfScopePattern();
+    [GeneratedRegex(
+        @"\b(tool[_ -]?calls?|function[_ -]?calls?|mcp\b|plugins?)\b|\b(ejecuta(?:r)?|run|execute)\b[\s\S]{0,40}\b(c[oó]digo|code|shell|terminal|comando|command|script)\b|\b(instala(?:r)?|install)\b[\s\S]{0,30}\b(paquete|package|npm|pip|dependency)\b|\b(llama(?:r)?|call)\b[\s\S]{0,30}\b(api\s+externa|external\s+api|third[ -]party\s+api)\b",
+        GuardOptions,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex CapabilityPattern { get; }
 
-    [GeneratedRegex(@"\b(vac[ií]a|vaciar|limpia|limpiar|borra|borrar|elimina|eliminar)\b[\s\S]{0,48}\b(el\s+)?formulario\b|\b(borra|borrar|elimina|eliminar|limpia|limpiar)\s+todo\b|\bempezar\s+de\s+(0|cero|nuevo)\b|\b(clear|empty|reset)\b[\s\S]{0,48}\b(the\s+)?form\b|\b(clear|empty|wipe)\s+(all\s+)?(fields|questions)\b|\bstart\s+(over|from\s+scratch|from\s+zero)\b|\bremove\s+all\s+(fields|questions)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex DraftResetPattern();
+    [GeneratedRegex(
+        @"\b(cu[eé]ntame\s+un\s+chiste|tell\s+me\s+a\s+joke|escribe\s+un\s+poema|write\s+a\s+poem)\b|\b(ignora(?:r)?\s+(las\s+)?(reglas|instrucciones)|ignore\s+(all\s+)?(previous\s+)?(rules|instructions))\b|\b(act[uú]a\s+como|pretend\s+you\s+are|jailbreak|dan\s+mode)\b",
+        GuardOptions,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex OutOfScopePattern { get; }
+
+    [GeneratedRegex(
+        @"\b(vac[ií]a|vaciar|limpia|limpiar|borra|borrar|elimina|eliminar)\b[\s\S]{0,48}\b(el\s+)?formulario\b|\b(borra|borrar|elimina|eliminar|limpia|limpiar)\s+todo\b|\bempezar\s+de\s+(0|cero|nuevo)\b|\b(clear|empty|reset)\b[\s\S]{0,48}\b(the\s+)?form\b|\b(clear|empty|wipe)\s+(all\s+)?(fields|questions)\b|\bstart\s+(over|from\s+scratch|from\s+zero)\b|\bremove\s+all\s+(fields|questions)\b",
+        GuardOptions,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex DraftResetPattern { get; }
 
     public static FormAiGuardViolation? Detect(string content, string locale)
     {
@@ -33,26 +50,30 @@ internal static partial class FormAiGuardrails
         }
 
         FormAiGuardCode? code;
-        if (NetworkPattern().IsMatch(content))
+        if (NetworkPattern.IsMatch(content))
         {
             code = FormAiGuardCode.NetworkForbidden;
         }
-        else if (CapabilityPattern().IsMatch(content))
+        else if (CapabilityPattern.IsMatch(content))
         {
             code = FormAiGuardCode.CapabilityForbidden;
         }
         else
         {
-            code = OutOfScopePattern().IsMatch(content) ? FormAiGuardCode.OutOfScope : null;
+            code = OutOfScopePattern.IsMatch(content)
+                ? FormAiGuardCode.OutOfScope
+                : null;
         }
 
-        return code is null ? null : new(code.Value, LimitationMessage(code.Value, locale));
+        return code is null
+            ? null
+            : new(code.Value, LimitationMessage(code.Value, locale));
     }
 
     public static bool IsDraftReset(string content)
     {
         return !string.IsNullOrWhiteSpace(content)
-            && DraftResetPattern().IsMatch(content);
+            && DraftResetPattern.IsMatch(content);
     }
 
     public static string LimitationMessage(FormAiGuardCode code, string locale)

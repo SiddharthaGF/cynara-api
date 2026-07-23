@@ -24,7 +24,7 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, cancellationToken).ConfigureAwait(false);
         FormVersion draft = FormWorkflowHelpers.RequireDraft(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(draft, request.RowVersion);
 
@@ -48,7 +48,7 @@ public sealed class FormReviewService(
         definition.UpdatedAt = now;
 
         auditWriter.Append(
-            "form-version",
+            AuditEntityTypes.FormVersion,
             draft.Id,
             "form.draft.submitted-for-review",
             actorId,
@@ -72,7 +72,7 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
@@ -83,7 +83,7 @@ public sealed class FormReviewService(
         definition.UpdatedAt = now;
 
         auditWriter.Append(
-            "form-version",
+            AuditEntityTypes.FormVersion,
             review.Id,
             "form.draft.withdrawn-from-review",
             actorId,
@@ -112,7 +112,7 @@ public sealed class FormReviewService(
         }
 
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
@@ -126,7 +126,7 @@ public sealed class FormReviewService(
         definition.UpdatedAt = now;
 
         auditWriter.Append(
-            "form-version",
+            AuditEntityTypes.FormVersion,
             review.Id,
             "form.draft.rejected-from-review",
             actorId,
@@ -151,7 +151,7 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
@@ -190,7 +190,7 @@ public sealed class FormReviewService(
         definition.UpdatedAt = now;
 
         auditWriter.Append(
-            "form-version",
+            AuditEntityTypes.FormVersion,
             review.Id,
             "form.version.published",
             actorId,
@@ -207,5 +207,4 @@ public sealed class FormReviewService(
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return FormMappers.ToVersionDto(definition, review);
     }
-
 }

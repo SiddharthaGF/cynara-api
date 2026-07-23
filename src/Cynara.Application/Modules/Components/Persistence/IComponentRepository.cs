@@ -8,7 +8,8 @@ public interface IComponentRepository
 
     public void AddDefinition(ComponentDefinition definition, ComponentVersion draft);
 
-    public Task<List<ComponentDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken);
+    public Task<IReadOnlyList<ComponentDefinition>> ListDefinitionsAsync(
+        CancellationToken cancellationToken);
 
     public Task<ComponentDefinition?> FindDefinitionByCodeAsync(string code, bool track, CancellationToken cancellationToken);
 
@@ -17,5 +18,4 @@ public interface IComponentRepository
     public void AddVersion(ComponentVersion version);
 
     public void RemoveVersion(ComponentVersion version);
-
 }

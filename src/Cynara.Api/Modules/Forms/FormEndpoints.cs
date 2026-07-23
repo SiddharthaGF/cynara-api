@@ -5,6 +5,8 @@ namespace Cynara.Api.Modules.Forms;
 
 internal static class FormEndpoints
 {
+    private const string DraftRoute = "/{code}/draft";
+
     public static IEndpointRouteBuilder MapFormEndpoints(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder group = endpoints.MapGroup("/api/forms").WithTags("Forms");
@@ -12,14 +14,14 @@ internal static class FormEndpoints
         _ = group.MapPost("/", CreateFormAsync);
         _ = group.MapGet("/", ListFormsAsync);
         _ = group.MapGet("/{code}", GetFormAsync);
-        _ = group.MapGet("/{code}/draft", GetEditableVersionAsync);
-        _ = group.MapPut("/{code}/draft", UpdateDraftAsync);
-        _ = group.MapPost("/{code}/draft/submit-review", SubmitForReviewAsync);
-        _ = group.MapPost("/{code}/draft/withdraw-review", WithdrawFromReviewAsync);
-        _ = group.MapPost("/{code}/draft/reject-review", RejectReviewAsync);
-        _ = group.MapPost("/{code}/draft/publish", PublishDraftAsync);
-        _ = group.MapPost("/{code}/draft", CreateDraftAsync);
-        _ = group.MapDelete("/{code}/draft", SoftDeleteDraftAsync);
+        _ = group.MapGet(DraftRoute, GetEditableVersionAsync);
+        _ = group.MapPut(DraftRoute, UpdateDraftAsync);
+        _ = group.MapPost($"{DraftRoute}/submit-review", SubmitForReviewAsync);
+        _ = group.MapPost($"{DraftRoute}/withdraw-review", WithdrawFromReviewAsync);
+        _ = group.MapPost($"{DraftRoute}/reject-review", RejectReviewAsync);
+        _ = group.MapPost($"{DraftRoute}/publish", PublishDraftAsync);
+        _ = group.MapPost(DraftRoute, CreateDraftAsync);
+        _ = group.MapDelete(DraftRoute, SoftDeleteDraftAsync);
         _ = group.MapGet("/{code}/versions/{version}", GetVersionAsync);
         _ = group.MapPost("/{code}/versions/{version}/retire", RetireVersionAsync);
 

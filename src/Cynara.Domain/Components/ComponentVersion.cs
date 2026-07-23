@@ -8,9 +8,6 @@ public sealed class ComponentVersion
 
     public ComponentDefinition ComponentDefinition { get; set; } = null!;
 
-    /// <summary>
-    /// Semantic version assigned at publish time. Null while the version is a draft.
-    /// </summary>
     public string? Version { get; set; }
 
     public ComponentVersionStatus Status { get; set; }

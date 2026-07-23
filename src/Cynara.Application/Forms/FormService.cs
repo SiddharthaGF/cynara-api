@@ -14,6 +14,20 @@ public sealed class FormService(
     ISchemaValidator schemaValidator,
     TimeProvider timeProvider) : IFormService
 {
+    private const string DefaultClinicalSchema =
+        /*lang=json,strict*/ """
+        {
+          "schemaVersion": "1.0.0",
+          "fields": [
+            {
+              "id": "placeholder",
+              "code": "form.placeholder",
+              "type": "text"
+            }
+          ]
+        }
+        """;
+
     public async Task<FormSummaryDto> CreateAsync(CreateFormRequest request, string? actorId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -103,7 +117,7 @@ public sealed class FormService(
             track: false,
             cancellationToken).ConfigureAwait(false);
         FormVersion? published = definition.Versions.SingleOrDefault(
-            item => item.Version == version && item.Status != FormVersionStatus.Draft && item.Status != FormVersionStatus.Review)
+            item => string.Equals(item.Version, version, StringComparison.Ordinal) && item.Status != FormVersionStatus.Draft && item.Status != FormVersionStatus.Review)
             ?? throw new NotFoundException($"Form '{code}' version '{version}' was not found.");
         return FormMappers.ToVersionDto(definition, published);
     }
@@ -167,7 +181,7 @@ public sealed class FormService(
             Id = Guid.NewGuid(),
             FormDefinitionId = definition.Id,
             Status = FormVersionStatus.Draft,
-            ClinicalSchemaJson = source?.ClinicalSchemaJson ?? DefaultClinicalSchema(),
+            ClinicalSchemaJson = source?.ClinicalSchemaJson ?? DefaultClinicalSchema,
             UiSchemaJson = source?.UiSchemaJson,
             RulesSchemaJson = source?.RulesSchemaJson,
             CreatedAt = now,
@@ -200,7 +214,7 @@ public sealed class FormService(
             track: true,
             cancellationToken).ConfigureAwait(false);
         FormVersion published = definition.Versions.SingleOrDefault(
-            item => item.Version == version && item.Status == FormVersionStatus.Published)
+            item => string.Equals(item.Version, version, StringComparison.Ordinal) && item.Status == FormVersionStatus.Published)
             ?? throw new NotFoundException($"Published form '{code}' version '{version}' was not found.");
 
         DateTimeOffset now = timeProvider.GetUtcNow();
@@ -252,21 +266,5 @@ public sealed class FormService(
         });
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private static string DefaultClinicalSchema()
-    {
-        return /*lang=json,strict*/ """
-            {
-              "schemaVersion": "1.0.0",
-              "fields": [
-                {
-                  "id": "placeholder",
-                  "code": "form.placeholder",
-                  "type": "text"
-                }
-              ]
-            }
-            """;
     }
 }

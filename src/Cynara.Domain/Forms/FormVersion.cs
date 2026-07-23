@@ -8,9 +8,6 @@ public sealed class FormVersion
 
     public FormDefinition FormDefinition { get; set; } = null!;
 
-    /// <summary>
-    /// Semantic version assigned at publish time. Null while the version is editable.
-    /// </summary>
     public string? Version { get; set; }
 
     public FormVersionStatus Status { get; set; }
@@ -23,9 +20,6 @@ public sealed class FormVersion
 
     public string? ContentHash { get; set; }
 
-    /// <summary>
-    /// Resolved component dependencies captured at publish time.
-    /// </summary>
     public string? DependencyMetadataJson { get; set; }
 
     public uint RowVersion { get; set; }
@@ -38,9 +32,6 @@ public sealed class FormVersion
 
     public DateTimeOffset? RetiredAt { get; set; }
 
-    /// <summary>
-    /// Clinical schema version captured from the compiled snapshot at publish time.
-    /// </summary>
     public string? PublishedSchemaVersion { get; set; }
 
     public string? LastReviewComment { get; set; }

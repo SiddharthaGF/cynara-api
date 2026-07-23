@@ -15,7 +15,7 @@ internal static class ComponentMappers
             .Where(item => item.Status == ComponentVersionStatus.Published
                 && item.Version != null)
             .Select(item => item.Version!)
-            .OrderBy(static version => version, SemverRules.StringComparer)
+            .Order(SemverRules.StringComparer)
             .ToList();
 
         return new ComponentSummaryDto(

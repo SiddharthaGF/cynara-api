@@ -1,4 +1,7 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
+
+using Cynara.Application.Common;
 
 namespace Cynara.Application.Forms;
 
@@ -8,9 +11,10 @@ public static class FormRuleAnalyzer
     {
         JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
         JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
-        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById = ClinicalFieldIndex.BuildById(clinicalRoot);
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
+            ClinicalFieldIndex.BuildById(clinicalRoot);
 
-        if (rulesRoot["fields"] is not JsonObject fieldRules)
+        if (rulesRoot[SchemaJsonKeys.Fields] is not JsonObject fieldRules)
         {
             return new RuleDependencyMetadata([], []);
         }
@@ -25,12 +29,12 @@ public static class FormRuleAnalyzer
                 continue;
             }
 
-            if (rules["calculate"] is not JsonNode calculateNode)
+            if (rules[SchemaJsonKeys.Calculate] is not JsonNode calculateNode)
             {
                 continue;
             }
 
-            if (!fieldsById.TryGetValue(fieldId, out ClinicalFieldIndex.FieldInfo? fieldInfo))
+            if (!fieldsById.ContainsKey(fieldId))
             {
                 continue;
             }
@@ -51,78 +55,21 @@ public static class FormRuleAnalyzer
     {
         JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
         JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
-        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById = ClinicalFieldIndex.BuildById(clinicalRoot);
-        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsByCode = ClinicalFieldIndex.BuildByCode(clinicalRoot);
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
+            ClinicalFieldIndex.BuildById(clinicalRoot);
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsByCode =
+            ClinicalFieldIndex.BuildByCode(clinicalRoot);
 
-        if (rulesRoot["clinicalSchemaVersion"]?.GetValue<string>() is string rulesClinicalVersion
-            && clinicalRoot["schemaVersion"]?.GetValue<string>() is string clinicalVersion
-            && rulesClinicalVersion != clinicalVersion)
+        ValidateClinicalVersionMatch(clinicalRoot, rulesRoot);
+
+        if (rulesRoot[SchemaJsonKeys.Fields] is JsonObject fieldRules)
         {
-            throw new ValidationException(
-                $"RULE_CLINICAL_VERSION_MISMATCH: rules clinicalSchemaVersion '{rulesClinicalVersion}' does not match clinical schemaVersion '{clinicalVersion}'.");
+            ValidateFieldRules(fieldRules, fieldsById, fieldsByCode);
         }
 
-        if (rulesRoot["fields"] is JsonObject fieldRules)
+        if (rulesRoot[SchemaJsonKeys.Validations] is JsonArray validations)
         {
-            foreach ((string fieldId, JsonNode? rulesNode) in fieldRules)
-            {
-                string path = $"/fields/{fieldId}";
-                if (!fieldsById.TryGetValue(fieldId, out ClinicalFieldIndex.FieldInfo? fieldInfo))
-                {
-                    throw new ValidationException(
-                        $"RULE_UNKNOWN_FIELD: rules reference unknown clinical field id '{fieldId}' at {path}.");
-                }
-
-                if (rulesNode is not JsonObject rules)
-                {
-                    continue;
-                }
-
-                ValidateExpressionReferences(rules["visibleWhen"], $"{path}/visibleWhen", fieldsByCode);
-                ValidateExpressionReferences(rules["enabledWhen"], $"{path}/enabledWhen", fieldsByCode);
-                ValidateExpressionReferences(rules["requiredWhen"], $"{path}/requiredWhen", fieldsByCode);
-                ValidateExpressionReferences(rules["calculate"], $"{path}/calculate", fieldsByCode);
-
-                if (rules["calculate"] is not null && !fieldInfo.ReadOnly)
-                {
-                    throw new ValidationException(
-                        $"RULE_CALCULATE_NOT_READONLY: calculated field '{fieldId}' at {path}/calculate must be readOnly in the clinical schema.");
-                }
-
-                if (rules["calculate"] is JsonNode calculateNode)
-                {
-                    string targetCode = fieldInfo.Code;
-                    foreach (string referencedCode in CollectReferences(calculateNode))
-                    {
-                        if (referencedCode == targetCode)
-                        {
-                            throw new ValidationException(
-                                $"RULE_SELF_REFERENCE: calculated field '{fieldId}' at {path}/calculate must not reference its own code '{targetCode}'.");
-                        }
-                    }
-                }
-            }
-        }
-
-        if (rulesRoot["validations"] is JsonArray validations)
-        {
-            var seenCodes = new HashSet<string>(StringComparer.Ordinal);
-            for (int index = 0; index < validations.Count; index++)
-            {
-                JsonObject validation = validations[index]!.AsObject();
-                string path = $"/validations/{index}";
-                string code = validation["code"]?.GetValue<string>()
-                    ?? throw new ValidationException($"Expected validation code at {path}/code.");
-
-                if (!seenCodes.Add(code))
-                {
-                    throw new ValidationException(
-                        $"RULE_DUPLICATE_VALIDATION_CODE: validation code '{code}' at {path}/code is duplicated.");
-                }
-
-                ValidateExpressionReferences(validation["when"], $"{path}/when", fieldsByCode);
-                ValidateExpressionReferences(validation["assert"], $"{path}/assert", fieldsByCode);
-            }
+            ValidateValidationEntries(validations, fieldsByCode);
         }
 
         RuleDependencyMetadata metadata = Analyze(clinicalSchemaJson, rulesSchemaJson);
@@ -130,6 +77,121 @@ public static class FormRuleAnalyzer
         {
             throw new ValidationException(
                 "RULE_CYCLIC_DEPENDENCY: calculated fields contain a cyclic dependency.");
+        }
+    }
+
+    internal static HashSet<string> CollectReferences(JsonNode expression)
+    {
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        CollectReferencesRecursive(expression, references);
+        return references;
+    }
+
+    private static void ValidateClinicalVersionMatch(
+        JsonObject clinicalRoot,
+        JsonObject rulesRoot)
+    {
+        if (rulesRoot[SchemaJsonKeys.ClinicalSchemaVersion]?.GetValue<string>()
+                is string rulesClinicalVersion
+            && clinicalRoot[SchemaJsonKeys.SchemaVersion]?.GetValue<string>()
+                is string clinicalVersion
+            && !string.Equals(
+                rulesClinicalVersion,
+                clinicalVersion,
+                StringComparison.Ordinal))
+        {
+            throw new ValidationException(
+                $"RULE_CLINICAL_VERSION_MISMATCH: rules clinicalSchemaVersion '{rulesClinicalVersion}' does not match clinical schemaVersion '{clinicalVersion}'.");
+        }
+    }
+
+    private static void ValidateFieldRules(
+        JsonObject fieldRules,
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById,
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsByCode)
+    {
+        foreach ((string fieldId, JsonNode? rulesNode) in fieldRules)
+        {
+            string path = $"/fields/{fieldId}";
+            if (!fieldsById.TryGetValue(fieldId, out ClinicalFieldIndex.FieldInfo? fieldInfo))
+            {
+                throw new ValidationException(
+                    $"RULE_UNKNOWN_FIELD: rules reference unknown clinical field id '{fieldId}' at {path}.");
+            }
+
+            if (rulesNode is not JsonObject rules)
+            {
+                continue;
+            }
+
+            ValidateExpressionReferences(
+                rules["visibleWhen"],
+                $"{path}/visibleWhen",
+                fieldsByCode);
+            ValidateExpressionReferences(
+                rules["enabledWhen"],
+                $"{path}/enabledWhen",
+                fieldsByCode);
+            ValidateExpressionReferences(
+                rules["requiredWhen"],
+                $"{path}/requiredWhen",
+                fieldsByCode);
+            ValidateExpressionReferences(
+                rules[SchemaJsonKeys.Calculate],
+                $"{path}/calculate",
+                fieldsByCode);
+
+            if (rules[SchemaJsonKeys.Calculate] is not null && !fieldInfo.ReadOnly)
+            {
+                throw new ValidationException(
+                    $"RULE_CALCULATE_NOT_READONLY: calculated field '{fieldId}' at {path}/calculate must be readOnly in the clinical schema.");
+            }
+
+            if (rules[SchemaJsonKeys.Calculate] is JsonNode calculateNode)
+            {
+                string targetCode = fieldInfo.Code;
+                if (CollectReferences(calculateNode).Any(
+                        code => string.Equals(
+                            code,
+                            targetCode,
+                            StringComparison.Ordinal)))
+                {
+                    throw new ValidationException(
+                        $"RULE_SELF_REFERENCE: calculated field '{fieldId}' at {path}/calculate must not reference its own code '{targetCode}'.");
+                }
+            }
+        }
+    }
+
+    private static void ValidateValidationEntries(
+        JsonArray validations,
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsByCode)
+    {
+        var seenCodes = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < validations.Count; index++)
+        {
+            JsonObject validation = validations[index]!.AsObject();
+            string path = string.Create(
+                CultureInfo.InvariantCulture,
+                $"/validations/{index}");
+            string code = validation[SchemaJsonKeys.Code]?.GetValue<string>()
+                ?? throw new ValidationException(
+                    $"Expected validation code at {path}/code.");
+
+            if (!seenCodes.Add(code))
+            {
+                throw new ValidationException(
+                    $"RULE_DUPLICATE_VALIDATION_CODE: validation code '{code}' at {path}/code is duplicated.");
+            }
+
+            ValidateExpressionReferences(
+                validation["when"],
+                $"{path}/when",
+                fieldsByCode);
+            ValidateExpressionReferences(
+                validation["assert"],
+                $"{path}/assert",
+                fieldsByCode);
         }
     }
 
@@ -143,43 +205,36 @@ public static class FormRuleAnalyzer
             return;
         }
 
-        foreach (string referencedCode in CollectReferences(expression))
+        string? unknownCode = CollectReferences(expression)
+            .FirstOrDefault(code => !fieldsByCode.ContainsKey(code));
+        if (unknownCode is not null)
         {
-            if (!fieldsByCode.ContainsKey(referencedCode))
-            {
-                throw new ValidationException(
-                    $"RULE_UNKNOWN_FIELD_REF: expression at {path} references unknown field code '{referencedCode}'.");
-            }
+            throw new ValidationException(
+                $"RULE_UNKNOWN_FIELD_REF: expression at {path} references unknown field code '{unknownCode}'.");
         }
-    }
-
-    internal static HashSet<string> CollectReferences(JsonNode expression)
-    {
-        var references = new HashSet<string>(StringComparer.Ordinal);
-        CollectReferencesRecursive(expression, references);
-        return references;
     }
 
     private static void CollectReferencesRecursive(JsonNode node, HashSet<string> references)
     {
-        if (node is JsonObject obj)
+        if (node is not JsonObject obj)
         {
-            if (obj["ref"]?.GetValue<string>() is { Length: > 0 } fieldCode)
-            {
-                _ = references.Add(fieldCode);
-                return;
-            }
+            return;
+        }
 
-            if (obj["args"] is JsonArray args)
-            {
-                foreach (JsonNode? arg in args)
-                {
-                    if (arg is not null)
-                    {
-                        CollectReferencesRecursive(arg, references);
-                    }
-                }
-            }
+        if (obj["ref"]?.GetValue<string>() is { Length: > 0 } fieldCode)
+        {
+            _ = references.Add(fieldCode);
+            return;
+        }
+
+        if (obj["args"] is not JsonArray args)
+        {
+            return;
+        }
+
+        foreach (JsonNode arg in args.Where(static arg => arg is not null).Cast<JsonNode>())
+        {
+            CollectReferencesRecursive(arg, references);
         }
     }
 
@@ -187,34 +242,31 @@ public static class FormRuleAnalyzer
         Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById,
         string code)
     {
-        foreach (ClinicalFieldIndex.FieldInfo field in fieldsById.Values)
-        {
-            if (field.Code == code)
-            {
-                return field.Id;
-            }
-        }
-
-        return null;
+        return fieldsById.Values
+            .Where(field => string.Equals(field.Code, code, StringComparison.Ordinal))
+            .Select(field => field.Id)
+            .FirstOrDefault();
     }
 
     private static List<string> TopologicalSort(
         IReadOnlyList<string> calculatedFieldIds,
         Dictionary<string, HashSet<string>> dependencies)
     {
-        var inDegree = calculatedFieldIds.ToDictionary(static id => id, static _ => 0, StringComparer.Ordinal);
+        var inDegree = calculatedFieldIds.ToDictionary(
+            static id => id,
+            static _ => 0,
+            StringComparer.Ordinal);
         foreach (string fieldId in calculatedFieldIds)
         {
-            foreach (string dependencyId in dependencies.GetValueOrDefault(fieldId) ?? [])
+            foreach (string dependencyId in (dependencies.GetValueOrDefault(fieldId) ?? [])
+                .Where(inDegree.ContainsKey))
             {
-                if (inDegree.ContainsKey(dependencyId))
-                {
-                    inDegree[fieldId]++;
-                }
+                inDegree[fieldId]++;
             }
         }
 
-        var queue = new Queue<string>(inDegree.Where(static pair => pair.Value == 0).Select(static pair => pair.Key));
+        var queue = new Queue<string>(
+            inDegree.Where(static pair => pair.Value == 0).Select(static pair => pair.Key));
         var order = new List<string>();
 
         while (queue.Count > 0)
@@ -245,7 +297,8 @@ public static class FormRuleAnalyzer
         try
         {
             return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException($"Invalid {label}: expected a JSON object.");
+                ?? throw new ValidationException(
+                    $"Invalid {label}: expected a JSON object.");
         }
         catch (System.Text.Json.JsonException exception)
         {

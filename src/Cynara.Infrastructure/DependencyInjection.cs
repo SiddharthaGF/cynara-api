@@ -39,6 +39,27 @@ public static class InfrastructureServiceCollectionExtensions
 
     public static IServiceCollection AddCynaraInfrastructure(
         this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        bool previewStorage = IsPreviewStorage(configuration);
+        string databaseProvider = ResolveDatabaseProvider(
+            configuration,
+            previewStorage);
+        string connectionString = ResolveConnectionString(
+            configuration,
+            previewStorage,
+            databaseProvider);
+
+        return services.AddCynaraInfrastructure(
+            connectionString,
+            SchemaFilePaths.FromBaseDirectory(),
+            databaseProvider);
+    }
+
+    public static IServiceCollection AddCynaraInfrastructure(
+        this IServiceCollection services,
         string connectionString,
         SchemaFilePaths schemaPaths,
         string databaseProvider = SqliteProvider)
@@ -79,6 +100,7 @@ public static class InfrastructureServiceCollectionExtensions
                 _ = options.UseSqlite(connectionString);
             });
         }
+
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());
 
@@ -160,6 +182,40 @@ public static class InfrastructureServiceCollectionExtensions
                 configuration["VERCEL_ENV"],
                 "preview",
                 StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveDatabaseProvider(
+        IConfiguration configuration,
+        bool previewStorage)
+    {
+        return previewStorage
+            ? SqliteProvider
+            : configuration["Database:Provider"] ?? SqliteProvider;
+    }
+
+    private static string ResolveConnectionString(
+        IConfiguration configuration,
+        bool previewStorage,
+        string databaseProvider)
+    {
+        if (previewStorage)
+        {
+            return "Data Source=:memory:";
+        }
+
+        string? configured = configuration.GetConnectionString("Default");
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured;
+        }
+
+        if (IsSqlServer(databaseProvider))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is required when Database:Provider is SqlServer.");
+        }
+
+        return "Data Source=cynara.db";
     }
 
     private static async Task<bool> AllRequiredTablesExistAsync(

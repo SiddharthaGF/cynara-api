@@ -74,9 +74,45 @@ make lint          # dotnet build --no-restore -warnaserror
 make test          # dotnet test --no-restore
 make check         # full local/CI validation
 make fix           # format + apply safe analyzer fixes
+make sonar         # local SonarQube Community Build analysis
+make seed          # seed demo showcase into configured DB (no HTTP)
+```
+
+Seed uses the same `Database:Provider` / `ConnectionStrings:Default` resolution as the API
+(`appsettings`, env vars, or CLI). Examples:
+
+```bash
+make seed
+make seed SEED_ARGS='--provider SqlServer --connection "Server=...;Database=cynara;..."'
+Database__Provider=SqlServer ConnectionStrings__Default='...' make seed
 ```
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.
+
+### SonarQube Community Build (code smells)
+
+Local smell / quality-gate analysis uses [SonarQube Community Build](https://docs.sonarsource.com/sonarqube-community-build/) via Docker and the [SonarScanner for .NET](https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/scanners/dotnet/introduction/).
+
+Prerequisites: Docker Desktop (or Docker Engine) with Compose.
+
+```bash
+make sonar              # start server, bootstrap token, scan
+# or step by step:
+make sonar-up           # SonarQube + Postgres on :9000
+make sonar-bootstrap    # change default admin password + write .sonar/token
+make sonar-scan         # begin → build → end; opens project cynara-api
+make sonar-down         # stop containers (keeps volumes)
+```
+
+- UI: http://localhost:9000
+- Default bootstrap password: `CynaraSonarAdmin1!` (override with `SONAR_ADMIN_PASSWORD`)
+- Token path: `.sonar/token` (gitignored), or export `SONAR_TOKEN`
+- Compose file: `docker/sonarqube/docker-compose.yml`
+- Local quality gate: `Cynara Local` (`new_violations=0`, no coverage requirement)
+- Local C# profile: `Cynara C#` — Sonar S104 file size warning at **400 LOC**
+  (`maximumFileLocThreshold=400`, severity MINOR)
+
+First boot can take 1–2 minutes while Elasticsearch starts. Re-run `make sonar-scan` after code changes to refresh findings.
 
 ## Architecture
 
@@ -160,9 +196,10 @@ dotnet husky install
 src/Cynara.Api/                 ASP.NET Core host and HTTP modules
 src/Cynara.Application/         Workflows, ports, DTOs, validators, compilers
 src/Cynara.Domain/               Entities and domain status models
-src/Cynara.Infrastructure/      EF Core, repositories, configurations, schemas
+src/Cynara.Infrastructure/      EF Core, repositories, schemas, SeedData
 tests/Cynara.Api.Tests/         Integration and workflow tests
-scripts/                         Seed data and schema fixtures
+tools/Cynara.Seed/              In-process demo showcase seeder CLI
+scripts/                        Local SonarQube bootstrap/scan helpers
 ```
 
 ## License

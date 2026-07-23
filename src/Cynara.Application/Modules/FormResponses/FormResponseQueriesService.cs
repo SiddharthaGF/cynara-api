@@ -16,7 +16,7 @@ public sealed class FormResponseQueriesService(
             .RequireResponseAsync(
                 responses,
                 id,
-                false,
+                track: false,
                 includeDeleted,
                 cancellationToken).ConfigureAwait(false);
         return FormResponseMappers.ToDto(response, response.FormVersion);
@@ -29,8 +29,8 @@ public sealed class FormResponseQueriesService(
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,
-            false,
-            true,
+            track: false,
+            includeDeleted: true,
             cancellationToken).ConfigureAwait(false);
         IReadOnlyList<FormResponseRevision> revisions = await responses
             .ListRevisionsAsync(id, cancellationToken).ConfigureAwait(false);
@@ -45,8 +45,8 @@ public sealed class FormResponseQueriesService(
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,
-            false,
-            true,
+            track: false,
+            includeDeleted: true,
             cancellationToken).ConfigureAwait(false);
         FormResponseRevision revision = await responses.FindRevisionAsync(
                 id,

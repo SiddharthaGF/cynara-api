@@ -27,12 +27,12 @@ internal static class NumericPrecision
             return null;
         }
 
-        if (field.Type == "integer")
+        if (string.Equals(field.Type, "integer", StringComparison.Ordinal))
         {
             return Math.Round(numeric, MidpointRounding.AwayFromZero);
         }
 
-        if (field.Type != "number")
+        if (!string.Equals(field.Type, "number", StringComparison.Ordinal))
         {
             return value;
         }
@@ -93,7 +93,7 @@ internal static class NumericPrecision
         int decimals = 0;
         double scaled = step;
 
-        while (decimals < MaxDecimalPlaces && Math.Abs(Math.Round(scaled) - scaled) > 1e-9)
+        while (decimals < MaxDecimalPlaces && Math.Abs(Math.Round(scaled, MidpointRounding.ToEven) - scaled) > 1e-9)
         {
             scaled *= 10;
             decimals++;

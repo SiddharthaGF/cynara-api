@@ -4,16 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
 
-/// <summary>
-/// Loads and caches the <c>form-schema-authoring</c> skill
-/// (<c>.cursor/skills/form-schema-authoring/</c>) from disk.
-///
-/// The skill directory is searched up from <see cref="AppContext.BaseDirectory"/>
-/// so it works regardless of the current working directory used at launch
-/// (<c>dotnet run</c> from repo root, <c>pnpm dev</c>, or tests under
-/// <c>tests/Cynara.Api.Tests</c>).
-/// </summary>
-public sealed class FileFormAiSkillLoader : IFormAiSkillLoader
+public sealed partial class FileFormAiSkillLoader : IFormAiSkillLoader
 {
     private const string SkillRootRelativePath = ".cursor/skills/form-schema-authoring";
 
@@ -32,72 +23,26 @@ public sealed class FileFormAiSkillLoader : IFormAiSkillLoader
         "rules-examples.json",
     ];
 
-    private readonly Lazy<string> _cachedBody;
-    private readonly ILogger<FileFormAiSkillLoader> _logger;
+    private readonly Lazy<string> cachedBody;
+    private readonly ILogger<FileFormAiSkillLoader> logger;
 
     public FileFormAiSkillLoader(ILogger<FileFormAiSkillLoader> logger)
     {
         ArgumentNullException.ThrowIfNull(logger);
-        _logger = logger;
-        _cachedBody = new Lazy<string>(LoadAndConcatenate, LazyThreadSafetyMode.ExecutionAndPublication);
+        this.logger = logger;
+        cachedBody = new Lazy<string>(LoadAndConcatenate, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public string GetSkillBody()
     {
-        return _cachedBody.Value;
+        return cachedBody.Value;
     }
 
-    private string LoadAndConcatenate()
-    {
-        string? skillRoot = LocateSkillDirectory();
-        if (skillRoot is null)
-        {
-            _logger.LogWarning(
-                "form-schema-authoring skill not found under any parent of {BaseDir} or cwd {Cwd}; chat will run with a degraded prompt.",
-                AppContext.BaseDirectory, Directory.GetCurrentDirectory());
-            return string.Empty;
-        }
-
-        var sections = new List<string>();
-        string skillPath = Path.Combine(skillRoot, "SKILL.md");
-        if (File.Exists(skillPath))
-        {
-            sections.Add($"## SKILL.md ({Path.GetRelativePath(AppContext.BaseDirectory, skillPath)})");
-            sections.Add(ReadAll(skillPath));
-        }
-
-        string referencesDir = Path.Combine(skillRoot, "references");
-        if (Directory.Exists(referencesDir))
-        {
-            foreach (string name in ReferenceFileOrder)
-            {
-                string path = Path.Combine(referencesDir, name);
-                if (File.Exists(path))
-                {
-                    sections.Add($"## references/{name}");
-                    sections.Add(ReadAll(path));
-                }
-            }
-        }
-
-        string assetsDir = Path.Combine(skillRoot, "assets");
-        if (Directory.Exists(assetsDir))
-        {
-            foreach (string name in AssetFileOrder)
-            {
-                string path = Path.Combine(assetsDir, name);
-                if (File.Exists(path))
-                {
-                    string content = ReadAll(path);
-                    string relative = Path.GetRelativePath(AppContext.BaseDirectory, path);
-                    sections.Add($"## assets/{name} (file: {relative})");
-                    sections.Add($"```json\n{content}\n```");
-                }
-            }
-        }
-
-        return string.Join("\n\n", sections);
-    }
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "form-schema-authoring skill not found under any parent of {BaseDir} or cwd {Cwd}; chat will run with a degraded prompt.")]
+    private static partial void LogSkillNotFound(ILogger logger, string baseDir, string cwd);
 
     private static string ReadAll(string path)
     {
@@ -163,5 +108,58 @@ public sealed class FileFormAiSkillLoader : IFormAiSkillLoader
         {
             return null;
         }
+    }
+
+    private string LoadAndConcatenate()
+    {
+        string? skillRoot = LocateSkillDirectory();
+        if (skillRoot is null)
+        {
+            LogSkillNotFound(
+                logger,
+                AppContext.BaseDirectory,
+                Directory.GetCurrentDirectory());
+            return string.Empty;
+        }
+
+        var sections = new List<string>();
+        string skillPath = Path.Combine(skillRoot, "SKILL.md");
+        if (File.Exists(skillPath))
+        {
+            sections.Add($"## SKILL.md ({Path.GetRelativePath(AppContext.BaseDirectory, skillPath)})");
+            sections.Add(ReadAll(skillPath));
+        }
+
+        string referencesDir = Path.Combine(skillRoot, "references");
+        if (Directory.Exists(referencesDir))
+        {
+            foreach (string name in ReferenceFileOrder)
+            {
+                string path = Path.Combine(referencesDir, name);
+                if (File.Exists(path))
+                {
+                    sections.Add($"## references/{name}");
+                    sections.Add(ReadAll(path));
+                }
+            }
+        }
+
+        string assetsDir = Path.Combine(skillRoot, "assets");
+        if (Directory.Exists(assetsDir))
+        {
+            foreach (string name in AssetFileOrder)
+            {
+                string path = Path.Combine(assetsDir, name);
+                if (File.Exists(path))
+                {
+                    string content = ReadAll(path);
+                    string relative = Path.GetRelativePath(AppContext.BaseDirectory, path);
+                    sections.Add($"## assets/{name} (file: {relative})");
+                    sections.Add($"```json\n{content}\n```");
+                }
+            }
+        }
+
+        return string.Join("\n\n", sections);
     }
 }

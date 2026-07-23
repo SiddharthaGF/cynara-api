@@ -21,7 +21,7 @@ public sealed class ComponentQueriesService(
         CancellationToken cancellationToken)
     {
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
         return ComponentMappers.ToSummary(definition);
     }
 
@@ -30,7 +30,7 @@ public sealed class ComponentQueriesService(
         CancellationToken cancellationToken)
     {
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         return ComponentMappers.ToVersionDto(definition, draft);
     }
@@ -42,9 +42,9 @@ public sealed class ComponentQueriesService(
     {
         SemverRules.EnsureValid(version);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
         ComponentVersion published = definition.Versions.SingleOrDefault(
-                item => item.Version == version
+                item => string.Equals(item.Version, version, StringComparison.Ordinal)
                     && item.Status != ComponentVersionStatus.Draft)
             ?? throw new NotFoundException(
                 $"Component '{code}' version '{version}' was not found.");

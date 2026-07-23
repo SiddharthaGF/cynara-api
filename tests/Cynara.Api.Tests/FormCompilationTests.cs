@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -59,7 +60,7 @@ public sealed class FormCompilationTests : IDisposable
             MinimalUiSchema("heart-rate", "Heart rate")).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("vitals", "section.vitals", "vitals-panel", "1.0.0");
-        await CreateFormAsync("vitals-form", "Vitals form", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("vitals-form", "Vitals form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
         FormVersionDto draft = await GetEditableVersionAsync("vitals-form").ConfigureAwait(false);
         FormVersionDto published = await PublishDraftAsync("vitals-form", draft.RowVersion).ConfigureAwait(false);
 
@@ -85,7 +86,7 @@ public sealed class FormCompilationTests : IDisposable
     public async Task PublishDraft_FailsWhenComponentVersionIsMissing()
     {
         string formClinical = FormWithComponentRef("patient-section", "section.patient", "missing-component", "9.9.9");
-        await CreateFormAsync("broken-form", "Broken form", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("broken-form", "Broken form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
         FormVersionDto draft = await GetEditableVersionAsync("broken-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
@@ -103,10 +104,10 @@ public sealed class FormCompilationTests : IDisposable
         await CreateAndPublishComponentAsync(
             "allergies",
             MinimalComponentClinicalSchema("allergy-list", "allergy.list"),
-            null).ConfigureAwait(false);
+uiSchemaJson: null).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("allergy-section", "section.allergies", "allergies", componentVersion: null);
-        await CreateFormAsync("allergy-form", "Allergy form", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("allergy-form", "Allergy form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
         FormVersionDto draft = await GetEditableVersionAsync("allergy-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
@@ -125,13 +126,13 @@ public sealed class FormCompilationTests : IDisposable
             "component-a",
             "Component A",
             ComponentRefClinicalSchema("ref-b", "component.b", "component-b", "1.0.0"),
-            null).ConfigureAwait(false);
+uiSchemaJson: null).ConfigureAwait(false);
 
         await CreateComponentAsync(
             "component-b",
             "Component B",
             ComponentRefClinicalSchema("ref-a", "component.a", "component-a", "1.0.0"),
-            null).ConfigureAwait(false);
+uiSchemaJson: null).ConfigureAwait(false);
 
         ComponentVersionDto draftA = await GetComponentDraftAsync("component-a").ConfigureAwait(false);
         await PublishComponentDraftAsync("component-a", draftA.RowVersion).ConfigureAwait(false);
@@ -139,7 +140,7 @@ public sealed class FormCompilationTests : IDisposable
         await PublishComponentDraftAsync("component-b", draftB.RowVersion).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("section-a", "section.a", "component-a", "1.0.0");
-        await CreateFormAsync("circular-form", "Circular form", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("circular-form", "Circular form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
         FormVersionDto draft = await GetEditableVersionAsync("circular-form").ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.PostAsJsonAsync(
@@ -160,8 +161,8 @@ public sealed class FormCompilationTests : IDisposable
             MinimalUiSchema("consent-given", "Consent given")).ConfigureAwait(false);
 
         string formClinical = FormWithComponentRef("consent-section", "section.consent", "consent-block", "1.0.0");
-        await CreateFormAsync("consent-form-a", "Consent form A", formClinical, null).ConfigureAwait(false);
-        await CreateFormAsync("consent-form-b", "Consent form B", formClinical, null).ConfigureAwait(false);
+        await CreateFormAsync("consent-form-a", "Consent form A", formClinical, uiSchemaJson: null).ConfigureAwait(false);
+        await CreateFormAsync("consent-form-b", "Consent form B", formClinical, uiSchemaJson: null).ConfigureAwait(false);
 
         FormVersionDto draftA = await GetEditableVersionAsync("consent-form-a").ConfigureAwait(false);
         FormVersionDto draftB = await GetEditableVersionAsync("consent-form-b").ConfigureAwait(false);
@@ -275,7 +276,7 @@ public sealed class FormCompilationTests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalComponentClinicalSchema(string id, string code)
@@ -303,6 +304,7 @@ public sealed class FormCompilationTests : IDisposable
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
             fields = new Dictionary<string, object>
+(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {
@@ -320,6 +322,7 @@ public sealed class FormCompilationTests : IDisposable
         string? componentVersion)
     {
         var field = new Dictionary<string, object?>
+(StringComparer.Ordinal)
         {
             ["id"] = id,
             ["code"] = code,
@@ -346,6 +349,7 @@ public sealed class FormCompilationTests : IDisposable
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
             fields = new Dictionary<string, object>
+(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {

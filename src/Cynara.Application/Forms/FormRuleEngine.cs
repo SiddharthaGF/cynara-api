@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 
+using Cynara.Application.Common;
+
 namespace Cynara.Application.Forms;
 
 public sealed class FormRuleEngine : IFormRuleEngine
@@ -13,8 +15,11 @@ public sealed class FormRuleEngine : IFormRuleEngine
     {
         JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
         JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
-        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById = ClinicalFieldIndex.BuildById(clinicalRoot);
-        RuleDependencyMetadata metadata = FormRuleAnalyzer.Analyze(clinicalSchemaJson, rulesSchemaJson);
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
+            ClinicalFieldIndex.BuildById(clinicalRoot);
+        RuleDependencyMetadata metadata = FormRuleAnalyzer.Analyze(
+            clinicalSchemaJson,
+            rulesSchemaJson);
 
         var workingValues = new Dictionary<string, object?>(values, StringComparer.Ordinal);
         var visibility = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -22,6 +27,43 @@ public sealed class FormRuleEngine : IFormRuleEngine
         var required = new Dictionary<string, bool>(StringComparer.Ordinal);
         var calculatedValues = new Dictionary<string, object?>(StringComparer.Ordinal);
 
+        SeedFieldDefaults(fieldsById, uiSchemaJson, visibility, enabled, required);
+
+        if (rulesRoot[SchemaJsonKeys.Fields] is JsonObject fieldRules)
+        {
+            ApplyCalculations(
+                fieldRules,
+                metadata,
+                fieldsById,
+                workingValues,
+                calculatedValues);
+            ApplyFieldPredicates(
+                fieldRules,
+                fieldsById,
+                workingValues,
+                visibility,
+                enabled,
+                required);
+        }
+
+        List<RuleValidationError> validationErrors =
+            CollectValidationErrors(rulesRoot, workingValues);
+
+        return new FormRuleEvaluationResult(
+            visibility,
+            enabled,
+            required,
+            calculatedValues,
+            validationErrors);
+    }
+
+    private static void SeedFieldDefaults(
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById,
+        string? uiSchemaJson,
+        Dictionary<string, bool> visibility,
+        Dictionary<string, bool> enabled,
+        Dictionary<string, bool> required)
+    {
         foreach (ClinicalFieldIndex.FieldInfo field in fieldsById.Values)
         {
             bool defaultHidden = IsUiHidden(uiSchemaJson, field.Id);
@@ -29,77 +71,107 @@ public sealed class FormRuleEngine : IFormRuleEngine
             enabled[field.Id] = !field.ReadOnly;
             required[field.Id] = field.Required;
         }
-
-        if (rulesRoot["fields"] is JsonObject fieldRules)
-        {
-            foreach (string fieldId in metadata.EvaluationOrder)
-            {
-                if (!fieldRules.TryGetPropertyValue(fieldId, out JsonNode? rulesNode)
-                    || rulesNode is not JsonObject rules
-                    || rules["calculate"] is not JsonNode calculateNode
-                    || !fieldsById.TryGetValue(fieldId, out ClinicalFieldIndex.FieldInfo? fieldInfo))
-                {
-                    continue;
-                }
-
-                object? calculated = NumericPrecision.NormalizeCalculatedValue(
-                    EvaluateExpression(calculateNode, workingValues),
-                    fieldInfo);
-                calculatedValues[fieldInfo.Code] = calculated;
-                workingValues[fieldInfo.Code] = calculated;
-            }
-
-            foreach ((string fieldId, JsonNode? rulesNode) in fieldRules)
-            {
-                if (rulesNode is not JsonObject rules || !fieldsById.ContainsKey(fieldId))
-                {
-                    continue;
-                }
-
-                if (rules["visibleWhen"] is JsonNode visibleWhen)
-                {
-                    visibility[fieldId] = ToBoolean(EvaluateExpression(visibleWhen, workingValues));
-                }
-
-                if (rules["enabledWhen"] is JsonNode enabledWhen)
-                {
-                    enabled[fieldId] = ToBoolean(EvaluateExpression(enabledWhen, workingValues));
-                }
-
-                if (rules["requiredWhen"] is JsonNode requiredWhen)
-                {
-                    required[fieldId] = ToBoolean(EvaluateExpression(requiredWhen, workingValues));
-                }
-            }
-        }
-
-        var validationErrors = new List<RuleValidationError>();
-        if (rulesRoot["validations"] is JsonArray validations)
-        {
-            for (int index = 0; index < validations.Count; index++)
-            {
-                JsonObject validation = validations[index]!.AsObject();
-                string code = validation["code"]?.GetValue<string>() ?? $"VALIDATION_{index}";
-                string message = validation["message"]?.GetValue<string>() ?? "Validation failed.";
-
-                if (validation["when"] is JsonNode whenNode
-                    && !ToBoolean(EvaluateExpression(whenNode, workingValues)))
-                {
-                    continue;
-                }
-
-                if (validation["assert"] is JsonNode assertNode
-                    && !ToBoolean(EvaluateExpression(assertNode, workingValues)))
-                {
-                    validationErrors.Add(new RuleValidationError(code, message));
-                }
-            }
-        }
-
-        return new FormRuleEvaluationResult(visibility, enabled, required, calculatedValues, validationErrors);
     }
 
-    private static object? EvaluateExpression(JsonNode node, IReadOnlyDictionary<string, object?> values)
+    private static void ApplyCalculations(
+        JsonObject fieldRules,
+        RuleDependencyMetadata metadata,
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById,
+        Dictionary<string, object?> workingValues,
+        Dictionary<string, object?> calculatedValues)
+    {
+        foreach (string fieldId in metadata.EvaluationOrder)
+        {
+            if (!fieldRules.TryGetPropertyValue(fieldId, out JsonNode? rulesNode)
+                || rulesNode is not JsonObject rules
+                || rules[SchemaJsonKeys.Calculate] is not JsonNode calculateNode
+                || !fieldsById.TryGetValue(
+                    fieldId,
+                    out ClinicalFieldIndex.FieldInfo? fieldInfo))
+            {
+                continue;
+            }
+
+            object? calculated = NumericPrecision.NormalizeCalculatedValue(
+                EvaluateExpression(calculateNode, workingValues),
+                fieldInfo);
+            calculatedValues[fieldInfo.Code] = calculated;
+            workingValues[fieldInfo.Code] = calculated;
+        }
+    }
+
+    private static void ApplyFieldPredicates(
+        JsonObject fieldRules,
+        Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById,
+        Dictionary<string, object?> workingValues,
+        Dictionary<string, bool> visibility,
+        Dictionary<string, bool> enabled,
+        Dictionary<string, bool> required)
+    {
+        foreach ((string fieldId, JsonNode? rulesNode) in fieldRules)
+        {
+            if (rulesNode is not JsonObject rules || !fieldsById.ContainsKey(fieldId))
+            {
+                continue;
+            }
+
+            if (rules["visibleWhen"] is JsonNode visibleWhen)
+            {
+                visibility[fieldId] = ToBoolean(
+                    EvaluateExpression(visibleWhen, workingValues));
+            }
+
+            if (rules["enabledWhen"] is JsonNode enabledWhen)
+            {
+                enabled[fieldId] = ToBoolean(
+                    EvaluateExpression(enabledWhen, workingValues));
+            }
+
+            if (rules["requiredWhen"] is JsonNode requiredWhen)
+            {
+                required[fieldId] = ToBoolean(
+                    EvaluateExpression(requiredWhen, workingValues));
+            }
+        }
+    }
+
+    private static List<RuleValidationError> CollectValidationErrors(
+        JsonObject rulesRoot,
+        Dictionary<string, object?> workingValues)
+    {
+        var validationErrors = new List<RuleValidationError>();
+        if (rulesRoot[SchemaJsonKeys.Validations] is not JsonArray validations)
+        {
+            return validationErrors;
+        }
+
+        for (int index = 0; index < validations.Count; index++)
+        {
+            JsonObject validation = validations[index]!.AsObject();
+            string code = validation[SchemaJsonKeys.Code]?.GetValue<string>()
+                ?? string.Create(CultureInfo.InvariantCulture, $"VALIDATION_{index}");
+            string message = validation[SchemaJsonKeys.Message]?.GetValue<string>()
+                ?? "Validation failed.";
+
+            if (validation["when"] is JsonNode whenNode
+                && !ToBoolean(EvaluateExpression(whenNode, workingValues)))
+            {
+                continue;
+            }
+
+            if (validation["assert"] is JsonNode assertNode
+                && !ToBoolean(EvaluateExpression(assertNode, workingValues)))
+            {
+                validationErrors.Add(new RuleValidationError(code, message));
+            }
+        }
+
+        return validationErrors;
+    }
+
+    private static object? EvaluateExpression(
+        JsonNode node,
+        IReadOnlyDictionary<string, object?> values)
     {
         if (node is JsonObject obj)
         {
@@ -120,12 +192,30 @@ public sealed class FormRuleEngine : IFormRuleEngine
 
             return op switch
             {
-                "eq" => Compare(args, values, static (left, right) => CompareValues(left, right) == 0),
-                "neq" => Compare(args, values, static (left, right) => CompareValues(left, right) != 0),
-                "gt" => Compare(args, values, static (left, right) => CompareValues(left, right) > 0),
-                "gte" => Compare(args, values, static (left, right) => CompareValues(left, right) >= 0),
-                "lt" => Compare(args, values, static (left, right) => CompareValues(left, right) < 0),
-                "lte" => Compare(args, values, static (left, right) => CompareValues(left, right) <= 0),
+                "eq" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) == 0),
+                "neq" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) != 0),
+                "gt" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) > 0),
+                "gte" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) >= 0),
+                "lt" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) < 0),
+                "lte" => Compare(
+                    args,
+                    values,
+                    static (left, right) => CompareValues(left, right) <= 0),
                 "and" => args.All(item => ToBoolean(EvaluateExpression(item!, values))),
                 "or" => args.Any(item => ToBoolean(EvaluateExpression(item!, values))),
                 "not" => !ToBoolean(EvaluateExpression(args[0]!, values)),
@@ -135,14 +225,17 @@ public sealed class FormRuleEngine : IFormRuleEngine
                 "sub" => Arithmetic(args, values, static (left, right) => left - right),
                 "mul" => Arithmetic(args, values, static (left, right) => left * right),
                 "div" => Arithmetic(args, values, static (left, right) => left / right),
-                _ => throw new ValidationException($"Unsupported expression operator '{op}'."),
+                _ => throw new ValidationException(
+                    $"Unsupported expression operator '{op}'."),
             };
         }
 
         throw new ValidationException("Invalid expression node.");
     }
 
-    private static object? Coalesce(JsonArray args, IReadOnlyDictionary<string, object?> values)
+    private static object? Coalesce(
+        JsonArray args,
+        IReadOnlyDictionary<string, object?> values)
     {
         foreach (JsonNode? arg in args)
         {
@@ -166,12 +259,6 @@ public sealed class FormRuleEngine : IFormRuleEngine
         return predicate(left, right);
     }
 
-    /// <summary>
-    /// Returns null when either operand is unset or the result is non-finite (e.g. 0/0 → NaN).
-    /// </summary>
-    /// <param name="args"></param>
-    /// <param name="values"></param>
-    /// <param name="compute"></param>
     private static double? Arithmetic(
         JsonArray args,
         IReadOnlyDictionary<string, object?> values,
@@ -226,23 +313,21 @@ public sealed class FormRuleEngine : IFormRuleEngine
             {
                 return 0;
             }
-            else if (left is null)
+
+            if (left is null)
             {
                 return -1;
             }
-            else
-            {
-                return 1;
-            }
+
+            return 1;
         }
-        else if (left is string leftText && right is string rightText)
+
+        if (left is string leftText && right is string rightText)
         {
             return string.CompareOrdinal(leftText, rightText);
         }
-        else
-        {
-            return ToDouble(left).CompareTo(ToDouble(right));
-        }
+
+        return ToDouble(left).CompareTo(ToDouble(right));
     }
 
     private static double ToDouble(object? value)
@@ -255,7 +340,9 @@ public sealed class FormRuleEngine : IFormRuleEngine
             int number => number,
             long number => number,
             decimal number => (double)number,
-            JsonValue jsonValue => Convert.ToDouble(JsonNodeToObject(jsonValue), CultureInfo.InvariantCulture),
+            JsonValue jsonValue => Convert.ToDouble(
+                JsonNodeToObject(jsonValue),
+                CultureInfo.InvariantCulture),
             _ => Convert.ToDouble(value, CultureInfo.InvariantCulture),
         };
     }
@@ -269,8 +356,11 @@ public sealed class FormRuleEngine : IFormRuleEngine
             JsonValue value when value.TryGetValue(out int integer) => integer,
             JsonValue value when value.TryGetValue(out long longInteger) => longInteger,
             JsonValue value when value.TryGetValue(out double number) => number,
-            JsonValue value when value.TryGetValue(out decimal decimalNumber) => decimalNumber,
-            JsonArray array => array.Select(static item => item is null ? null : JsonNodeToObject(item)).ToList(),
+            JsonValue value when value.TryGetValue(out decimal decimalNumber) =>
+                decimalNumber,
+            JsonArray array => array
+                .Select(static item => item is null ? null : JsonNodeToObject(item))
+                .ToList(),
             _ => node.ToJsonString(),
         };
     }
@@ -283,9 +373,10 @@ public sealed class FormRuleEngine : IFormRuleEngine
         }
 
         JsonObject uiRoot = ParseObject(uiSchemaJson, "UI schema");
-        return uiRoot["fields"] is JsonObject fields
+        return uiRoot[SchemaJsonKeys.Fields] is JsonObject fields
             && fields.TryGetPropertyValue(fieldId, out JsonNode? presentation)
-            && presentation is JsonObject presentationObject && (presentationObject["hidden"]?.GetValue<bool>() ?? false);
+            && presentation is JsonObject presentationObject
+            && (presentationObject["hidden"]?.GetValue<bool>() ?? false);
     }
 
     private static JsonObject ParseObject(string json, string label)
@@ -293,7 +384,8 @@ public sealed class FormRuleEngine : IFormRuleEngine
         try
         {
             return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException($"Invalid {label}: expected a JSON object.");
+                ?? throw new ValidationException(
+                    $"Invalid {label}: expected a JSON object.");
         }
         catch (System.Text.Json.JsonException exception)
         {

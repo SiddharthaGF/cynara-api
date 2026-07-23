@@ -9,26 +9,29 @@ public sealed class AiProviderSettingsService(
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IAiProviderSettingsService
 {
+    private static readonly string DefaultOpenAiBaseUrl =
+        HttpsApi("api.openai.com", "v1");
+
     private static readonly IReadOnlyList<AiEndpointSuggestion> Suggestions =
     [
         new(
             "openai",
             "OpenAI",
-            "https://api.openai.com/v1",
+            DefaultOpenAiBaseUrl,
             "gpt-4o-mini",
-            true),
+            JsonObject: true),
         new(
             "minimax",
             "MiniMax",
-            "https://api.minimax.io/v1",
+            HttpsApi("api.minimax.io", "v1"),
             "MiniMax-M2.7",
-            false),
+            JsonObject: false),
         new(
             "openrouter",
             "OpenRouter",
-            "https://openrouter.ai/api/v1",
+            HttpsApi("openrouter.ai", "api/v1"),
             "openai/gpt-4o-mini",
-            true),
+            JsonObject: true),
     ];
 
     public async Task<OpenAiConfig> ResolveActiveConfigAsync(
@@ -62,15 +65,15 @@ public sealed class AiProviderSettingsService(
         return environment.Configured
             ? ToSettingsResponse(environment, "env", Suggestions)
             : new FormAiSettingsResponse(
-            false,
-            row?.Model?.Trim(),
-            NormalizeOptionalBaseUrl(row?.BaseUrl),
-            false,
-            null,
-            row?.JsonObject ?? true,
-            "none",
-            !string.IsNullOrWhiteSpace(row?.BaseUrl),
-            Suggestions);
+                Configured: false,
+                row?.Model?.Trim(),
+                NormalizeOptionalBaseUrl(row?.BaseUrl),
+                ApiKeyConfigured: false,
+                ApiKeyMasked: null,
+                row?.JsonObject ?? true,
+                "none",
+                !string.IsNullOrWhiteSpace(row?.BaseUrl),
+                Suggestions);
     }
 
     public async Task<FormAiSettingsResponse> UpsertAsync(
@@ -100,7 +103,7 @@ public sealed class AiProviderSettingsService(
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
             throw new ValidationException(
-                "Base URL is required (OpenAI-compatible endpoint, e.g. https://api.openai.com/v1).");
+                $"Base URL is required (OpenAI-compatible endpoint, e.g. {DefaultOpenAiBaseUrl}).");
         }
 
         if (string.IsNullOrWhiteSpace(model))
@@ -148,7 +151,7 @@ public sealed class AiProviderSettingsService(
         bool jsonObject)
     {
         string normalizedBaseUrl = NormalizeOptionalBaseUrl(baseUrl)
-            ?? "https://api.openai.com/v1";
+            ?? DefaultOpenAiBaseUrl;
         string normalizedModel = NormalizeOptionalText(model) ?? "gpt-4o-mini";
         string? normalizedKey = NormalizeOptionalText(apiKey);
         return new OpenAiConfig(
@@ -196,5 +199,15 @@ public sealed class AiProviderSettingsService(
 
         string trimmed = value.Trim();
         return trimmed.Length <= 4 ? "****" : $"****{trimmed[^4..]}";
+    }
+
+    private static string HttpsApi(string host, string path)
+    {
+        return new UriBuilder
+        {
+            Scheme = Uri.UriSchemeHttps,
+            Host = host,
+            Path = path,
+        }.Uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
     }
 }

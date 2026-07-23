@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -101,7 +102,7 @@ public sealed class FormLifecycleTests : IDisposable
             "review-flow",
             "Review flow",
             MinimalClinicalSchema("notes", "form.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
         await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -183,7 +184,7 @@ public sealed class FormLifecycleTests : IDisposable
             "retired-form",
             "Retired form",
             MinimalClinicalSchema("notes", "form.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
         await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -251,7 +252,7 @@ public sealed class FormLifecycleTests : IDisposable
 
         foreach (string action in actions)
         {
-            Assert.Contains(events, item => item.Action == action);
+            Assert.Contains(events, item => string.Equals(item.Action, action, StringComparison.Ordinal));
         }
     }
 
@@ -263,7 +264,7 @@ public sealed class FormLifecycleTests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalClinicalSchema(string id, string code)
@@ -291,6 +292,7 @@ public sealed class FormLifecycleTests : IDisposable
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
             fields = new Dictionary<string, object>
+(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {
@@ -302,13 +304,13 @@ public sealed class FormLifecycleTests : IDisposable
     }
 }
 
-public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _sharedConnection = new("Data Source=:memory:");
+    private readonly SqliteConnection sharedConnection = new("Data Source=:memory:");
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
-        _sharedConnection.Open();
+        sharedConnection.Open();
 
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
@@ -316,9 +318,8 @@ public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
                 Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
                 optional: false,
                 reloadOnChange: false);
-        });
-
-        builder.ConfigureServices(services =>
+        })
+            .ConfigureServices(services =>
         {
             ServiceDescriptor? dbContextDescriptor = services.SingleOrDefault(
                 descriptor => descriptor.ServiceType == typeof(DbContextOptions<CynaraDbContext>));
@@ -329,7 +330,7 @@ public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<CynaraDbContext>();
 
-            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(_sharedConnection));
+            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(sharedConnection));
         });
     }
 
@@ -337,7 +338,7 @@ public sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
     {
         if (disposing)
         {
-            _sharedConnection.Dispose();
+            sharedConnection.Dispose();
         }
 
         base.Dispose(disposing);

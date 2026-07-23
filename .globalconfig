@@ -10,11 +10,34 @@ dotnet_analyzer_diagnostic.category-Naming.severity = warning
 dotnet_analyzer_diagnostic.category-roslynator.severity = suggestion
 dotnet_diagnostic.RCS1227.severity = error
 
-# These rules conflict with intentional public API and persistence contracts.
+# StyleCop / Meziantou: warning so -warnaserror enforces them in make lint.
+# DocumentationRules=none covers all SA16xx (aligned with NoWarn CS1591).
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.DocumentationRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.ReadabilityRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.OrderingRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.NamingRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.LayoutRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.MaintainabilityRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpacingRules.severity = warning
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpecialRules.severity = warning
+dotnet_analyzer_diagnostic.category-Meziantou.severity = warning
+
+# Public API / persistence contracts
 dotnet_diagnostic.CA1054.severity = none
 dotnet_diagnostic.CA1056.severity = none
 dotnet_diagnostic.CA1308.severity = none
 
-# These style rules conflict with Roslynator's nested-expression guidance.
+# Conflict with Roslynator nested-expression guidance
 dotnet_diagnostic.IDE0045.severity = none
 dotnet_diagnostic.IDE0046.severity = none
+
+# Conflicts with editorconfig (no member qualification / co-located types)
+dotnet_diagnostic.SA1101.severity = none
+dotnet_diagnostic.SA1402.severity = none
+dotnet_diagnostic.MA0048.severity = none
+
+# Methods grouped by concern, not static-before-instance
+dotnet_diagnostic.SA1204.severity = none
+
+# MA0038 misfires on primary-constructor captures (prefer CA1822)
+dotnet_diagnostic.MA0038.severity = none

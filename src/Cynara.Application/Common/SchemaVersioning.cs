@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -18,7 +20,7 @@ internal static class ContentHashCalculator
         using JsonDocument? ui = uiSchemaJson is null ? null : JsonDocument.Parse(uiSchemaJson);
         using JsonDocument? rules = rulesSchemaJson is null ? null : JsonDocument.Parse(rulesSchemaJson);
 
-        var payload = new Dictionary<string, JsonElement?>
+        Dictionary<string, JsonElement?> payload = new(StringComparer.Ordinal)
         {
             ["clinical"] = clinical.RootElement.Clone(),
             ["ui"] = ui?.RootElement.Clone(),
@@ -31,22 +33,24 @@ internal static class ContentHashCalculator
 
 internal static class SemverRules
 {
+    private const string DefaultVersion = "1.0.0";
+
     public static IComparer<string> StringComparer { get; } = Comparer<string>.Create(
         (left, right) => Compare(Parse(left), Parse(right)));
 
     public static string NextVersion(IEnumerable<string> publishedVersions)
     {
         string? latest = publishedVersions
-            .OrderBy(static version => version, StringComparer)
+            .Order(StringComparer)
             .LastOrDefault();
 
         if (latest is null)
         {
-            return "1.0.0";
+            return DefaultVersion;
         }
 
         VersionParts parts = Parse(latest);
-        return $"{parts.Major}.{parts.Minor}.{parts.Patch + 1}";
+        return string.Create(CultureInfo.InvariantCulture, $"{parts.Major}.{parts.Minor}.{parts.Patch + 1}");
     }
 
     public static void EnsureValid(string version)
@@ -58,10 +62,7 @@ internal static class SemverRules
     {
         string[] segments = version.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return segments.Length != 3
-            || !int.TryParse(segments[0], out int major)
-            || !int.TryParse(segments[1], out int minor)
-            || !int.TryParse(segments[2], out int patch)
-            || major < 0
+            || !int.TryParse(segments[0], CultureInfo.InvariantCulture, out int major) || !int.TryParse(segments[1], CultureInfo.InvariantCulture, out int minor) || !int.TryParse(segments[2], CultureInfo.InvariantCulture, out int patch) || major < 0
             || minor < 0
             || patch < 0
             ? throw new ValidationException($"Invalid semantic version: {version}")
@@ -80,6 +81,7 @@ internal static class SemverRules
         return minor != 0 ? minor : left.Patch.CompareTo(right.Patch);
     }
 
+    [StructLayout(LayoutKind.Auto)]
     private readonly record struct VersionParts(int Major, int Minor, int Patch);
 }
 

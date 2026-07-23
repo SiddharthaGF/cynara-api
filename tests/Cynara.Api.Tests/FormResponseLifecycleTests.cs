@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -57,7 +58,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
             "draft-only",
             "Draft only",
             MinimalClinicalSchema("notes", "form.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
         await AssertStatusAsync(createFormResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -76,7 +77,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         var firstUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
                                  """{"revision-test.field":"Ada"}""",
-            created.RowVersion);
+                                 created.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
             firstUpdate).ConfigureAwait(false);
@@ -114,7 +115,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         var staleUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
                                  """{"concurrency-test.field":"first"}""",
-            created.RowVersion);
+                                 created.RowVersion);
         using HttpResponseMessage firstUpdate = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
             staleUpdate).ConfigureAwait(false);
@@ -123,7 +124,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         var conflictingUpdate = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
                                  """{"concurrency-test.field":"second"}""",
-            created.RowVersion);
+                                 created.RowVersion);
         using HttpResponseMessage conflictResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
             conflictingUpdate).ConfigureAwait(false);
@@ -138,7 +139,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         var updateRequest = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
                                  """{"complete-test.field":"ready"}""",
-            created.RowVersion);
+                                 created.RowVersion);
         using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
             updateRequest).ConfigureAwait(false);
@@ -160,7 +161,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         var editAfterComplete = new UpdateFormResponseRequest(
                                  /*lang=json,strict*/
                                  """{"complete-test.field":"changed"}""",
-            completed.RowVersion);
+                                 completed.RowVersion);
         using HttpResponseMessage editResponse = await Client.PutAsJsonAsync(
             $"/api/responses/{created.Id}",
             editAfterComplete).ConfigureAwait(false);
@@ -208,7 +209,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
             code,
             name,
             MinimalClinicalSchema("field", $"{code}.field"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
         await AssertStatusAsync(createFormResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -250,7 +251,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
 
     private async Task AssertAuditEventsRecordedAsync(Guid resourceId, params string[] actions)
     {
-        using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
@@ -259,7 +260,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
 
         foreach (string action in actions)
         {
-            Assert.Contains(events, item => item.Action == action);
+            Assert.Contains(events, item => string.Equals(item.Action, action, StringComparison.Ordinal));
         }
     }
 
@@ -271,7 +272,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalClinicalSchema(string id, string fieldCode)

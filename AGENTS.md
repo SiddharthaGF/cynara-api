@@ -34,6 +34,11 @@ make lint          # build -warnaserror
 make test          # dotnet test
 make check         # restore + format-check + lint + test
 make fix           # format + safe analyzer fixes
+make sonar         # SonarQube Community Build: up + bootstrap + scan
+make sonar-up      # start local SonarQube + Postgres (Docker)
+make sonar-scan    # SonarScanner for .NET → http://localhost:9000
+# Bootstrap also assigns profile "Cynara C#" (S104 file LOC ≤400).
+make seed          # seed demo showcase via Application services (any configured DB)
 ```
 
 Run the narrowest relevant checks first. Prefer `make test` (or a filtered
@@ -58,10 +63,12 @@ again. Disable hooks only with `HUSKY=0` when the user explicitly asks.
 - `src/Cynara.Domain/`: entities and status enums (forms, components, responses,
   audit).
 - `src/Cynara.Infrastructure/`: EF Core database context, module repositories,
-  module entity configurations, DI, and embedded JSON Schema files under
-  `Schemas/v1/`.
+  module entity configurations, DI, embedded JSON Schema files under
+  `Schemas/v1/`, and demo seed fixtures under `SeedData/`.
 - `tests/Cynara.Api.Tests/`: integration and workflow tests against the API.
-- `scripts/`: seed helpers and sample clinical/UI/rules JSON.
+- `tools/Cynara.Seed/`: in-process CLI that seeds the demo showcase form via
+  Application services (same path as preview startup seeding).
+- `scripts/`: local SonarQube bootstrap and scan helpers.
 
 Keep HTTP concerns in Api modules. Put workflows and persistence ports in the
 owning Application module. Keep EF implementations and entity configurations in

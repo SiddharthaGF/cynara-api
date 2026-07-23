@@ -37,3 +37,10 @@ appsettings.*.local.json
 
 ## Local tooling caches
 .atl/
+
+## SonarQube local analysis
+.sonar/
+.sonarqube/
+.scannerwork/
+coverage.xml
+*.coveragexml

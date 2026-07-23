@@ -14,13 +14,14 @@ using Xunit;
 
 namespace Cynara.Api.Tests;
 
-public sealed class FormAiRuleOperatorGuardTests : IClassFixture<GuardFactory>
+public sealed class FormAiRuleOperatorGuardTests : IDisposable
 {
-    private readonly GuardFactory factory;
+    private readonly GuardFactory factory = new();
 
-    public FormAiRuleOperatorGuardTests(GuardFactory factory)
+    public void Dispose()
     {
-        this.factory = factory;
+        factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -69,7 +70,8 @@ public sealed class FormAiRuleOperatorGuardTests : IClassFixture<GuardFactory>
         IFormAiSkillLoader loader = factory.Services.GetRequiredService<IFormAiSkillLoader>();
         string body = loader.GetSkillBody();
 
-        Assert.False(string.IsNullOrWhiteSpace(body),
+        Assert.False(
+            string.IsNullOrWhiteSpace(body),
             $"skill loader returned empty body. baseDir={AppContext.BaseDirectory} cwd={Directory.GetCurrentDirectory()}");
         Assert.Contains("form-schema-authoring", body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Allowed ops", body, StringComparison.OrdinalIgnoreCase);
@@ -83,8 +85,7 @@ public sealed class FormAiRuleOperatorGuardTests : IClassFixture<GuardFactory>
         IFormAiSkillLoader loader = factory.Services.GetRequiredService<IFormAiSkillLoader>();
         string body = loader.GetSkillBody();
 
-        string[] expectedAssets = ["output-template.json", "widget-map.json", "rules-examples.json"];
-        foreach (string name in expectedAssets)
+        foreach (string name in (string[])["output-template.json", "widget-map.json", "rules-examples.json"])
         {
             string header = $"## assets/{name}";
             Assert.Contains(header, body, StringComparison.Ordinal);
@@ -108,7 +109,7 @@ public sealed class FormAiRuleOperatorGuardTests : IClassFixture<GuardFactory>
     }
 }
 
-public sealed class GuardFactory : WebApplicationFactory<Program>
+internal sealed class GuardFactory : WebApplicationFactory<Program>
 {
     private RegexOpenAiClientStub? stubOverride;
 
@@ -117,6 +118,7 @@ public sealed class GuardFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
+(StringComparer.Ordinal)
             {
                 ["CYNARA_ENV"] = "preview",
                 ["OPENAI_API_KEY"] = "test-api-key",

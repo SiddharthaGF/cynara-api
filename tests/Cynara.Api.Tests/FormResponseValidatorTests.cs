@@ -8,7 +8,7 @@ namespace Cynara.Api.Tests;
 
 public sealed class FormResponseValidatorTests
 {
-    private readonly FormResponseValidator _validator = new(new FormRuleEngine());
+    private readonly FormResponseValidator validator = new(new FormRuleEngine());
 
     [Fact]
     public void ValidateComplete_RejectsMissingRequiredField()
@@ -22,7 +22,7 @@ public sealed class FormResponseValidatorTests
             }
             """;
 
-        FormResponseValidationResult result = _validator.Validate(
+        FormResponseValidationResult result = validator.Validate(
             clinical,
             uiSchemaJson: null,
             rulesSchemaJson: null,
@@ -31,7 +31,7 @@ public sealed class FormResponseValidatorTests
 
         Assert.Contains(
             result.Errors,
-            error => error.Code == "REQUIRED_FIELD_MISSING" && error.Path == "/fields/0");
+            error => string.Equals(error.Code, "REQUIRED_FIELD_MISSING", StringComparison.Ordinal) && string.Equals(error.Path, "/fields/0", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -65,12 +65,12 @@ public sealed class FormResponseValidatorTests
             }
             """;
 
-        FormResponseValidationResult result = _validator.Validate(
+        FormResponseValidationResult result = validator.Validate(
             clinical,
             uiSchemaJson: null,
             rules,
-                                 /*lang=json,strict*/
-                                 """
+            /*lang=json,strict*/
+            """
             {
               "body.weight.kg": 70,
               "body.height.m": 1.75,

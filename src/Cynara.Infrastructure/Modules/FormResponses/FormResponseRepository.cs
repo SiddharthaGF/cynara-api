@@ -22,7 +22,10 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
                 cancellationToken).ConfigureAwait(false);
 
         return definition?.Versions.SingleOrDefault(
-            item => item.Version == version
+            item => string.Equals(
+                item.Version,
+                version,
+                StringComparison.Ordinal)
                 && item.Status == FormVersionStatus.Published);
     }
 
@@ -75,15 +78,14 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
                 cancellationToken);
     }
 
-    public Task<List<FormResponseRevision>> ListRevisionsAsync(
+    public async Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
         Guid responseId,
         CancellationToken cancellationToken)
     {
-        return dbContext.FormResponseRevisions
+        return await dbContext.FormResponseRevisions
             .AsNoTracking()
             .Where(item => item.FormResponseId == responseId)
             .OrderBy(item => item.RevisionNumber)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
-
 }

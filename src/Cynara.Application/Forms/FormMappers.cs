@@ -16,7 +16,7 @@ internal static class FormMappers
             .Where(item => item.Status == FormVersionStatus.Published
                 && item.Version != null)
             .Select(item => item.Version!)
-            .OrderBy(static version => version, SemverRules.StringComparer)
+            .Order(SemverRules.StringComparer)
             .ToList();
 
         return new FormSummaryDto(

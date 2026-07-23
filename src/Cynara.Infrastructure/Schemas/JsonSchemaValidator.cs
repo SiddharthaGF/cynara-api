@@ -10,9 +10,9 @@ namespace Cynara.Infrastructure.Schemas;
 
 public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValidator
 {
-    private readonly JsonSchema _clinicalSchema = JsonSchema.FromFile(options.ClinicalSchemaPath);
-    private readonly JsonSchema _uiSchema = JsonSchema.FromFile(options.UiSchemaPath);
-    private readonly JsonSchema _rulesSchema = JsonSchema.FromFile(options.RulesSchemaPath);
+    private readonly JsonSchema clinicalSchema = JsonSchema.FromFile(options.ClinicalSchemaPath);
+    private readonly JsonSchema uiSchema = JsonSchema.FromFile(options.UiSchemaPath);
+    private readonly JsonSchema rulesSchema = JsonSchema.FromFile(options.RulesSchemaPath);
 
     public void ValidateComponentDraft(string clinicalSchemaJson, string? uiSchemaJson)
     {
@@ -22,21 +22,6 @@ public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValida
     public void ValidateFormDraft(string clinicalSchemaJson, string? uiSchemaJson, string? rulesSchemaJson = null)
     {
         ValidateDraft(clinicalSchemaJson, uiSchemaJson, rulesSchemaJson);
-    }
-
-    private void ValidateDraft(string clinicalSchemaJson, string? uiSchemaJson, string? rulesSchemaJson)
-    {
-        ValidateJson(_clinicalSchema, clinicalSchemaJson, "clinical schema");
-        if (uiSchemaJson is not null)
-        {
-            ValidateJson(_uiSchema, uiSchemaJson, "UI schema");
-        }
-
-        if (rulesSchemaJson is not null)
-        {
-            ValidateJson(_rulesSchema, rulesSchemaJson, "rules schema");
-            FormRuleAnalyzer.ValidateDependencies(clinicalSchemaJson, rulesSchemaJson);
-        }
     }
 
     private static void ValidateJson(JsonSchema schema, string json, string label)
@@ -83,6 +68,21 @@ public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValida
             CollectErrors(detail, messages);
         }
     }
+
+    private void ValidateDraft(string clinicalSchemaJson, string? uiSchemaJson, string? rulesSchemaJson)
+    {
+        ValidateJson(clinicalSchema, clinicalSchemaJson, "clinical schema");
+        if (uiSchemaJson is not null)
+        {
+            ValidateJson(uiSchema, uiSchemaJson, "UI schema");
+        }
+
+        if (rulesSchemaJson is not null)
+        {
+            ValidateJson(rulesSchema, rulesSchemaJson, "rules schema");
+            FormRuleAnalyzer.ValidateDependencies(clinicalSchemaJson, rulesSchemaJson);
+        }
+    }
 }
 
 public sealed class SchemaFilePaths
@@ -92,4 +92,26 @@ public sealed class SchemaFilePaths
     public required string UiSchemaPath { get; init; }
 
     public required string RulesSchemaPath { get; init; }
+
+    public static SchemaFilePaths FromBaseDirectory(string? baseDirectory = null)
+    {
+        string schemaRoot = Path.Combine(
+            baseDirectory ?? AppContext.BaseDirectory,
+            "Schemas");
+        return new SchemaFilePaths
+        {
+            ClinicalSchemaPath = Path.Combine(
+                schemaRoot,
+                "v1",
+                "clinical-schema.schema.json"),
+            UiSchemaPath = Path.Combine(
+                schemaRoot,
+                "v1",
+                "ui-schema.schema.json"),
+            RulesSchemaPath = Path.Combine(
+                schemaRoot,
+                "v1",
+                "rules-schema.schema.json"),
+        };
+    }
 }

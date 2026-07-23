@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -94,7 +95,7 @@ public sealed class FormReviewWorkflowTests : IDisposable
         Assert.NotNull(published.PublishedAt);
         Assert.NotNull(published.LastReviewedAt);
 
-        using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         AuditEvent? publishedEvent = await dbContext.AuditEvents.SingleOrDefaultAsync(
             item => item.ResourceId == published.Id && item.Action == "form.version.published").ConfigureAwait(false);
@@ -132,7 +133,7 @@ public sealed class FormReviewWorkflowTests : IDisposable
 
     private async Task CreateFormAsync(string code, string name, string clinicalSchemaJson)
     {
-        var request = new CreateFormRequest(code, name, clinicalSchemaJson, null);
+        var request = new CreateFormRequest(code, name, clinicalSchemaJson, UiSchemaJson: null);
         using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/forms", request).ConfigureAwait(false);
         await AssertStatusAsync(response, HttpStatusCode.Created).ConfigureAwait(false);
     }
@@ -221,6 +222,6 @@ public sealed class FormReviewWorkflowTests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 }

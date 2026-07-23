@@ -15,28 +15,18 @@ internal static class CanonicalJsonSerializer
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static void WriteNode(Utf8JsonWriter writer, JsonNode node)
+    private static void WriteNode(Utf8JsonWriter writer, JsonNode? node)
     {
         switch (node)
         {
+            case null:
+                writer.WriteNullValue();
+                break;
             case JsonObject obj:
-                writer.WriteStartObject();
-                foreach (string propertyName in obj.Select(static pair => pair.Key).OrderBy(static key => key, StringComparer.Ordinal))
-                {
-                    writer.WritePropertyName(propertyName);
-                    WriteNode(writer, obj[propertyName]!);
-                }
-
-                writer.WriteEndObject();
+                WriteObject(writer, obj);
                 break;
             case JsonArray array:
-                writer.WriteStartArray();
-                foreach (JsonNode? item in array)
-                {
-                    WriteNode(writer, item!);
-                }
-
-                writer.WriteEndArray();
+                WriteArray(writer, array);
                 break;
             case JsonValue value:
                 value.WriteTo(writer);
@@ -45,5 +35,30 @@ internal static class CanonicalJsonSerializer
                 writer.WriteNullValue();
                 break;
         }
+    }
+
+    private static void WriteObject(Utf8JsonWriter writer, JsonObject obj)
+    {
+        writer.WriteStartObject();
+        foreach (KeyValuePair<string, JsonNode?> property in obj.OrderBy(
+            static pair => pair.Key,
+            StringComparer.Ordinal))
+        {
+            writer.WritePropertyName(property.Key);
+            WriteNode(writer, property.Value);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static void WriteArray(Utf8JsonWriter writer, JsonArray array)
+    {
+        writer.WriteStartArray();
+        foreach (JsonNode? item in array)
+        {
+            WriteNode(writer, item);
+        }
+
+        writer.WriteEndArray();
     }
 }

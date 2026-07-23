@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -15,6 +16,13 @@ public sealed class OpenAiClient : IOpenAiClient
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         this.httpClient = httpClient;
+    }
+
+    private enum PromptCacheMode
+    {
+        None = 0,
+        AnthropicEphemeral = 1,
+        OpenAiPromptKey = 2,
     }
 
     public async Task<OpenAiCompletionResult> CreateChatCompletionAsync(
@@ -58,7 +66,7 @@ public sealed class OpenAiClient : IOpenAiClient
         catch (JsonException)
         {
             throw new ValidationException(
-                $"OpenAI-compatible provider returned non-JSON (HTTP {(int)response.StatusCode}).");
+                string.Create(CultureInfo.InvariantCulture, $"OpenAI-compatible provider returned non-JSON (HTTP {(int)response.StatusCode})."));
         }
     }
 
@@ -105,57 +113,22 @@ public sealed class OpenAiClient : IOpenAiClient
                         yield break;
                     }
 
-                    string trimmed = line.Trim();
-                    if (!trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    if (!TryParseSseJson(line, out JsonDocument? parsed))
                     {
                         continue;
                     }
 
-                    string data = trimmed[5..].Trim();
-                    if (data == "[DONE]")
+                    using JsonDocument document = parsed;
+                    if (!TryReadContentDelta(
+                        document.RootElement,
+                        out string? content,
+                        out string? reasoning))
                     {
                         continue;
                     }
 
-                    JsonDocument document;
-                    try
-                    {
-                        document = JsonDocument.Parse(data);
-                    }
-                    catch (JsonException)
-                    {
-                        continue;
-                    }
-
-                    using (document)
-                    {
-                        JsonElement root = document.RootElement;
-                        if (root.TryGetProperty("error", out JsonElement error)
-                            && error.TryGetProperty("message", out JsonElement errorMessage))
-                        {
-                            throw new ValidationException(
-                                errorMessage.GetString() ?? "AI stream failed.");
-                        }
-
-                        JsonElement delta;
-                        try
-                        {
-                            delta = root.GetProperty("choices")[0].GetProperty("delta");
-                        }
-                        catch (KeyNotFoundException)
-                        {
-                            continue;
-                        }
-
-                        string? content = ReadStringProperty(delta, "content");
-                        string? reasoning = ReadStringProperty(delta, "reasoning_content")
-                            ?? ReadStringProperty(delta, "reasoning");
-                        if (!string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning))
-                        {
-                            emittedAny = true;
-                            yield return new OpenAiStreamDelta(content, reasoning);
-                        }
-                    }
+                    emittedAny = true;
+                    yield return new OpenAiStreamDelta(content, reasoning);
                 }
 
                 if (!emittedAny)
@@ -167,13 +140,72 @@ public sealed class OpenAiClient : IOpenAiClient
         }
     }
 
+    private static bool TryParseSseJson(
+        string line,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsonDocument? document)
+    {
+        document = null;
+        string trimmed = line.Trim();
+        if (!trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string data = trimmed[5..].Trim();
+        if (string.Equals(data, "[DONE]", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            document = JsonDocument.Parse(data);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadContentDelta(
+        JsonElement root,
+        out string? content,
+        out string? reasoning)
+    {
+        content = null;
+        reasoning = null;
+
+        if (root.TryGetProperty("error", out JsonElement error)
+            && error.TryGetProperty("message", out JsonElement errorMessage))
+        {
+            throw new ValidationException(
+                errorMessage.GetString() ?? "AI stream failed.");
+        }
+
+        JsonElement delta;
+        try
+        {
+            delta = root.GetProperty("choices")[0].GetProperty("delta");
+        }
+        catch (KeyNotFoundException)
+        {
+            return false;
+        }
+
+        content = ReadStringProperty(delta, "content");
+        reasoning = ReadStringProperty(delta, "reasoning_content")
+            ?? ReadStringProperty(delta, "reasoning");
+        return !string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning);
+    }
+
     private static HttpRequestMessage CreateRequest(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
         bool stream,
         string? cacheScope)
     {
-        var body = new Dictionary<string, object?>
+        var body = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["model"] = config.Model,
             ["temperature"] = 1,
@@ -218,13 +250,6 @@ public sealed class OpenAiClient : IOpenAiClient
         return request;
     }
 
-    private enum PromptCacheMode
-    {
-        None,
-        AnthropicEphemeral,
-        OpenAiPromptKey,
-    }
-
     private static PromptCacheMode DetectPromptCacheMode(string baseUrl)
     {
         string host = baseUrl.ToLowerInvariant();
@@ -233,11 +258,13 @@ public sealed class OpenAiClient : IOpenAiClient
         {
             return PromptCacheMode.AnthropicEphemeral;
         }
+
         if (host.Contains("api.openai.com", StringComparison.OrdinalIgnoreCase)
             || host.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase))
         {
             return PromptCacheMode.OpenAiPromptKey;
         }
+
         return PromptCacheMode.None;
     }
 
@@ -249,6 +276,7 @@ public sealed class OpenAiClient : IOpenAiClient
         {
             _ = sb.Append(char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '-');
         }
+
         string key = "cynara:" + sb;
         return key.Length > 64 ? key[..64] : key;
     }
@@ -263,17 +291,20 @@ public sealed class OpenAiClient : IOpenAiClient
         {
             return;
         }
+
         PromptCacheMode mode = DetectPromptCacheMode(config.BaseUrl);
         if (mode == PromptCacheMode.None)
         {
             return;
         }
+
         string key = BuildPromptCacheKey(cacheScope);
         if (mode == PromptCacheMode.OpenAiPromptKey)
         {
             body["prompt_cache_key"] = key;
             return;
         }
+
         // Anthropic: attach a cache_control breakpoint to the system prompt.
         // Re-shape the messages list with the breakpoint on the last system entry.
         var annotated = new List<OpenAiMessage>(messages.Count);
@@ -287,7 +318,8 @@ public sealed class OpenAiClient : IOpenAiClient
                     0,
                     messages[i] with
                     {
-                        CacheControl = new Dictionary<string, string>
+                        CacheControl = new Dictionary<string, string>(
+                            StringComparer.Ordinal)
                         {
                             ["type"] = "ephemeral",
                         },
@@ -295,8 +327,10 @@ public sealed class OpenAiClient : IOpenAiClient
                 attached = true;
                 continue;
             }
+
             annotated.Insert(0, messages[i]);
         }
+
         if (attached)
         {
             body["messages"] = annotated;
@@ -338,7 +372,9 @@ public sealed class OpenAiClient : IOpenAiClient
         }
 
         return string.IsNullOrWhiteSpace(body)
-            ? $"OpenAI-compatible request failed with HTTP {(int)statusCode}."
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"OpenAI-compatible request failed with HTTP {(int)statusCode}.")
             : body.Trim();
     }
 
@@ -417,6 +453,7 @@ public sealed class OpenAiClient : IOpenAiClient
             {
                 thoughts.Add(thought);
             }
+
             content = content.Remove(start, end - start + 1);
         }
 

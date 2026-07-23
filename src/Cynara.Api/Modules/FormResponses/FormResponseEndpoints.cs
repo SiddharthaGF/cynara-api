@@ -113,5 +113,4 @@ internal static class FormResponseEndpoints
             cancellationToken).ConfigureAwait(false);
         return Results.Ok(revision);
     }
-
 }

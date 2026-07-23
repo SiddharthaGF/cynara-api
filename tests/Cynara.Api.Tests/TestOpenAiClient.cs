@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -21,7 +22,7 @@ internal sealed class TestOpenAiClient : IOpenAiClient
         cancellationToken.ThrowIfCancellationRequested();
 
         string content = CreateResponse(messages);
-        return Task.FromResult(new OpenAiCompletionResult(content, null));
+        return Task.FromResult(new OpenAiCompletionResult(content, Thinking: null));
     }
 
     public IAsyncEnumerable<OpenAiStreamDelta> StreamChatCompletionAsync(
@@ -49,7 +50,7 @@ internal sealed class TestOpenAiClient : IOpenAiClient
                 offset + StreamChunkSize >= content.Length
                     ? content[offset..]
                     : content.Substring(offset, StreamChunkSize),
-                null);
+Reasoning: null);
         }
     }
 
@@ -154,7 +155,7 @@ internal sealed class TestOpenAiClient : IOpenAiClient
 
         for (int suffix = 2; ; suffix++)
         {
-            string candidate = $"{baseId}-{suffix}";
+            string candidate = string.Create(CultureInfo.InvariantCulture, $"{baseId}-{suffix}");
             if (!existingIds.Contains(candidate))
             {
                 return candidate;

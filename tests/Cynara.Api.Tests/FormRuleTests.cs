@@ -105,7 +105,7 @@ public sealed class FormRuleTests
             }
             """;
 
-        var createRequest = new CreateFormRequest("rules-form", "Rules form", clinical, null, rules);
+        var createRequest = new CreateFormRequest("rules-form", "Rules form", clinical, UiSchemaJson: null, rules);
         using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, createResponse.StatusCode);
@@ -147,7 +147,7 @@ public sealed class FormRuleTests
             }
             """;
 
-        var createRequest = new CreateFormRequest("bmi-form", "BMI form", clinical, null, rules);
+        var createRequest = new CreateFormRequest("bmi-form", "BMI form", clinical, UiSchemaJson: null, rules);
         using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
@@ -198,9 +198,12 @@ public sealed class FormRuleTests
                 JsonValueKind.True => true,
                 JsonValueKind.False => false,
                 JsonValueKind.Null => null,
-                JsonValueKind.Undefined => throw new NotImplementedException(),
-                JsonValueKind.Object => throw new NotImplementedException(),
-                JsonValueKind.Array => throw new NotImplementedException(),
+                JsonValueKind.Undefined => throw new NotSupportedException(
+                    "Undefined JSON values are not supported."),
+                JsonValueKind.Object => throw new NotSupportedException(
+                    "Nested JSON objects are not supported."),
+                JsonValueKind.Array => throw new NotSupportedException(
+                    "JSON arrays are not supported."),
                 _ => property.Value.GetRawText(),
             };
         }

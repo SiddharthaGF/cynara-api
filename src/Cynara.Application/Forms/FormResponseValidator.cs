@@ -19,7 +19,10 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
         Dictionary<string, AnswerFieldDefinition> fieldsByCode = AnswerFieldIndex.Build(clinicalRoot);
         var repeatersByCode = fieldsByCode.Values
-            .Where(item => item.Type == "repeater")
+            .Where(static item => string.Equals(
+                item.Type,
+                FieldTypeNames.Repeater,
+                StringComparison.Ordinal))
             .ToDictionary(item => item.Code, item => item, StringComparer.Ordinal);
 
         Dictionary<string, JsonElement> answers = ParseAnswers(answersJson);
@@ -37,7 +40,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         var normalized = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (AnswerFieldDefinition field in fieldsByCode.Values)
         {
-            if (field.Type is "group" or "repeater" or "component-ref")
+            if (field.Type is FieldTypeNames.Group or FieldTypeNames.Repeater or FieldTypeNames.ComponentRef)
             {
                 continue;
             }
@@ -75,19 +78,16 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         List<FormResponseFieldError> errors)
     {
         var allowed = fieldsByCode.Values
-            .Where(item => item.Type is not ("group" or "component-ref"))
+            .Where(item => item.Type is not (FieldTypeNames.Group or FieldTypeNames.ComponentRef))
             .Select(item => item.Code)
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (string key in answers.Keys)
+        foreach (string key in answers.Keys.Where(key => !allowed.Contains(key)))
         {
-            if (!allowed.Contains(key))
-            {
-                errors.Add(new FormResponseFieldError(
-                    "UNKNOWN_FIELD",
-                    $"/answers/{key}",
-                    $"Unknown answer field '{key}'."));
-            }
+            errors.Add(new FormResponseFieldError(
+                "UNKNOWN_FIELD",
+                $"/answers/{key}",
+                $"Unknown answer field '{key}'."));
         }
     }
 
@@ -99,52 +99,17 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         List<FormResponseFieldError> errors,
         Dictionary<string, object?> normalized)
     {
-        bool visible = !rules.Visibility.TryGetValue(field.Id, out bool isVisible) || isVisible;
-        bool enabled = !rules.Enabled.TryGetValue(field.Id, out bool isEnabled) || isEnabled;
-        bool required = (rules.Required.TryGetValue(field.Id, out bool isRequired) && isRequired)
-            || field.Required;
-
         if (rules.CalculatedValues.ContainsKey(field.Code))
         {
             return;
         }
 
-        if (!visible || !enabled)
+        (bool visible, bool enabled, bool required) = ResolveFieldFlags(field, rules);
+
+        if (TryRejectInactiveValue(field, value, visible, enabled, errors)
+            || TryRejectReadOnlyValue(field, value, rules, errors)
+            || TryRejectRequiredEmpty(field, value, mode, required, errors))
         {
-            if (!IsEmpty(value))
-            {
-                errors.Add(new FormResponseFieldError(
-                    visible ? "DISABLED_FIELD_VALUE" : "HIDDEN_FIELD_VALUE",
-                    field.Path,
-                    $"Field '{field.Code}' cannot accept values while hidden or disabled."));
-            }
-
-            return;
-        }
-
-        if (field.ReadOnly && !rules.CalculatedValues.ContainsKey(field.Code))
-        {
-            if (!IsEmpty(value))
-            {
-                errors.Add(new FormResponseFieldError(
-                    "READONLY_FIELD_MODIFIED",
-                    field.Path,
-                    $"Field '{field.Code}' is read-only."));
-            }
-
-            return;
-        }
-
-        if (IsEmpty(value))
-        {
-            if (mode == FormResponseValidationMode.Complete && required)
-            {
-                errors.Add(new FormResponseFieldError(
-                    "REQUIRED_FIELD_MISSING",
-                    field.Path,
-                    $"Field '{field.Code}' is required."));
-            }
-
             return;
         }
 
@@ -163,6 +128,85 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         normalized[field.Code] = converted;
     }
 
+    private static (bool Visible, bool Enabled, bool Required) ResolveFieldFlags(
+        AnswerFieldDefinition field,
+        FormRuleEvaluationResult rules)
+    {
+        bool visible = !rules.Visibility.TryGetValue(field.Id, out bool isVisible) || isVisible;
+        bool enabled = !rules.Enabled.TryGetValue(field.Id, out bool isEnabled) || isEnabled;
+        bool required = (rules.Required.TryGetValue(field.Id, out bool isRequired) && isRequired)
+            || field.Required;
+        return (visible, enabled, required);
+    }
+
+    private static bool TryRejectInactiveValue(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        bool visible,
+        bool enabled,
+        List<FormResponseFieldError> errors)
+    {
+        if (visible && enabled)
+        {
+            return false;
+        }
+
+        if (!IsEmpty(value))
+        {
+            errors.Add(new FormResponseFieldError(
+                visible ? "DISABLED_FIELD_VALUE" : "HIDDEN_FIELD_VALUE",
+                field.Path,
+                $"Field '{field.Code}' cannot accept values while hidden or disabled."));
+        }
+
+        return true;
+    }
+
+    private static bool TryRejectReadOnlyValue(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        FormRuleEvaluationResult rules,
+        List<FormResponseFieldError> errors)
+    {
+        if (!field.ReadOnly || rules.CalculatedValues.ContainsKey(field.Code))
+        {
+            return false;
+        }
+
+        if (!IsEmpty(value))
+        {
+            errors.Add(new FormResponseFieldError(
+                "READONLY_FIELD_MODIFIED",
+                field.Path,
+                $"Field '{field.Code}' is read-only."));
+        }
+
+        return true;
+    }
+
+    private static bool TryRejectRequiredEmpty(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        FormResponseValidationMode mode,
+        bool required,
+        List<FormResponseFieldError> errors)
+    {
+        if (!IsEmpty(value))
+        {
+            return false;
+        }
+
+        if (mode == FormResponseValidationMode.Complete && required)
+        {
+            errors.Add(new FormResponseFieldError(
+                "REQUIRED_FIELD_MISSING",
+                field.Path,
+                $"Field '{field.Code}' is required."));
+        }
+
+        return true;
+    }
+
     private static void ValidateRepeater(
         AnswerFieldDefinition repeater,
         JsonElement rawRows,
@@ -171,8 +215,50 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         List<FormResponseFieldError> errors,
         Dictionary<string, object?> normalized)
     {
-        bool visible = !rules.Visibility.TryGetValue(repeater.Id, out bool isVisible) || isVisible;
-        bool enabled = !rules.Enabled.TryGetValue(repeater.Id, out bool isEnabled) || isEnabled;
+        if (!GateRepeaterAccess(
+                repeater,
+                ref rawRows,
+                rules,
+                mode,
+                errors,
+                normalized))
+        {
+            return;
+        }
+
+        int rowCount = rawRows.GetArrayLength();
+        ValidateRepeaterItemCount(repeater, rowCount, mode, errors);
+
+        List<Dictionary<string, object?>> rows = [];
+        var childCodes = repeater.Children
+            .Select(item => item.Code)
+            .ToHashSet(StringComparer.Ordinal);
+
+        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            ValidateRepeaterRow(
+                repeater,
+                rawRows[rowIndex],
+                rowIndex,
+                childCodes,
+                new RepeaterRowContext(rules, mode, errors, rows));
+        }
+
+        normalized[repeater.Code] = rows;
+    }
+
+    private static bool GateRepeaterAccess(
+        AnswerFieldDefinition repeater,
+        ref JsonElement rawRows,
+        FormRuleEvaluationResult rules,
+        FormResponseValidationMode mode,
+        List<FormResponseFieldError> errors,
+        Dictionary<string, object?> normalized)
+    {
+        bool visible = !rules.Visibility.TryGetValue(repeater.Id, out bool isVisible)
+            || isVisible;
+        bool enabled = !rules.Enabled.TryGetValue(repeater.Id, out bool isEnabled)
+            || isEnabled;
 
         if (!visible || !enabled)
         {
@@ -185,7 +271,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             }
 
             normalized[repeater.Code] = Array.Empty<Dictionary<string, object?>>();
-            return;
+            return false;
         }
 
         if (rawRows.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
@@ -205,63 +291,63 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
 
             normalized[repeater.Code] = Array.Empty<Dictionary<string, object?>>();
             ValidateRepeaterItemCount(repeater, 0, mode, errors);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void ValidateRepeaterRow(
+        AnswerFieldDefinition repeater,
+        JsonElement rowElement,
+        int rowIndex,
+        HashSet<string> childCodes,
+        RepeaterRowContext context)
+    {
+        string rowPath = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{repeater.Path}/{rowIndex}");
+
+        if (rowElement.ValueKind != JsonValueKind.Object)
+        {
+            context.Errors.Add(new FormResponseFieldError(
+                "INVALID_TYPE",
+                rowPath,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Repeater row {rowIndex} must be an object.")));
             return;
         }
 
-        int rowCount = rawRows.GetArrayLength();
-        ValidateRepeaterItemCount(repeater, rowCount, mode, errors);
-
-        List<Dictionary<string, object?>> rows = [];
-        var childCodes = repeater.Children
-            .Select(item => item.Code)
-            .ToHashSet(StringComparer.Ordinal);
-
-        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        Dictionary<string, JsonElement> rowAnswers = [];
+        foreach (JsonProperty property in rowElement.EnumerateObject())
         {
-            JsonElement rowElement = rawRows[rowIndex];
-            string rowPath = $"{repeater.Path}/{rowIndex}";
-
-            if (rowElement.ValueKind != JsonValueKind.Object)
+            if (!childCodes.Contains(property.Name))
             {
-                errors.Add(new FormResponseFieldError(
-                    "INVALID_TYPE",
-                    rowPath,
-                    $"Repeater row {rowIndex} must be an object."));
+                context.Errors.Add(new FormResponseFieldError(
+                    "UNKNOWN_FIELD",
+                    $"{rowPath}/{property.Name}",
+                    $"Unknown repeater field '{property.Name}'."));
                 continue;
             }
 
-            Dictionary<string, JsonElement> rowAnswers = [];
-            foreach (JsonProperty property in rowElement.EnumerateObject())
-            {
-                if (!childCodes.Contains(property.Name))
-                {
-                    errors.Add(new FormResponseFieldError(
-                        "UNKNOWN_FIELD",
-                        $"{rowPath}/{property.Name}",
-                        $"Unknown repeater field '{property.Name}'."));
-                    continue;
-                }
-
-                rowAnswers[property.Name] = property.Value;
-            }
-
-            Dictionary<string, object?> normalizedRow = [];
-            foreach (AnswerFieldDefinition child in repeater.Children)
-            {
-                _ = rowAnswers.TryGetValue(child.Code, out JsonElement childValue);
-                ValidateScalarField(
-                    child with { Path = $"{rowPath}/{child.Id}" },
-                    childValue,
-                    rules,
-                    mode,
-                    errors,
-                    normalizedRow);
-            }
-
-            rows.Add(normalizedRow);
+            rowAnswers[property.Name] = property.Value;
         }
 
-        normalized[repeater.Code] = rows;
+        Dictionary<string, object?> normalizedRow = [];
+        foreach (AnswerFieldDefinition child in repeater.Children)
+        {
+            _ = rowAnswers.TryGetValue(child.Code, out JsonElement childValue);
+            ValidateScalarField(
+                child with { Path = $"{rowPath}/{child.Id}" },
+                childValue,
+                context.Rules,
+                context.Mode,
+                context.Errors,
+                normalizedRow);
+        }
+
+        context.Rows.Add(normalizedRow);
     }
 
     private static void ValidateRepeaterItemCount(
@@ -283,7 +369,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             errors.Add(new FormResponseFieldError(
                 "REPEATER_MIN_ITEMS",
                 repeater.Path,
-                $"Repeater '{repeater.Code}' requires at least {minItems} items."));
+                string.Create(CultureInfo.InvariantCulture, $"Repeater '{repeater.Code}' requires at least {minItems} items.")));
         }
 
         if (maxItems is not null && rowCount > maxItems)
@@ -291,7 +377,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             errors.Add(new FormResponseFieldError(
                 "REPEATER_MAX_ITEMS",
                 repeater.Path,
-                $"Repeater '{repeater.Code}' allows at most {maxItems} items."));
+                string.Create(CultureInfo.InvariantCulture, $"Repeater '{repeater.Code}' allows at most {maxItems} items.")));
         }
     }
 
@@ -364,16 +450,6 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         }
     }
 
-    private FormRuleEvaluationResult EvaluateRules(
-        string clinicalSchemaJson,
-        string? rulesSchemaJson,
-        string? uiSchemaJson,
-        Dictionary<string, object?> ruleValues)
-    {
-        string resolvedRules = ResolveRulesSchema(clinicalSchemaJson, rulesSchemaJson);
-        return ruleEngine.Evaluate(clinicalSchemaJson, resolvedRules, ruleValues, uiSchemaJson);
-    }
-
     private static string ResolveRulesSchema(string clinicalSchemaJson, string? rulesSchemaJson)
     {
         if (!string.IsNullOrWhiteSpace(rulesSchemaJson))
@@ -400,30 +476,13 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
 
         foreach ((string code, JsonElement value) in answers)
         {
-            if (fieldsByCode.TryGetValue(code, out AnswerFieldDefinition? field) && field.Type == "repeater")
+            if (fieldsByCode.TryGetValue(code, out AnswerFieldDefinition? field)
+                && string.Equals(
+                    field.Type,
+                    FieldTypeNames.Repeater,
+                    StringComparison.Ordinal))
             {
-                if (value.ValueKind == JsonValueKind.Array)
-                {
-                    flat[code] = value.GetArrayLength();
-                    for (int rowIndex = 0; rowIndex < value.GetArrayLength(); rowIndex++)
-                    {
-                        JsonElement row = value[rowIndex];
-                        if (row.ValueKind != JsonValueKind.Object)
-                        {
-                            continue;
-                        }
-
-                        foreach (JsonProperty property in row.EnumerateObject())
-                        {
-                            flat[property.Name] = JsonElementToObject(property.Value);
-                        }
-                    }
-                }
-                else
-                {
-                    flat[code] = 0;
-                }
-
+                FlattenRepeaterAnswer(flat, code, value);
                 continue;
             }
 
@@ -431,6 +490,33 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         }
 
         return flat;
+    }
+
+    private static void FlattenRepeaterAnswer(
+        Dictionary<string, object?> flat,
+        string code,
+        JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            flat[code] = 0;
+            return;
+        }
+
+        flat[code] = value.GetArrayLength();
+        for (int rowIndex = 0; rowIndex < value.GetArrayLength(); rowIndex++)
+        {
+            JsonElement row = value[rowIndex];
+            if (row.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            foreach (JsonProperty property in row.EnumerateObject())
+            {
+                flat[property.Name] = JsonElementToObject(property.Value);
+            }
+        }
     }
 
     private static bool TryConvertValue(
@@ -442,88 +528,180 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         converted = null;
         error = null;
 
-        switch (field.Type)
+        return field.Type switch
         {
-            case "text":
-            case "textarea":
-                if (value.ValueKind != JsonValueKind.String)
-                {
-                    error = TypeError(field, "a string");
-                    return false;
-                }
+            FieldTypeNames.Text or FieldTypeNames.Textarea =>
+                TryConvertString(field, value, out converted, out error),
+            FieldTypeNames.Number =>
+                TryConvertNumber(field, value, out converted, out error),
+            FieldTypeNames.Integer =>
+                TryConvertInteger(field, value, out converted, out error),
+            FieldTypeNames.Boolean =>
+                TryConvertBoolean(field, value, out converted, out error),
+            FieldTypeNames.Date =>
+                TryConvertDate(field, value, out converted, out error),
+            FieldTypeNames.DateTime =>
+                TryConvertDateTime(field, value, out converted, out error),
+            FieldTypeNames.Time =>
+                TryConvertTime(field, value, out converted, out error),
+            FieldTypeNames.Choice =>
+                TryConvertChoice(field, value, out converted, out error),
+            _ => RejectUnsupportedFieldType(field, out error),
+        };
+    }
 
-                converted = value.GetString();
-                return true;
-            case "number":
-                if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out double number))
-                {
-                    error = TypeError(field, "a number");
-                    return false;
-                }
+    private static bool RejectUnsupportedFieldType(
+        AnswerFieldDefinition field,
+        out FormResponseFieldError? error)
+    {
+        error = new FormResponseFieldError(
+            "UNSUPPORTED_FIELD_TYPE",
+            field.Path,
+            $"Field type '{field.Type}' is not supported for answer validation.");
+        return false;
+    }
 
-                converted = number;
-                return true;
-            case "integer":
-                if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt64(out long integer))
-                {
-                    error = TypeError(field, "an integer");
-                    return false;
-                }
-
-                converted = integer;
-                return true;
-            case "boolean":
-                if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-                {
-                    error = TypeError(field, "a boolean");
-                    return false;
-                }
-
-                converted = value.GetBoolean();
-                return true;
-            case "date":
-                if (value.ValueKind != JsonValueKind.String
-                    || !DateOnly.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly date))
-                {
-                    error = TypeError(field, "an ISO date (YYYY-MM-DD)");
-                    return false;
-                }
-
-                converted = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                return true;
-            case "datetime":
-                if (value.ValueKind != JsonValueKind.String
-                    || !DateTimeOffset.TryParse(
-                        value.GetString(),
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.RoundtripKind,
-                        out DateTimeOffset dateTime))
-                {
-                    error = TypeError(field, "an ISO date-time");
-                    return false;
-                }
-
-                converted = dateTime.ToString("O", CultureInfo.InvariantCulture);
-                return true;
-            case "time":
-                if (value.ValueKind != JsonValueKind.String
-                    || !TimeOnly.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out TimeOnly time))
-                {
-                    error = TypeError(field, "an ISO time");
-                    return false;
-                }
-
-                converted = time.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-                return true;
-            case "choice":
-                return TryConvertChoice(field, value, out converted, out error);
-            default:
-                error = new FormResponseFieldError(
-                    "UNSUPPORTED_FIELD_TYPE",
-                    field.Path,
-                    $"Field type '{field.Type}' is not supported for answer validation.");
-                return false;
+    private static bool TryConvertString(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.String)
+        {
+            error = TypeError(field, "a string");
+            return false;
         }
+
+        converted = value.GetString();
+        return true;
+    }
+
+    private static bool TryConvertNumber(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.Number
+            || !value.TryGetDouble(out double number))
+        {
+            error = TypeError(field, "a number");
+            return false;
+        }
+
+        converted = number;
+        return true;
+    }
+
+    private static bool TryConvertInteger(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.Number
+            || !value.TryGetInt64(out long integer))
+        {
+            error = TypeError(field, "an integer");
+            return false;
+        }
+
+        converted = integer;
+        return true;
+    }
+
+    private static bool TryConvertBoolean(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            error = TypeError(field, "a boolean");
+            return false;
+        }
+
+        converted = value.GetBoolean();
+        return true;
+    }
+
+    private static bool TryConvertDate(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.String
+            || !DateOnly.TryParse(
+                value.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out DateOnly date))
+        {
+            error = TypeError(field, "an ISO date (YYYY-MM-DD)");
+            return false;
+        }
+
+        converted = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static bool TryConvertDateTime(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.String
+            || !DateTimeOffset.TryParse(
+                value.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out DateTimeOffset dateTime))
+        {
+            error = TypeError(field, "an ISO date-time");
+            return false;
+        }
+
+        converted = dateTime.ToString("O", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static bool TryConvertTime(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+        if (value.ValueKind != JsonValueKind.String
+            || !TimeOnly.TryParse(
+                value.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out TimeOnly time))
+        {
+            error = TypeError(field, "an ISO time");
+            return false;
+        }
+
+        converted = time.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+        return true;
     }
 
     private static bool TryConvertChoice(
@@ -532,11 +710,10 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         out object? converted,
         out FormResponseFieldError? error)
     {
-        converted = null;
-        error = null;
-
-        if (field.Schema["options"] is not JsonArray options || options.Count == 0)
+        if (field.Schema[SchemaJsonKeys.Options] is not JsonArray options
+            || options.Count == 0)
         {
+            converted = null;
             error = new FormResponseFieldError(
                 "INVALID_SCHEMA",
                 field.Path,
@@ -544,46 +721,83 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             return false;
         }
 
-        var allowedValues = options
+        HashSet<string> allowedValues = BuildAllowedChoiceValues(options);
+        bool allowMultiple = field.Schema["allowMultiple"]?.GetValue<bool>() ?? false;
+        return allowMultiple
+            ? TryConvertMultiChoice(
+                field,
+                value,
+                allowedValues,
+                out converted,
+                out error)
+            : TryConvertSingleChoice(
+                field,
+                value,
+                allowedValues,
+                out converted,
+                out error);
+    }
+
+    private static HashSet<string> BuildAllowedChoiceValues(JsonArray options)
+    {
+        return options
             .Select(item => item?["value"]?.GetValue<string>())
             .Where(item => item is not null)
-            .Select(item => item)
+            .Select(item => item!)
             .ToHashSet(StringComparer.Ordinal);
+    }
 
-        bool allowMultiple = field.Schema["allowMultiple"]?.GetValue<bool>() ?? false;
-        if (allowMultiple)
+    private static bool TryConvertMultiChoice(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        HashSet<string> allowedValues,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
+
+        if (value.ValueKind != JsonValueKind.Array)
         {
-            if (value.ValueKind != JsonValueKind.Array)
+            error = TypeError(field, "an array of choice values");
+            return false;
+        }
+
+        var selected = new List<string>();
+        foreach (JsonElement item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
             {
                 error = TypeError(field, "an array of choice values");
                 return false;
             }
 
-            var selected = new List<string>();
-            foreach (JsonElement item in value.EnumerateArray())
+            string? choice = item.GetString();
+            if (choice is null || !allowedValues.Contains(choice))
             {
-                if (item.ValueKind != JsonValueKind.String)
-                {
-                    error = TypeError(field, "an array of choice values");
-                    return false;
-                }
-
-                string? choice = item.GetString();
-                if (choice is null || !allowedValues.Contains(choice))
-                {
-                    error = new FormResponseFieldError(
-                        "CONSTRAINT_VIOLATION",
-                        field.Path,
-                        $"Field '{field.Code}' contains an invalid choice value.");
-                    return false;
-                }
-
-                selected.Add(choice);
+                error = new FormResponseFieldError(
+                    "CONSTRAINT_VIOLATION",
+                    field.Path,
+                    $"Field '{field.Code}' contains an invalid choice value.");
+                return false;
             }
 
-            converted = selected;
-            return true;
+            selected.Add(choice);
         }
+
+        converted = selected;
+        return true;
+    }
+
+    private static bool TryConvertSingleChoice(
+        AnswerFieldDefinition field,
+        JsonElement value,
+        HashSet<string> allowedValues,
+        out object? converted,
+        out FormResponseFieldError? error)
+    {
+        converted = null;
+        error = null;
 
         if (value.ValueKind != JsonValueKind.String)
         {
@@ -614,9 +828,18 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
 
         return field.Type switch
         {
-            "text" or "textarea" => ValidateStringConstraints(field, (string)value, out error),
-            "number" => ValidateNumericConstraints(field, Convert.ToDouble(value, CultureInfo.InvariantCulture), out error),
-            "integer" => ValidateNumericConstraints(field, Convert.ToInt64(value, CultureInfo.InvariantCulture), out error),
+            FieldTypeNames.Text or FieldTypeNames.Textarea =>
+                ValidateStringConstraints(field, (string)value, out error),
+            FieldTypeNames.Number =>
+                ValidateNumericConstraints(
+                    field,
+                    Convert.ToDouble(value, CultureInfo.InvariantCulture),
+                    out error),
+            FieldTypeNames.Integer =>
+                ValidateNumericConstraints(
+                    field,
+                    Convert.ToInt64(value, CultureInfo.InvariantCulture),
+                    out error),
             _ => true,
         };
     }
@@ -629,21 +852,39 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         error = null;
         if (field.Schema["minLength"]?.GetValue<int>() is int minLength && value.Length < minLength)
         {
-            error = ConstraintError(field, $"must be at least {minLength} characters.");
+            error = ConstraintError(field, string.Create(CultureInfo.InvariantCulture, $"must be at least {minLength} characters."));
             return false;
         }
 
         if (field.Schema["maxLength"]?.GetValue<int>() is int maxLength && value.Length > maxLength)
         {
-            error = ConstraintError(field, $"must be at most {maxLength} characters.");
+            error = ConstraintError(field, string.Create(CultureInfo.InvariantCulture, $"must be at most {maxLength} characters."));
             return false;
         }
 
-        if (field.Schema["pattern"]?.GetValue<string>() is { Length: > 0 } pattern
-            && !Regex.IsMatch(value, pattern))
+        if (field.Schema["pattern"]?.GetValue<string>() is { Length: > 0 } pattern)
         {
-            error = ConstraintError(field, "does not match the required pattern.");
-            return false;
+            try
+            {
+                if (!Regex.IsMatch(
+                        value,
+                        pattern,
+                        RegexOptions.None,
+                        TimeSpan.FromMilliseconds(1000)))
+                {
+                    error = ConstraintError(
+                        field,
+                        "does not match the required pattern.");
+                    return false;
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                error = ConstraintError(
+                    field,
+                    "does not match the required pattern.");
+                return false;
+            }
         }
 
         return true;
@@ -657,21 +898,21 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         error = null;
         if (field.Schema["minimum"]?.GetValue<double>() is double minimum && value < minimum)
         {
-            error = ConstraintError(field, $"must be greater than or equal to {minimum}.");
+            error = ConstraintError(field, string.Create(CultureInfo.InvariantCulture, $"must be greater than or equal to {minimum}."));
             return false;
         }
 
         if (field.Schema["maximum"]?.GetValue<double>() is double maximum && value > maximum)
         {
-            error = ConstraintError(field, $"must be less than or equal to {maximum}.");
+            error = ConstraintError(field, string.Create(CultureInfo.InvariantCulture, $"must be less than or equal to {maximum}."));
             return false;
         }
 
         if (field.Schema["multipleOf"]?.GetValue<double>() is double multipleOf
             && multipleOf != 0
-            && Math.Abs((value / multipleOf) - Math.Round(value / multipleOf)) > 0.000001)
+            && Math.Abs((value / multipleOf) - Math.Round(value / multipleOf, MidpointRounding.ToEven)) > 0.000001)
         {
-            error = ConstraintError(field, $"must be a multiple of {multipleOf}.");
+            error = ConstraintError(field, string.Create(CultureInfo.InvariantCulture, $"must be a multiple of {multipleOf}."));
             return false;
         }
 
@@ -718,16 +959,15 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         {
             return Math.Abs(leftNumber - rightNumber) < 0.000001;
         }
-        else if (left is long leftInteger && right is long rightInteger)
+
+        if (left is long leftInteger && right is long rightInteger)
         {
             return leftInteger == rightInteger;
         }
-        else
-        {
-            return left is IList<string> leftChoices && right is IList<string> rightChoices
-                ? leftChoices.SequenceEqual(rightChoices, StringComparer.Ordinal)
-                : Equals(left, right);
-        }
+
+        return left is IList<string> leftChoices && right is IList<string> rightChoices
+            ? leftChoices.SequenceEqual(rightChoices, StringComparer.Ordinal)
+            : Equals(left, right);
     }
 
     private static object? JsonElementToObject(JsonElement value)
@@ -740,9 +980,12 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.Null => null,
-            JsonValueKind.Undefined => throw new NotImplementedException(),
-            JsonValueKind.Object => throw new NotImplementedException(),
-            JsonValueKind.Array => throw new NotImplementedException(),
+            JsonValueKind.Undefined => throw new NotSupportedException(
+                "Undefined JSON values are not supported."),
+            JsonValueKind.Object => throw new NotSupportedException(
+                "Nested JSON objects are not supported as answer values."),
+            JsonValueKind.Array => throw new NotSupportedException(
+                "Nested JSON arrays are not supported as answer values."),
             _ => value.GetRawText(),
         };
     }
@@ -784,6 +1027,22 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
         }
     }
 
+    private FormRuleEvaluationResult EvaluateRules(
+        string clinicalSchemaJson,
+        string? rulesSchemaJson,
+        string? uiSchemaJson,
+        Dictionary<string, object?> ruleValues)
+    {
+        string resolvedRules = ResolveRulesSchema(clinicalSchemaJson, rulesSchemaJson);
+        return ruleEngine.Evaluate(clinicalSchemaJson, resolvedRules, ruleValues, uiSchemaJson);
+    }
+
+    private sealed record RepeaterRowContext(
+        FormRuleEvaluationResult Rules,
+        FormResponseValidationMode Mode,
+        List<FormResponseFieldError> Errors,
+        List<Dictionary<string, object?>> Rows);
+
     private sealed record AnswerFieldDefinition(
         string Id,
         string Code,
@@ -815,7 +1074,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             for (int index = 0; index < fields.Count; index++)
             {
                 JsonObject field = fields[index]!.AsObject();
-                string fieldPath = $"{path}/{index}";
+                string fieldPath = string.Create(CultureInfo.InvariantCulture, $"{path}/{index}");
                 string id = field["id"]?.GetValue<string>()
                     ?? throw new ValidationException($"Expected field id at {fieldPath}/id.");
                 string code = field["code"]?.GetValue<string>()
@@ -841,12 +1100,12 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
                     field,
                     children);
 
-                if (type is not "group")
+                if (type is not FieldTypeNames.Group)
                 {
                     byCode[code] = definition;
                 }
 
-                if (field["items"] is JsonArray nestedItems && type == "group")
+                if (field["items"] is JsonArray nestedItems && string.Equals(type, FieldTypeNames.Group, StringComparison.Ordinal))
                 {
                     IndexFields(nestedItems, $"{fieldPath}/items", byCode);
                 }
@@ -861,7 +1120,7 @@ public sealed class FormResponseValidator(IFormRuleEngine ruleEngine) : IFormRes
             for (int index = 0; index < items.Count; index++)
             {
                 JsonObject field = items[index]!.AsObject();
-                string fieldPath = $"{path}/{index}";
+                string fieldPath = string.Create(CultureInfo.InvariantCulture, $"{path}/{index}");
                 string id = field["id"]?.GetValue<string>()
                     ?? throw new ValidationException($"Expected field id at {fieldPath}/id.");
                 string code = field["code"]?.GetValue<string>()

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -36,7 +37,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
         string clinical = FormWithComponentRefAndVitals("intake-section", "section.intake");
         string rules = BpValidationRulesSchema();
 
-        await CreateFormAsync("stage1-intake", "Stage 1 intake", clinical, null, rules).ConfigureAwait(false);
+        await CreateFormAsync("stage1-intake", "Stage 1 intake", clinical, ui: null, rules).ConfigureAwait(false);
 
         FormVersionDto draft = await GetEditableVersionAsync("stage1-intake").ConfigureAwait(false);
         FormVersionDto published = await SubmitAndPublishAsync("stage1-intake", draft.RowVersion).ConfigureAwait(false);
@@ -49,8 +50,8 @@ public sealed class FormLifecycleE2ETests : IDisposable
 
         response = await UpdateResponseAsync(
             response.Id,
-                                 /*lang=json,strict*/
-                                 """
+            /*lang=json,strict*/
+            """
             {
               "patient.name": "Ada Lovelace",
               "vital.bp.systolic": 120,
@@ -67,9 +68,9 @@ public sealed class FormLifecycleE2ETests : IDisposable
         Assert.Equal("{}", firstRevision.AnswersJson);
 
         List<AuditEventDto> responseAudit = await ListAuditEventsAsync("form-response", response.Id).ConfigureAwait(false);
-        Assert.Contains(responseAudit, item => item.Action == "response.created");
-        Assert.Contains(responseAudit, item => item.Action == "response.updated");
-        Assert.Contains(responseAudit, item => item.Action == "response.completed");
+        Assert.Contains(responseAudit, item => string.Equals(item.Action, "response.created", StringComparison.Ordinal));
+        Assert.Contains(responseAudit, item => string.Equals(item.Action, "response.updated", StringComparison.Ordinal));
+        Assert.Contains(responseAudit, item => string.Equals(item.Action, "response.completed", StringComparison.Ordinal));
 
         FormResponseDto softDeleted = await SoftDeleteResponseAsync(draftToDelete.Id, "Duplicate entry").ConfigureAwait(false);
         Assert.NotNull(softDeleted.DeletedAt);
@@ -81,7 +82,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
         Assert.NotNull(auditVisible.DeletedAt);
 
         List<AuditEventDto> deleteAuditEvents = await ListAuditEventsAsync("form-response", draftToDelete.Id).ConfigureAwait(false);
-        AuditEventDto deleteAudit = Assert.Single(deleteAuditEvents, item => item.Action == "response.draft.deleted");
+        AuditEventDto deleteAudit = Assert.Single(deleteAuditEvents, item => string.Equals(item.Action, "response.draft.deleted", StringComparison.Ordinal));
         Assert.Contains("Duplicate entry", deleteAudit.MetadataJson, StringComparison.Ordinal);
 
         FormResponseDto completedAfterDelete = await GetResponseAsync(response.Id).ConfigureAwait(false);
@@ -108,7 +109,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
     [Fact]
     public async Task Stage1_ReviewRejectAndRepublish_RestoresDraftForEditing()
     {
-        await CreateFormAsync("review-intake", "Review intake", MinimalClinicalSchema("notes", "form.notes"), null).ConfigureAwait(false);
+        await CreateFormAsync("review-intake", "Review intake", MinimalClinicalSchema("notes", "form.notes"), ui: null).ConfigureAwait(false);
 
         FormVersionDto draft = await GetEditableVersionAsync("review-intake").ConfigureAwait(false);
         FormVersionDto inReview = await SubmitForReviewAsync("review-intake", draft.RowVersion).ConfigureAwait(false);
@@ -142,7 +143,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
             "versioned-intake",
             "Versioned intake",
             MinimalClinicalSchema("patient-name-v1", "patient.name"),
-            null).ConfigureAwait(false);
+ui: null).ConfigureAwait(false);
 
         FormVersionDto draftV1 = await GetEditableVersionAsync("versioned-intake").ConfigureAwait(false);
         FormVersionDto publishedV1 = await SubmitAndPublishAsync("versioned-intake", draftV1.RowVersion).ConfigureAwait(false);
@@ -151,8 +152,8 @@ public sealed class FormLifecycleE2ETests : IDisposable
         FormResponseDto historical = await CreateResponseAsync("versioned-intake", "1.0.0").ConfigureAwait(false);
         historical = await UpdateResponseAsync(
             historical.Id,
-                                 /*lang=json,strict*/
-                                 """{"patient.name":"Historical Ada"}""",
+            /*lang=json,strict*/
+            """{"patient.name":"Historical Ada"}""",
             historical.RowVersion).ConfigureAwait(false);
         historical = await CompleteResponseAsync(historical.Id, historical.RowVersion).ConfigureAwait(false);
 
@@ -189,7 +190,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
     [Fact]
     public async Task Stage1_Guardrails_InvalidSchemaStaleRevisionAndInvalidComplete()
     {
-        await CreateFormAsync("guardrails", "Guardrails", MinimalClinicalSchema("notes", "form.notes"), null).ConfigureAwait(false);
+        await CreateFormAsync("guardrails", "Guardrails", MinimalClinicalSchema("notes", "form.notes"), ui: null).ConfigureAwait(false);
         FormVersionDto draft = await GetEditableVersionAsync("guardrails").ConfigureAwait(false);
 
         var invalidSchemaUpdate = new UpdateFormDraftRequest("{}", draft.UiSchemaJson, draft.RulesSchemaJson, draft.RowVersion);
@@ -211,14 +212,14 @@ public sealed class FormLifecycleE2ETests : IDisposable
             conflictingUpdate).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
 
-        await CreateFormAsync("bp-guardrails", "BP guardrails", BpClinicalSchema(), null, BpValidationRulesSchema()).ConfigureAwait(false);
+        await CreateFormAsync("bp-guardrails", "BP guardrails", BpClinicalSchema(), ui: null, BpValidationRulesSchema()).ConfigureAwait(false);
         FormVersionDto bpDraft = await GetEditableVersionAsync("bp-guardrails").ConfigureAwait(false);
         FormVersionDto bpPublished = await SubmitAndPublishAsync("bp-guardrails", bpDraft.RowVersion).ConfigureAwait(false);
         FormResponseDto bpResponse = await CreateResponseAsync("bp-guardrails", bpPublished.Version!).ConfigureAwait(false);
         bpResponse = await UpdateResponseAsync(
             bpResponse.Id,
-                                 /*lang=json,strict*/
-                                 """
+            /*lang=json,strict*/
+            """
             {
               "vital.bp.systolic": 120,
               "vital.bp.diastolic": 130
@@ -392,7 +393,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalClinicalSchema(string id, string code)
@@ -425,6 +426,7 @@ public sealed class FormLifecycleE2ETests : IDisposable
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
             fields = new Dictionary<string, object>
+(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {

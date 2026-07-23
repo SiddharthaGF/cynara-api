@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -101,7 +102,7 @@ public sealed class ComponentLifecycleTests : IDisposable
             "unused-section",
             "Unused section",
             MinimalClinicalSchema("section-notes", "section.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
         await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -120,7 +121,7 @@ public sealed class ComponentLifecycleTests : IDisposable
             "retired-only",
             "Retired only",
             MinimalClinicalSchema("notes", "section.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/components", createRequest).ConfigureAwait(false);
         await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
@@ -198,7 +199,7 @@ public sealed class ComponentLifecycleTests : IDisposable
 
     private async Task AssertAuditEventsRecordedAsync(Guid resourceId, params string[] actions)
     {
-        using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
@@ -207,7 +208,7 @@ public sealed class ComponentLifecycleTests : IDisposable
 
         foreach (string action in actions)
         {
-            Assert.Contains(events, item => item.Action == action);
+            Assert.Contains(events, item => string.Equals(item.Action, action, StringComparison.Ordinal));
         }
     }
 
@@ -219,7 +220,7 @@ public sealed class ComponentLifecycleTests : IDisposable
         }
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail($"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalClinicalSchema(string id, string code)
@@ -247,6 +248,7 @@ public sealed class ComponentLifecycleTests : IDisposable
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
             fields = new Dictionary<string, object>
+(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {
@@ -258,13 +260,13 @@ public sealed class ComponentLifecycleTests : IDisposable
     }
 }
 
-public sealed class ComponentWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class ComponentWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _sharedConnection = new("Data Source=:memory:");
+    private readonly SqliteConnection sharedConnection = new("Data Source=:memory:");
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
-        _sharedConnection.Open();
+        sharedConnection.Open();
 
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
@@ -272,9 +274,8 @@ public sealed class ComponentWebApplicationFactory : WebApplicationFactory<Progr
                 Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
                 optional: false,
                 reloadOnChange: false);
-        });
-
-        builder.ConfigureServices(services =>
+        })
+            .ConfigureServices(services =>
         {
             ServiceDescriptor? dbContextDescriptor = services.SingleOrDefault(
                 descriptor => descriptor.ServiceType == typeof(DbContextOptions<CynaraDbContext>));
@@ -285,7 +286,7 @@ public sealed class ComponentWebApplicationFactory : WebApplicationFactory<Progr
 
             services.RemoveAll<CynaraDbContext>();
 
-            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(_sharedConnection));
+            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(sharedConnection));
         });
     }
 
@@ -293,7 +294,7 @@ public sealed class ComponentWebApplicationFactory : WebApplicationFactory<Progr
     {
         if (disposing)
         {
-            _sharedConnection.Dispose();
+            sharedConnection.Dispose();
         }
 
         base.Dispose(disposing);

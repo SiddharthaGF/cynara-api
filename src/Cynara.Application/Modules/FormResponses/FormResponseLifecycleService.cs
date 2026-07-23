@@ -61,7 +61,7 @@ public sealed class FormResponseLifecycleService(
         FormResponseRevision revision = FormResponseWorkflowHelpers
             .CreateRevision(response, actorId, now);
         auditWriter.Append(
-            "form-response",
+            AuditEntityTypes.FormResponse,
             response.Id,
             "response.created",
             actorId,
@@ -87,7 +87,7 @@ public sealed class FormResponseLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, true, false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         FormResponseWorkflowHelpers.EnsureConcurrency(
             response,
@@ -107,7 +107,7 @@ public sealed class FormResponseLifecycleService(
             actorId,
             now));
         auditWriter.Append(
-            "form-response",
+            AuditEntityTypes.FormResponse,
             response.Id,
             "response.updated",
             actorId,
@@ -130,7 +130,7 @@ public sealed class FormResponseLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, true, false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         FormResponseWorkflowHelpers.EnsureConcurrency(
             response,
@@ -150,7 +150,7 @@ public sealed class FormResponseLifecycleService(
             actorId,
             now));
         auditWriter.Append(
-            "form-response",
+            AuditEntityTypes.FormResponse,
             response.Id,
             "response.completed",
             actorId,
@@ -172,13 +172,13 @@ public sealed class FormResponseLifecycleService(
         CancellationToken cancellationToken)
     {
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, true, false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         DateTimeOffset now = timeProvider.GetUtcNow();
         response.DeletedAt = now;
         response.UpdatedAt = now;
         auditWriter.Append(
-            "form-response",
+            AuditEntityTypes.FormResponse,
             response.Id,
             "response.draft.deleted",
             actorId,

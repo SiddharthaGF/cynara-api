@@ -21,7 +21,7 @@ internal sealed class RegexOpenAiClientStub : IOpenAiClient
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new OpenAiCompletionResult(CreateResponse(), null));
+        return Task.FromResult(new OpenAiCompletionResult(CreateResponse(), Thinking: null));
     }
 
     public IAsyncEnumerable<OpenAiStreamDelta> StreamChatCompletionAsync(
@@ -38,7 +38,7 @@ internal sealed class RegexOpenAiClientStub : IOpenAiClient
     {
         await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
-        yield return new OpenAiStreamDelta(CreateResponse(), null);
+        yield return new OpenAiStreamDelta(CreateResponse(), Reasoning: null);
     }
 
     private string CreateResponse()

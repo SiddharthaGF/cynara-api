@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 
+using Cynara.Application.Common;
+
 namespace Cynara.Application.Modules.FormAi;
 
 internal static class FormAiDraftPatch
@@ -9,22 +11,22 @@ internal static class FormAiDraftPatch
         return new DraftTriple(
             new JsonObject
             {
-                ["schemaVersion"] = schemaVersion,
-                ["fields"] = new JsonArray(),
+                [SchemaJsonKeys.SchemaVersion] = schemaVersion,
+                [SchemaJsonKeys.Fields] = new JsonArray(),
             },
             new JsonObject
             {
-                ["schemaVersion"] = schemaVersion,
-                ["clinicalSchemaVersion"] = schemaVersion,
-                ["fields"] = new JsonObject(),
-                ["layout"] = new JsonArray(),
+                [SchemaJsonKeys.SchemaVersion] = schemaVersion,
+                [SchemaJsonKeys.ClinicalSchemaVersion] = schemaVersion,
+                [SchemaJsonKeys.Fields] = new JsonObject(),
+                [SchemaJsonKeys.Layout] = new JsonArray(),
             },
             new JsonObject
             {
-                ["schemaVersion"] = schemaVersion,
-                ["clinicalSchemaVersion"] = schemaVersion,
-                ["fields"] = new JsonObject(),
-                ["validations"] = new JsonArray(),
+                [SchemaJsonKeys.SchemaVersion] = schemaVersion,
+                [SchemaJsonKeys.ClinicalSchemaVersion] = schemaVersion,
+                [SchemaJsonKeys.Fields] = new JsonObject(),
+                [SchemaJsonKeys.Validations] = new JsonArray(),
             });
     }
 
@@ -32,7 +34,8 @@ internal static class FormAiDraftPatch
     {
         if (patchNode is not JsonObject patch)
         {
-            throw new ValidationException("AI patch response must include a patch object.");
+            throw new ValidationException(
+                "AI patch response must include a patch object.");
         }
 
         if (patch["clear"]?.GetValue<bool>() is true)
@@ -43,12 +46,43 @@ internal static class FormAiDraftPatch
         JsonObject clinical = CloneObject(baseTriple.Clinical);
         JsonObject ui = CloneObject(baseTriple.Ui);
         JsonObject rules = CloneObject(baseTriple.Rules);
-        JsonArray clinicalFields = CloneArray(clinical["fields"]);
-        JsonObject uiFields = CloneObject(ui["fields"]);
-        JsonObject rulesFields = CloneObject(rules["fields"]);
-        JsonArray layout = CloneArray(ui["layout"]);
-        JsonArray validations = CloneArray(rules["validations"]);
+        JsonArray clinicalFields = CloneArray(clinical[SchemaJsonKeys.Fields]);
+        JsonObject uiFields = CloneObject(ui[SchemaJsonKeys.Fields]);
+        JsonObject rulesFields = CloneObject(rules[SchemaJsonKeys.Fields]);
+        JsonArray layout = CloneArray(ui[SchemaJsonKeys.Layout]);
+        JsonArray validations = CloneArray(rules[SchemaJsonKeys.Validations]);
 
+        ApplyFieldRemovals(
+            patch,
+            clinicalFields,
+            uiFields,
+            rulesFields,
+            layout);
+        ApplyClinicalUpserts(patch, clinicalFields);
+        ApplyUiUpserts(patch, uiFields);
+        layout = ApplyLayoutReplace(patch, layout);
+        ApplyRulesMutations(patch, rulesFields);
+        ApplyValidationMutations(patch, validations);
+        string schemaVersion = SchemaVersionOf(clinical);
+        clinical[SchemaJsonKeys.Fields] = clinicalFields;
+        ui[SchemaJsonKeys.SchemaVersion] = schemaVersion;
+        ui[SchemaJsonKeys.ClinicalSchemaVersion] = schemaVersion;
+        ui[SchemaJsonKeys.Fields] = uiFields;
+        ui[SchemaJsonKeys.Layout] = layout;
+        rules[SchemaJsonKeys.SchemaVersion] = schemaVersion;
+        rules[SchemaJsonKeys.ClinicalSchemaVersion] = schemaVersion;
+        rules[SchemaJsonKeys.Fields] = rulesFields;
+        rules[SchemaJsonKeys.Validations] = validations;
+        return new DraftTriple(clinical, ui, rules);
+    }
+
+    private static void ApplyFieldRemovals(
+        JsonObject patch,
+        JsonArray clinicalFields,
+        JsonObject uiFields,
+        JsonObject rulesFields,
+        JsonArray layout)
+    {
         foreach (string id in ReadStringArray(patch["removeFieldIds"]))
         {
             RemoveClinicalField(clinicalFields, id);
@@ -56,116 +90,147 @@ internal static class FormAiDraftPatch
             _ = rulesFields.Remove(id);
             RemoveLayoutField(layout, id);
         }
+    }
 
-        if (patch["upsertClinicalFields"] is JsonArray upsertClinical)
+    private static void ApplyClinicalUpserts(
+        JsonObject patch,
+        JsonArray clinicalFields)
+    {
+        if (patch["upsertClinicalFields"] is not JsonArray upsertClinical)
         {
-            foreach (JsonNode? item in upsertClinical)
-            {
-                if (item is not JsonObject field
-                    || field["id"]?.GetValue<string>() is not string id
-                    || string.IsNullOrWhiteSpace(id))
-                {
-                    throw new ValidationException(
-                        "patch.upsertClinicalFields entries must be objects with an id.");
-                }
-
-                UpsertArrayItem(clinicalFields, field, id);
-            }
+            return;
         }
 
-        if (patch["upsertUiFields"] is JsonObject upsertUi)
+        foreach (JsonNode? item in upsertClinical)
         {
-            foreach ((string id, JsonNode? value) in upsertUi)
+            if (item is not JsonObject field
+                || field[SchemaJsonKeys.Id]?.GetValue<string>() is not string id
+                || string.IsNullOrWhiteSpace(id))
             {
-                if (value is not JsonObject)
-                {
-                    throw new ValidationException(
-                        $"patch.upsertUiFields[\"{id}\"] must be an object.");
-                }
-
-                uiFields[id] = value.DeepClone();
-            }
-        }
-
-        if (patch["layout"] is JsonNode layoutNode)
-        {
-            if (layoutNode is not JsonArray layoutArray)
-            {
-                throw new ValidationException("patch.layout must be an array when set.");
+                throw new ValidationException(
+                    "patch.upsertClinicalFields entries must be objects with an id.");
             }
 
-            layout = CloneArray(layoutArray);
+            UpsertArrayItem(clinicalFields, field, id);
+        }
+    }
+
+    private static void ApplyUiUpserts(JsonObject patch, JsonObject uiFields)
+    {
+        if (patch["upsertUiFields"] is not JsonObject upsertUi)
+        {
+            return;
         }
 
+        foreach ((string id, JsonNode? value) in upsertUi)
+        {
+            if (value is not JsonObject)
+            {
+                throw new ValidationException(
+                    $"patch.upsertUiFields[\"{id}\"] must be an object.");
+            }
+
+            uiFields[id] = value.DeepClone();
+        }
+    }
+
+    private static JsonArray ApplyLayoutReplace(
+        JsonObject patch,
+        JsonArray layout)
+    {
+        if (patch[SchemaJsonKeys.Layout] is not JsonNode layoutNode)
+        {
+            return layout;
+        }
+
+        if (layoutNode is not JsonArray layoutArray)
+        {
+            throw new ValidationException(
+                "patch.layout must be an array when set.");
+        }
+
+        return CloneArray(layoutArray);
+    }
+
+    private static void ApplyRulesMutations(
+        JsonObject patch,
+        JsonObject rulesFields)
+    {
         foreach (string id in ReadStringArray(patch["removeRulesFieldIds"]))
         {
             _ = rulesFields.Remove(id);
         }
 
-        if (patch["upsertRulesFields"] is JsonObject upsertRules)
+        if (patch["upsertRulesFields"] is not JsonObject upsertRules)
         {
-            foreach ((string id, JsonNode? value) in upsertRules)
-            {
-                if (value is null)
-                {
-                    _ = rulesFields.Remove(id);
-                }
-                else
-                {
-                    rulesFields[id] = value is JsonObject
-                        ? value.DeepClone()
-                        : throw new ValidationException(
-                        $"patch.upsertRulesFields[\"{id}\"] must be an object or null.");
-                }
-            }
+            return;
         }
 
+        foreach ((string id, JsonNode? value) in upsertRules)
+        {
+            if (value is null)
+            {
+                _ = rulesFields.Remove(id);
+            }
+            else
+            {
+                rulesFields[id] = value is JsonObject
+                    ? value.DeepClone()
+                    : throw new ValidationException(
+                        $"patch.upsertRulesFields[\"{id}\"] must be an object or null.");
+            }
+        }
+    }
+
+    private static void ApplyValidationMutations(
+        JsonObject patch,
+        JsonArray validations)
+    {
         foreach (string code in ReadStringArray(patch["removeValidationCodes"]))
         {
             for (int index = validations.Count - 1; index >= 0; index--)
             {
-                if (validations[index]?["code"]?.GetValue<string>() == code)
+                if (string.Equals(
+                        validations[index]?[SchemaJsonKeys.Code]?.GetValue<string>(),
+                        code,
+                        StringComparison.Ordinal))
                 {
                     validations.RemoveAt(index);
                 }
             }
         }
 
-        if (patch["upsertValidations"] is JsonArray upsertValidations)
+        if (patch["upsertValidations"] is not JsonArray upsertValidations)
         {
-            foreach (JsonNode? item in upsertValidations)
-            {
-                if (item is not JsonObject validation
-                    || validation["code"]?.GetValue<string>() is not string code
-                    || string.IsNullOrWhiteSpace(code))
-                {
-                    throw new ValidationException(
-                        "patch.upsertValidations entries must be objects with a code.");
-                }
-
-                UpsertArrayItem(validations, validation, code);
-            }
+            return;
         }
 
-        string schemaVersion = SchemaVersionOf(clinical);
-        clinical["fields"] = clinicalFields;
-        ui["schemaVersion"] = schemaVersion;
-        ui["clinicalSchemaVersion"] = schemaVersion;
-        ui["fields"] = uiFields;
-        ui["layout"] = layout;
-        rules["schemaVersion"] = schemaVersion;
-        rules["clinicalSchemaVersion"] = schemaVersion;
-        rules["fields"] = rulesFields;
-        rules["validations"] = validations;
-        return new DraftTriple(clinical, ui, rules);
+        foreach (JsonNode? item in upsertValidations)
+        {
+            if (item is not JsonObject validation
+                || validation[SchemaJsonKeys.Code]?.GetValue<string>() is not string code
+                || string.IsNullOrWhiteSpace(code))
+            {
+                throw new ValidationException(
+                    "patch.upsertValidations entries must be objects with a code.");
+            }
+
+            UpsertArrayItem(validations, validation, code);
+        }
     }
 
     private static void UpsertArrayItem(JsonArray items, JsonObject value, string key)
     {
         for (int index = 0; index < items.Count; index++)
         {
-            if (items[index]?["id"]?.GetValue<string>() == key
-                || items[index]?["code"]?.GetValue<string>() == key)
+            if (string.Equals(
+                    items[index]?[SchemaJsonKeys.Id]?.GetValue<string>(),
+                    key,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    items[index]?[SchemaJsonKeys.Code]?.GetValue<string>(),
+                    key,
+                    StringComparison.Ordinal))
             {
                 items[index] = value.DeepClone();
                 return;
@@ -180,13 +245,16 @@ internal static class FormAiDraftPatch
         for (int index = fields.Count - 1; index >= 0; index--)
         {
             var field = fields[index] as JsonObject;
-            if (field?["id"]?.GetValue<string>() == id)
+            if (string.Equals(
+                    field?[SchemaJsonKeys.Id]?.GetValue<string>(),
+                    id,
+                    StringComparison.Ordinal))
             {
                 fields.RemoveAt(index);
                 continue;
             }
 
-            if (field?["items"] is JsonArray children)
+            if (field?[SchemaJsonKeys.Items] is JsonArray children)
             {
                 RemoveClinicalField(children, id);
             }
@@ -198,14 +266,20 @@ internal static class FormAiDraftPatch
         for (int index = nodes.Count - 1; index >= 0; index--)
         {
             var node = nodes[index] as JsonObject;
-            if (node?["type"]?.GetValue<string>() == "field"
-                && node["fieldId"]?.GetValue<string>() == id)
+            if (string.Equals(
+                    node?[SchemaJsonKeys.Type]?.GetValue<string>(),
+                    "field",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    node?[SchemaJsonKeys.FieldId]?.GetValue<string>(),
+                    id,
+                    StringComparison.Ordinal))
             {
                 nodes.RemoveAt(index);
                 continue;
             }
 
-            if (node?["children"] is JsonArray children)
+            if (node?[SchemaJsonKeys.Children] is JsonArray children)
             {
                 RemoveLayoutField(children, id);
             }
@@ -243,7 +317,7 @@ internal static class FormAiDraftPatch
 
     private static string SchemaVersionOf(JsonObject clinical)
     {
-        return clinical["schemaVersion"]?.GetValue<string>() is string version
+        return clinical[SchemaJsonKeys.SchemaVersion]?.GetValue<string>() is string version
             && !string.IsNullOrWhiteSpace(version)
             ? version
             : "1.0.0";

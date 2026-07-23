@@ -1,4 +1,5 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -15,6 +16,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cynara.Application", "src\Cynara.Application\Cynara.Application.csproj", "{5E17B29E-BFC6-44BF-9BAD-D0D0295CD905}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cynara.Infrastructure", "src\Cynara.Infrastructure\Cynara.Infrastructure.csproj", "{8188DA8A-93D4-49FE-9DF3-B70BF877951D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cynara.Seed", "tools\Cynara.Seed\Cynara.Seed.csproj", "{48A1F937-72C5-46C4-8198-A05A47CA931F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -86,6 +91,18 @@ Global
 		{8188DA8A-93D4-49FE-9DF3-B70BF877951D}.Release|x64.Build.0 = Release|Any CPU
 		{8188DA8A-93D4-49FE-9DF3-B70BF877951D}.Release|x86.ActiveCfg = Release|Any CPU
 		{8188DA8A-93D4-49FE-9DF3-B70BF877951D}.Release|x86.Build.0 = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|x64.Build.0 = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Debug|x86.Build.0 = Debug|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|x64.ActiveCfg = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|x64.Build.0 = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|x86.ActiveCfg = Release|Any CPU
+		{48A1F937-72C5-46C4-8198-A05A47CA931F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -95,5 +112,6 @@ Global
 		{0FBDA28D-0C9A-4469-9A74-F561CF9620C7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{5E17B29E-BFC6-44BF-9BAD-D0D0295CD905} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8188DA8A-93D4-49FE-9DF3-B70BF877951D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{48A1F937-72C5-46C4-8198-A05A47CA931F} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

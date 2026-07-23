@@ -25,14 +25,14 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
         _ = dbContext.ComponentVersions.Add(draft);
     }
 
-    public Task<List<ComponentDefinition>> ListDefinitionsAsync(
+    public async Task<IReadOnlyList<ComponentDefinition>> ListDefinitionsAsync(
         CancellationToken cancellationToken)
     {
-        return dbContext.ComponentDefinitions
+        return await dbContext.ComponentDefinitions
             .AsNoTracking()
             .Include(component => component.Versions)
             .OrderBy(component => component.Code)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public Task<ComponentDefinition?> FindDefinitionByCodeAsync(
@@ -64,7 +64,10 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
                 cancellationToken).ConfigureAwait(false);
 
         return definition?.Versions.SingleOrDefault(
-            item => item.Version == version
+            item => string.Equals(
+                item.Version,
+                version,
+                StringComparison.Ordinal)
                 && item.Status is ComponentVersionStatus.Published
                     or ComponentVersionStatus.Retired);
     }
@@ -78,5 +81,4 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
     {
         _ = dbContext.ComponentVersions.Remove(version);
     }
-
 }

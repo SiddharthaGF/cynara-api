@@ -20,8 +20,7 @@ public interface IFormResponseRepository
         uint revisionNumber,
         CancellationToken cancellationToken);
 
-    public Task<List<FormResponseRevision>> ListRevisionsAsync(
+    public Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
         Guid responseId,
         CancellationToken cancellationToken);
-
 }

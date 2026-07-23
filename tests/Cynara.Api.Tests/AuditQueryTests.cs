@@ -38,7 +38,7 @@ public sealed class AuditQueryTests : IDisposable
             "audit-form",
             "Audit form",
             MinimalClinicalSchema("notes", "form.notes"),
-            null);
+UiSchemaJson: null);
 
         using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -51,15 +51,15 @@ public sealed class AuditQueryTests : IDisposable
             (await actorEventsResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
         AuditEventDto createdEvent = Assert.Single(
             actorEvents,
-            item => item.Action == "form.created"
-                && item.MetadataJson!.Contains("audit-form", StringComparison.Ordinal));
+            item => string.Equals(item.Action, "form.created"
+, StringComparison.Ordinal) && item.MetadataJson!.Contains("audit-form", StringComparison.Ordinal));
 
         using HttpResponseMessage auditResponse = await Client.GetAsync(
             new Uri($"/api/audit/events?resourceType=form-definition&resourceId={createdEvent.ResourceId}", UriKind.Relative)).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
 
         List<AuditEventDto> events = (await auditResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        Assert.Contains(events, item => item.Action == "form.created");
+        Assert.Contains(events, item => string.Equals(item.Action, "form.created", StringComparison.Ordinal));
         Assert.All(events, item => Assert.Equal(createdEvent.ResourceId, item.ResourceId));
     }
 
@@ -77,7 +77,7 @@ public sealed class AuditQueryTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
 
         List<AuditEventDto> events = (await auditResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        AuditEventDto deletedEvent = Assert.Single(events, item => item.Action == "response.draft.deleted");
+        AuditEventDto deletedEvent = Assert.Single(events, item => string.Equals(item.Action, "response.draft.deleted", StringComparison.Ordinal));
         Assert.Equal("auditor-1", deletedEvent.ActorId);
         Assert.Contains("Entered in error", deletedEvent.MetadataJson, StringComparison.Ordinal);
     }
@@ -105,7 +105,7 @@ public sealed class AuditQueryTests : IDisposable
             code,
             code,
             MinimalClinicalSchema("field", $"{code}.field"),
-            null);
+UiSchemaJson: null);
         using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, createFormResponse.StatusCode);
 

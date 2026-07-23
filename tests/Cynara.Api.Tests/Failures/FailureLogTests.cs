@@ -77,7 +77,7 @@ public sealed class FailureLogTests : IDisposable
     }
 }
 
-public sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Program>
 {
     public SqliteConnection SharedConnection { get; } = new("Data Source=:memory:");
 
@@ -91,13 +91,8 @@ public sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Prog
                 Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
                 optional: false,
                 reloadOnChange: false);
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["CYNARA_ENABLE_TEST_ENDPOINTS"] = "true",
-            });
-        });
-
-        builder.ConfigureServices(services =>
+        })
+            .ConfigureServices(services =>
         {
             ServiceDescriptor? dbContextDescriptor = services.SingleOrDefault(
                 descriptor => descriptor.ServiceType == typeof(DbContextOptions<CynaraDbContext>));
@@ -109,6 +104,7 @@ public sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Prog
             _ = services.RemoveAll<CynaraDbContext>();
 
             _ = services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(SharedConnection));
+            _ = services.AddTransient<IStartupFilter, FailureTestEndpointsStartupFilter>();
         });
     }
 

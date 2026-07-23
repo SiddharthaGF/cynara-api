@@ -18,15 +18,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Roslynator.Analyzers" Version="4.15.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <ProjectReference Include="..\Cynara.Application\Cynara.Application.csproj" />
+    <ProjectReference Include="..\Cynara.Infrastructure\Cynara.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Cynara.Application\Cynara.Application.csproj" />
-    <ProjectReference Include="..\Cynara.Infrastructure\Cynara.Infrastructure.csproj" />
+    <InternalsVisibleTo Include="Cynara.Api.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,7 +31,7 @@
       <Link>Schemas\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\scripts\seed-data\*.json">
+    <Content Include="..\Cynara.Infrastructure\SeedData\*.json">
       <Link>SeedData\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

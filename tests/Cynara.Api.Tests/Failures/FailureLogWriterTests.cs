@@ -14,16 +14,16 @@ namespace Cynara.Api.Tests.Failures;
 
 public sealed class FailureLogWriterTests : IDisposable
 {
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
-    private readonly ServiceProvider _serviceProvider;
+    private readonly SqliteConnection connection = new("Data Source=:memory:");
+    private readonly ServiceProvider serviceProvider;
 
     public FailureLogWriterTests()
     {
-        _connection.Open();
+        connection.Open();
 
         DbContextOptions<CynaraDbContext> options =
             new DbContextOptionsBuilder<CynaraDbContext>()
-                .UseSqlite(_connection)
+                .UseSqlite(connection)
                 .Options;
 
         using (CynaraDbContext dbContext = new(options))
@@ -33,13 +33,13 @@ public sealed class FailureLogWriterTests : IDisposable
 
         ServiceCollection services = new();
         _ = services.AddScoped(_ => new CynaraDbContext(options));
-        _serviceProvider = services.BuildServiceProvider();
+        serviceProvider = services.BuildServiceProvider();
     }
 
     public void Dispose()
     {
-        _serviceProvider.Dispose();
-        _connection.Dispose();
+        serviceProvider.Dispose();
+        connection.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -96,7 +96,7 @@ public sealed class FailureLogWriterTests : IDisposable
         FailureLogWriter writer = CreateWriter();
         string huge = new('a', 10_000);
         var exception = new InvalidOperationException(huge);
-        var request = new FailureRequestContext("GET", "/x", null, null, null);
+        var request = new FailureRequestContext("GET", "/x", Query: null, ActorId: null, TraceId: null);
 
         await writer.RecordAsync(exception, request, 500, CancellationToken.None)
             .ConfigureAwait(false);
@@ -122,19 +122,22 @@ public sealed class FailureLogWriterTests : IDisposable
             TimeProvider.System,
             NullLogger<FailureLogWriter>.Instance);
 
-        var request = new FailureRequestContext("GET", "/x", null, null, null);
+        var request = new FailureRequestContext("GET", "/x", Query: null, ActorId: null, TraceId: null);
 
-        await writer.RecordAsync(
-            new InvalidOperationException("anything"),
-            request,
-            500,
-            CancellationToken.None).ConfigureAwait(false);
+        Exception? thrown = await Record.ExceptionAsync(
+            () => writer.RecordAsync(
+                new InvalidOperationException("anything"),
+                request,
+                500,
+                CancellationToken.None)).ConfigureAwait(false);
+
+        Assert.Null(thrown);
     }
 
     [Fact]
     public void FailureRequestContext_HandlesNullActorIdAndTraceId()
     {
-        var request = new FailureRequestContext("POST", null, null, null, null);
+        var request = new FailureRequestContext("POST", Path: null, Query: null, ActorId: null, TraceId: null);
 
         Assert.Null(request.ActorId);
         Assert.Null(request.TraceId);
@@ -144,14 +147,14 @@ public sealed class FailureLogWriterTests : IDisposable
     {
         var time = new FixedTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         return new FailureLogWriter(
-            _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             time,
             NullLogger<FailureLogWriter>.Instance);
     }
 
     private List<FailureLog> LoadEntries()
     {
-        using CynaraDbContext dbContext = _serviceProvider
+        using CynaraDbContext dbContext = serviceProvider
             .GetRequiredService<IServiceScopeFactory>()
             .CreateScope()
             .ServiceProvider

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure.Failures;
 
-public sealed class FailureLogWriter(
+public sealed partial class FailureLogWriter(
     IServiceScopeFactory scopeFactory,
     TimeProvider timeProvider,
     ILogger<FailureLogWriter> logger) : IFailureLogWriter
@@ -51,13 +51,21 @@ public sealed class FailureLogWriter(
         }
         catch (Exception writerException)
         {
-            logger.LogError(
+            LogPersistenceFailed(
                 writerException,
-                "Failed to persist failure log entry {FailureId} ({ExceptionType}).",
                 entry.Id,
                 entry.ExceptionType);
         }
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Error,
+        Message = "Failed to persist failure log entry {FailureId} ({ExceptionType}).")]
+    private partial void LogPersistenceFailed(
+        Exception exception,
+        Guid failureId,
+        string exceptionType);
 
     private FailureLog BuildEntry(Exception exception, FailureRequestContext context, int statusCode)
     {

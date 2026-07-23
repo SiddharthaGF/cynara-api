@@ -1,19 +1,10 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 namespace Cynara.Application.Forms;
 
 internal static class ClinicalFieldIndex
 {
-    internal sealed record FieldInfo(
-        string Id,
-        string Code,
-        string Type,
-        bool Required,
-        bool ReadOnly,
-        string Path,
-        double? MultipleOf,
-        int? DecimalPlaces);
-
     public static Dictionary<string, FieldInfo> BuildById(JsonObject clinicalRoot)
     {
         var byId = new Dictionary<string, FieldInfo>(StringComparer.Ordinal);
@@ -35,7 +26,7 @@ internal static class ClinicalFieldIndex
         for (int index = 0; index < fields.Count; index++)
         {
             JsonObject field = fields[index]!.AsObject();
-            string fieldPath = $"{path}/{index}";
+            string fieldPath = string.Create(CultureInfo.InvariantCulture, $"{path}/{index}");
             string id = field["id"]?.GetValue<string>()
                 ?? throw new ValidationException($"Expected field id at {fieldPath}/id.");
             string code = field["code"]?.GetValue<string>()
@@ -59,4 +50,14 @@ internal static class ClinicalFieldIndex
             }
         }
     }
+
+    internal sealed record FieldInfo(
+        string Id,
+        string Code,
+        string Type,
+        bool Required,
+        bool ReadOnly,
+        string Path,
+        double? MultipleOf,
+        int? DecimalPlaces);
 }

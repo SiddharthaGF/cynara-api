@@ -15,6 +15,20 @@ public sealed class ComponentLifecycleService(
     ISchemaValidator schemaValidator,
     TimeProvider timeProvider) : IComponentLifecycleService
 {
+    private const string DefaultClinicalSchema =
+        /*lang=json,strict*/ """
+        {
+          "schemaVersion": "1.0.0",
+          "fields": [
+            {
+              "id": "placeholder",
+              "code": "component.placeholder",
+              "type": "text"
+            }
+          ]
+        }
+        """;
+
     public async Task<ComponentSummaryDto> CreateAsync(
         CreateComponentRequest request,
         string? actorId,
@@ -84,7 +98,7 @@ public sealed class ComponentLifecycleService(
             request.ClinicalSchemaJson,
             request.UiSchemaJson);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         ComponentWorkflowHelpers.EnsureDraftConcurrency(
             draft,
@@ -96,7 +110,7 @@ public sealed class ComponentLifecycleService(
         definition.UpdatedAt = timeProvider.GetUtcNow();
 
         auditWriter.Append(
-            "component-version",
+            AuditEntityTypes.ComponentVersion,
             draft.Id,
             "component.draft.updated",
             actorId,
@@ -120,7 +134,7 @@ public sealed class ComponentLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         ComponentWorkflowHelpers.EnsureDraftConcurrency(
             draft,
@@ -145,7 +159,7 @@ public sealed class ComponentLifecycleService(
         definition.UpdatedAt = now;
 
         auditWriter.Append(
-            "component-version",
+            AuditEntityTypes.ComponentVersion,
             draft.Id,
             "component.version.published",
             actorId,
@@ -168,7 +182,7 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
         if (definition.Versions.Any(
                 item => item.Status == ComponentVersionStatus.Draft))
         {
@@ -188,13 +202,13 @@ public sealed class ComponentLifecycleService(
             ComponentDefinitionId = definition.Id,
             Status = ComponentVersionStatus.Draft,
             ClinicalSchemaJson = source?.ClinicalSchemaJson
-                ?? DefaultClinicalSchema(),
+                ?? DefaultClinicalSchema,
             UiSchemaJson = source?.UiSchemaJson,
             CreatedAt = now,
         };
 
         auditWriter.Append(
-            "component-version",
+            AuditEntityTypes.ComponentVersion,
             draft.Id,
             "component.draft.created",
             actorId,
@@ -220,9 +234,9 @@ public sealed class ComponentLifecycleService(
         ArgumentNullException.ThrowIfNull(version);
         SemverRules.EnsureValid(version);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
         ComponentVersion published = definition.Versions.SingleOrDefault(
-                item => item.Version == version
+                item => string.Equals(item.Version, version, StringComparison.Ordinal)
                     && item.Status == ComponentVersionStatus.Published)
             ?? throw new NotFoundException(
                 $"Published component '{code}' version '{version}' was not found.");
@@ -232,7 +246,7 @@ public sealed class ComponentLifecycleService(
         published.RetiredAt = now;
         definition.UpdatedAt = now;
         auditWriter.Append(
-            "component-version",
+            AuditEntityTypes.ComponentVersion,
             published.Id,
             "component.version.retired",
             actorId,
@@ -254,7 +268,7 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         if (definition.Versions.Any(
                 item => item.Status == ComponentVersionStatus.Published))
@@ -280,21 +294,5 @@ public sealed class ComponentLifecycleService(
             });
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private static string DefaultClinicalSchema()
-    {
-        return /*lang=json,strict*/ """
-            {
-              "schemaVersion": "1.0.0",
-              "fields": [
-                {
-                  "id": "placeholder",
-                  "code": "component.placeholder",
-                  "type": "text"
-                }
-              ]
-            }
-            """;
     }
 }

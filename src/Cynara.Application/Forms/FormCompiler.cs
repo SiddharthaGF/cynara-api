@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -21,21 +22,21 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
 
         var context = new CompilationContext(components, cancellationToken);
         JsonArray compiledFields = await CompileFieldArrayAsync(
-            RequireArray(clinicalRoot["fields"], "/fields"),
+            RequireArray(clinicalRoot[SchemaJsonKeys.Fields], "/fields"),
             "/fields",
             context).ConfigureAwait(false);
 
         var compiledClinical = new JsonObject
         {
-            ["schemaVersion"] = clinicalRoot["schemaVersion"]?.DeepClone(),
+            [SchemaJsonKeys.SchemaVersion] = clinicalRoot[SchemaJsonKeys.SchemaVersion]?.DeepClone(),
         };
 
-        if (clinicalRoot["$schema"] is JsonNode schemaUri)
+        if (clinicalRoot[SchemaJsonKeys.Schema] is JsonNode schemaUri)
         {
-            compiledClinical["$schema"] = schemaUri.DeepClone();
+            compiledClinical[SchemaJsonKeys.Schema] = schemaUri.DeepClone();
         }
 
-        compiledClinical["fields"] = compiledFields;
+        compiledClinical[SchemaJsonKeys.Fields] = compiledFields;
 
         JsonObject? compiledUi = uiRoot is null
             ? null
@@ -62,7 +63,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
     private static JsonObject CompileRulesSchema(JsonObject rulesRoot)
     {
         var compiledFields = new JsonObject();
-        if (rulesRoot["fields"] is JsonObject sourceFields)
+        if (rulesRoot[SchemaJsonKeys.Fields] is JsonObject sourceFields)
         {
             foreach ((string fieldId, JsonNode? rules) in sourceFields.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
             {
@@ -71,7 +72,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         }
 
         JsonArray? compiledValidations = null;
-        if (rulesRoot["validations"] is JsonArray validations)
+        if (rulesRoot[SchemaJsonKeys.Validations] is JsonArray validations)
         {
             compiledValidations = [];
             foreach (JsonNode? validation in validations)
@@ -82,19 +83,21 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
 
         var compiledRules = new JsonObject
         {
-            ["schemaVersion"] = rulesRoot["schemaVersion"]?.DeepClone(),
-            ["clinicalSchemaVersion"] = rulesRoot["clinicalSchemaVersion"]?.DeepClone(),
-            ["fields"] = compiledFields,
+            [SchemaJsonKeys.SchemaVersion] =
+                rulesRoot[SchemaJsonKeys.SchemaVersion]?.DeepClone(),
+            [SchemaJsonKeys.ClinicalSchemaVersion] =
+                rulesRoot[SchemaJsonKeys.ClinicalSchemaVersion]?.DeepClone(),
+            [SchemaJsonKeys.Fields] = compiledFields,
         };
 
-        if (rulesRoot["$schema"] is JsonNode schemaUri)
+        if (rulesRoot[SchemaJsonKeys.Schema] is JsonNode schemaUri)
         {
-            compiledRules["$schema"] = schemaUri.DeepClone();
+            compiledRules[SchemaJsonKeys.Schema] = schemaUri.DeepClone();
         }
 
         if (compiledValidations is not null)
         {
-            compiledRules["validations"] = compiledValidations;
+            compiledRules[SchemaJsonKeys.Validations] = compiledValidations;
         }
 
         return compiledRules;
@@ -103,7 +106,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
     private static JsonObject? CompileUiSchema(JsonObject uiRoot, CompilationContext context)
     {
         var compiledFields = new JsonObject();
-        if (uiRoot["fields"] is JsonObject sourceFields)
+        if (uiRoot[SchemaJsonKeys.Fields] is JsonObject sourceFields)
         {
             foreach ((string fieldId, JsonNode? presentation) in sourceFields.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
             {
@@ -111,16 +114,13 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
             }
         }
 
-        foreach (ResolvedComponentDependency dependency in context.Dependencies.Values.OrderBy(
-            static item => item.Code,
-            StringComparer.Ordinal))
+        foreach (JsonObject uiFields in context.Dependencies.Values
+            .OrderBy(static item => item.Code, StringComparer.Ordinal)
+            .Select(static dependency => dependency.UiFields)
+            .Where(static fields => fields is not null)
+            .Select(static fields => fields!))
         {
-            if (dependency.UiFields is null)
-            {
-                continue;
-            }
-
-            foreach ((string fieldId, JsonNode? presentation) in dependency.UiFields.OrderBy(
+            foreach ((string fieldId, JsonNode? presentation) in uiFields.OrderBy(
                 static pair => pair.Key,
                 StringComparer.Ordinal))
             {
@@ -133,19 +133,21 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
 
         var compiledUi = new JsonObject
         {
-            ["schemaVersion"] = uiRoot["schemaVersion"]?.DeepClone(),
-            ["clinicalSchemaVersion"] = uiRoot["clinicalSchemaVersion"]?.DeepClone(),
-            ["fields"] = compiledFields,
+            [SchemaJsonKeys.SchemaVersion] =
+                uiRoot[SchemaJsonKeys.SchemaVersion]?.DeepClone(),
+            [SchemaJsonKeys.ClinicalSchemaVersion] =
+                uiRoot[SchemaJsonKeys.ClinicalSchemaVersion]?.DeepClone(),
+            [SchemaJsonKeys.Fields] = compiledFields,
         };
 
-        if (uiRoot["$schema"] is JsonNode schemaUri)
+        if (uiRoot[SchemaJsonKeys.Schema] is JsonNode schemaUri)
         {
-            compiledUi["$schema"] = schemaUri.DeepClone();
+            compiledUi[SchemaJsonKeys.Schema] = schemaUri.DeepClone();
         }
 
-        if (uiRoot["layout"] is JsonArray layout)
+        if (uiRoot[SchemaJsonKeys.Layout] is JsonArray layout)
         {
-            compiledUi["layout"] = CompileLayoutArray(layout, context);
+            compiledUi[SchemaJsonKeys.Layout] = CompileLayoutArray(layout, context);
         }
 
         return compiledUi;
@@ -166,14 +168,16 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
     {
         string type = RequireString(node["type"], "layout type");
 
-        if (type == "field"
-            && node["fieldId"] is JsonValue fieldIdValue
-            && context.ExpandedReferenceLayouts.TryGetValue(fieldIdValue.GetValue<string>(), out JsonArray? expandedChildren))
+        if (string.Equals(type, "field", StringComparison.Ordinal)
+            && node[SchemaJsonKeys.FieldId] is JsonValue fieldIdValue
+            && context.ExpandedReferenceLayouts.TryGetValue(
+                fieldIdValue.GetValue<string>(),
+                out JsonArray? expandedChildren))
         {
             var compiled = new JsonObject
             {
-                ["type"] = "group",
-                ["fieldId"] = fieldIdValue.DeepClone(),
+                ["type"] = FieldTypeNames.Group,
+                [SchemaJsonKeys.FieldId] = fieldIdValue.DeepClone(),
                 ["children"] = expandedChildren.DeepClone(),
             };
 
@@ -191,7 +195,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         CopyIfPresent(node, result, "id");
         CopyIfPresent(node, result, "title");
         CopyIfPresent(node, result, "description");
-        CopyIfPresent(node, result, "fieldId");
+        CopyIfPresent(node, result, SchemaJsonKeys.FieldId);
         CopyIfPresent(node, result, "addButtonLabel");
         CopyIfPresent(node, result, "removeButtonLabel");
 
@@ -208,91 +212,6 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         return result;
     }
 
-    private async Task<JsonArray> CompileFieldArrayAsync(JsonArray fields, string path, CompilationContext context)
-    {
-        var compiledFields = new JsonArray();
-        for (int index = 0; index < fields.Count; index++)
-        {
-            JsonObject field = fields[index]!.AsObject();
-            compiledFields.Add(await CompileFieldAsync(field, $"{path}/{index}", context).ConfigureAwait(false));
-        }
-
-        return compiledFields;
-    }
-
-    private async Task<JsonObject> CompileFieldAsync(JsonObject field, string path, CompilationContext context)
-    {
-        string type = RequireString(field["type"], $"{path}/type");
-        if (type == "component-ref")
-        {
-            return await ExpandComponentReferenceAsync(field, path, context).ConfigureAwait(false);
-        }
-
-        JsonObject compiled = CloneFieldShell(field);
-        if (field["items"] is JsonArray items)
-        {
-            compiled["items"] = await CompileFieldArrayAsync(items, $"{path}/items", context).ConfigureAwait(false);
-        }
-
-        return compiled;
-    }
-
-    private async Task<JsonObject> ExpandComponentReferenceAsync(
-        JsonObject field,
-        string path,
-        CompilationContext context)
-    {
-        string componentCode = RequireString(field["componentCode"], $"{path}/componentCode");
-        string? componentVersion = field["componentVersion"]?.GetValue<string>();
-        if (string.IsNullOrWhiteSpace(componentVersion))
-        {
-            throw new ValidationException(
-                $"COMPONENT_VERSION_REQUIRED: component-ref at {path} must include componentVersion before publication.");
-        }
-
-        SemverRules.EnsureValid(componentVersion);
-
-        if (context.ResolutionStack.Contains(componentCode))
-        {
-            throw new ValidationException(
-                $"CIRCULAR_COMPONENT_REFERENCE: component '{componentCode}' references itself through {string.Join(" -> ", context.ResolutionStack)} -> {componentCode}.");
-        }
-
-        ResolvedComponentDependency dependency = await context.ResolveAsync(componentCode, componentVersion, path).ConfigureAwait(false);
-        JsonObject componentClinical = ParseObject(dependency.ClinicalSchemaJson, $"component '{componentCode}' clinical schema");
-        JsonArray componentFields = RequireArray(componentClinical["fields"], $"/components/{componentCode}/fields");
-
-        context.ResolutionStack.Push(componentCode);
-        JsonArray compiledItems;
-        try
-        {
-            compiledItems = await CompileFieldArrayAsync(componentFields, $"/components/{componentCode}/fields", context).ConfigureAwait(false);
-        }
-        finally
-        {
-            _ = context.ResolutionStack.Pop();
-        }
-
-        string fieldId = RequireString(field["id"], $"{path}/id");
-        context.ExpandedReferenceLayouts[fieldId] = dependency.LayoutChildren is JsonArray layoutChildren
-            ? CompileLayoutArray(layoutChildren, context)
-            : BuildDefaultLayout(compiledItems);
-
-        var compiled = new JsonObject
-        {
-            ["id"] = field["id"]?.DeepClone(),
-            ["code"] = field["code"]?.DeepClone(),
-            ["type"] = "group",
-            ["items"] = compiledItems,
-        };
-
-        CopyIfPresent(field, compiled, "required");
-        CopyIfPresent(field, compiled, "readOnly");
-        CopyIfPresent(field, compiled, "description");
-
-        return compiled;
-    }
-
     private static JsonArray BuildDefaultLayout(JsonArray compiledItems)
     {
         var layout = new JsonArray();
@@ -302,7 +221,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
             layout.Add(new JsonObject
             {
                 ["type"] = "field",
-                ["fieldId"] = itemId,
+                [SchemaJsonKeys.FieldId] = itemId,
             });
         }
 
@@ -314,7 +233,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
         var clone = new JsonObject();
         foreach ((string propertyName, JsonNode? value) in field)
         {
-            if (propertyName == "items")
+            if (string.Equals(propertyName, SchemaJsonKeys.Items, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -359,6 +278,91 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
             : throw new ValidationException($"Expected non-empty string at {path}.");
     }
 
+    private async Task<JsonArray> CompileFieldArrayAsync(JsonArray fields, string path, CompilationContext context)
+    {
+        var compiledFields = new JsonArray();
+        for (int index = 0; index < fields.Count; index++)
+        {
+            JsonObject field = fields[index]!.AsObject();
+            compiledFields.Add(await CompileFieldAsync(field, string.Create(CultureInfo.InvariantCulture, $"{path}/{index}"), context).ConfigureAwait(false));
+        }
+
+        return compiledFields;
+    }
+
+    private async Task<JsonObject> CompileFieldAsync(JsonObject field, string path, CompilationContext context)
+    {
+        string type = RequireString(field["type"], $"{path}/type");
+        if (string.Equals(type, "component-ref", StringComparison.Ordinal))
+        {
+            return await ExpandComponentReferenceAsync(field, path, context).ConfigureAwait(false);
+        }
+
+        JsonObject compiled = CloneFieldShell(field);
+        if (field[SchemaJsonKeys.Items] is JsonArray items)
+        {
+            compiled[SchemaJsonKeys.Items] = await CompileFieldArrayAsync(items, $"{path}/items", context).ConfigureAwait(false);
+        }
+
+        return compiled;
+    }
+
+    private async Task<JsonObject> ExpandComponentReferenceAsync(
+        JsonObject field,
+        string path,
+        CompilationContext context)
+    {
+        string componentCode = RequireString(field["componentCode"], $"{path}/componentCode");
+        string? componentVersion = field["componentVersion"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(componentVersion))
+        {
+            throw new ValidationException(
+                $"COMPONENT_VERSION_REQUIRED: component-ref at {path} must include componentVersion before publication.");
+        }
+
+        SemverRules.EnsureValid(componentVersion);
+
+        if (context.ResolutionStack.Contains(componentCode))
+        {
+            throw new ValidationException(
+                $"CIRCULAR_COMPONENT_REFERENCE: component '{componentCode}' references itself through {string.Join(" -> ", context.ResolutionStack)} -> {componentCode}.");
+        }
+
+        ResolvedComponentDependency dependency = await context.ResolveAsync(componentCode, componentVersion, path).ConfigureAwait(false);
+        JsonObject componentClinical = ParseObject(dependency.ClinicalSchemaJson, $"component '{componentCode}' clinical schema");
+        JsonArray componentFields = RequireArray(componentClinical[SchemaJsonKeys.Fields], $"/components/{componentCode}/fields");
+
+        context.ResolutionStack.Push(componentCode);
+        JsonArray compiledItems;
+        try
+        {
+            compiledItems = await CompileFieldArrayAsync(componentFields, $"/components/{componentCode}/fields", context).ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = context.ResolutionStack.Pop();
+        }
+
+        string fieldId = RequireString(field["id"], $"{path}/id");
+        context.ExpandedReferenceLayouts[fieldId] = dependency.LayoutChildren is JsonArray layoutChildren
+            ? CompileLayoutArray(layoutChildren, context)
+            : BuildDefaultLayout(compiledItems);
+
+        var compiled = new JsonObject
+        {
+            ["id"] = field["id"]?.DeepClone(),
+            ["code"] = field["code"]?.DeepClone(),
+            ["type"] = FieldTypeNames.Group,
+            [SchemaJsonKeys.Items] = compiledItems,
+        };
+
+        CopyIfPresent(field, compiled, "required");
+        CopyIfPresent(field, compiled, "readOnly");
+        CopyIfPresent(field, compiled, "description");
+
+        return compiled;
+    }
+
     private sealed class CompilationContext(
         IComponentRepository components,
         CancellationToken cancellationToken)
@@ -393,7 +397,7 @@ public sealed class FormCompiler(IComponentRepository components) : IFormCompile
             {
                 JsonObject uiRoot = JsonNode.Parse(version.UiSchemaJson)?.AsObject()
                     ?? throw new ValidationException($"Invalid UI schema for component '{componentCode}' version '{componentVersion}'.");
-                uiFields = uiRoot["fields"] as JsonObject;
+                uiFields = uiRoot[SchemaJsonKeys.Fields] as JsonObject;
                 layoutChildren = uiRoot["layout"] as JsonArray;
             }
 
