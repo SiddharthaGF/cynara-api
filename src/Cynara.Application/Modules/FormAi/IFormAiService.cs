@@ -5,13 +5,6 @@ public interface IFormAiService
     public Task<FormAiStatusResponse> GetStatusAsync(
         CancellationToken cancellationToken);
 
-    public Task<FormAiSettingsResponse> GetSettingsAsync(
-        CancellationToken cancellationToken);
-
-    public Task<FormAiSettingsResponse> UpdateSettingsAsync(
-        FormAiSettingsUpdateRequest request,
-        CancellationToken cancellationToken);
-
     public Task<FormAiChatResponse> ChatAsync(
         string formCode,
         FormAiChatRequest request,

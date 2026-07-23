@@ -32,6 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Cynara.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Schemas\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

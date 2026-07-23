@@ -1,4 +1,3 @@
-using System.ClientModel;
 using System.Runtime.CompilerServices;
 
 using Cynara.Application;
@@ -132,21 +131,6 @@ public sealed partial class OpenAiClient(
 
     private static ValidationException MapProviderException(Exception exception)
     {
-        return exception switch
-        {
-            ClientResultException clientEx => new ValidationException(
-                string.IsNullOrWhiteSpace(clientEx.Message)
-                    ? string.Create(
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        $"OpenAI-compatible request failed with HTTP {clientEx.Status}.")
-                    : clientEx.Message.Trim(),
-                clientEx),
-            HttpRequestException httpEx => new ValidationException(
-                httpEx.Message,
-                httpEx),
-            _ => new ValidationException(
-                "OpenAI-compatible provider request failed.",
-                exception),
-        };
+        return OpenAiProviderErrorMapper.Map(exception);
     }
 }

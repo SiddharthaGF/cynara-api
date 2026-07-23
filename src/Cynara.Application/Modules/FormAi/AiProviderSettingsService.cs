@@ -58,12 +58,12 @@ public sealed class AiProviderSettingsService(
                 row.BaseUrl,
                 row.Model,
                 row.JsonObject ?? true);
-            return ToSettingsResponse(config, "database", Suggestions);
+            return ToSettingsResponse(config, "database", Suggestions, row.UpdatedAt);
         }
 
         OpenAiConfig environment = environmentConfiguration.LoadEnvironment();
         return environment.Configured
-            ? ToSettingsResponse(environment, "env", Suggestions)
+            ? ToSettingsResponse(environment, "env", Suggestions, row?.UpdatedAt)
             : new FormAiSettingsResponse(
                 Configured: false,
                 row?.Model?.Trim(),
@@ -73,7 +73,8 @@ public sealed class AiProviderSettingsService(
                 row?.JsonObject ?? true,
                 "none",
                 !string.IsNullOrWhiteSpace(row?.BaseUrl),
-                Suggestions);
+                Suggestions,
+                row?.UpdatedAt);
     }
 
     public async Task<FormAiSettingsResponse> UpsertAsync(
@@ -118,7 +119,10 @@ public sealed class AiProviderSettingsService(
             throw new ValidationException("API key is required.");
         }
 
-        AiProviderSettings row = existing ?? new AiProviderSettings();
+        AiProviderSettings row = existing ?? new AiProviderSettings
+        {
+            Id = AiProviderSettings.DefaultId,
+        };
         row.ApiKey = apiKey;
         row.BaseUrl = baseUrl;
         row.Model = model;
@@ -165,7 +169,8 @@ public sealed class AiProviderSettingsService(
     private static FormAiSettingsResponse ToSettingsResponse(
         OpenAiConfig config,
         string source,
-        IReadOnlyList<AiEndpointSuggestion> suggestions)
+        IReadOnlyList<AiEndpointSuggestion> suggestions,
+        DateTimeOffset? updatedAt)
     {
         return new FormAiSettingsResponse(
             config.Configured,
@@ -176,7 +181,8 @@ public sealed class AiProviderSettingsService(
             config.JsonObject,
             source,
             !string.IsNullOrWhiteSpace(config.BaseUrl),
-            suggestions);
+            suggestions,
+            updatedAt);
     }
 
     private static string? NormalizeOptionalBaseUrl(string? value)

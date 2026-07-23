@@ -82,11 +82,12 @@ internal static class ServiceCollectionExtensions
                     Description =
                         "JSON:API contract for Cynara clinical form "
                         + "lifecycle, responses, components, audit, and "
-                        + "Form AI workflows. Send `X-Actor-Id` on "
+                        + "AI provider settings. Send `X-Actor-Id` on "
                         + "mutating requests for audit attribution. Media "
                         + "type: application/vnd.api+json. Workflow "
                         + "actions use rowVersion query parameters. "
-                        + "Form AI chat/settings use application/json.",
+                        + "Form AI status/chat use application/json; "
+                        + "chat/stream uses text/event-stream (SSE).",
                 });
             swagger.AddSecurityDefinition(
                 "ActorId",

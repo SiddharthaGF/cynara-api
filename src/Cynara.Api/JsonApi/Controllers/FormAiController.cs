@@ -10,8 +10,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Api.JsonApi.Controllers;
 
 /// <summary>
-/// Non-CRUD Form AI endpoints (status, rich settings view, chat, SSE stream).
-/// Settings secrets are managed via <c>/api/aiProviderSettings</c>.
+/// Intentional non-JSON:API Form AI endpoints.
+/// Settings CRUD lives on JSON:API <c>/api/aiProviderSettings</c>.
+/// Status is a lightweight plain-JSON readiness probe for the chat UI.
+/// Chat returns a plain JSON turn; chat/stream uses SSE
+/// (<c>text/event-stream</c>) and cannot be a JSON:API resource document.
 /// Bodies are read with System.Text.Json to avoid JsonApiDotNetCore
 /// ModelMetadataKind.Constructor failures on positional records.
 /// </summary>
@@ -33,8 +36,11 @@ public sealed class FormAiController(
     /// </summary>
     [HttpGet("status", Name = "getFormAiStatus")]
     [EndpointDescription(
-        "Reports Form AI configuration status for the active provider settings "
-        + "and environment fallbacks. Never returns the raw API key.")]
+        "Non-resource readiness probe (application/json). Reports Form AI "
+        + "configuration status for the active provider settings and "
+        + "environment fallbacks. Never returns the raw API key. "
+        + "Admin settings use JSON:API GET/PATCH /api/aiProviderSettings/{id}.")]
+    [Produces("application/json")]
     [ProducesResponseType(typeof(FormAiStatusResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<FormAiStatusResponse>> GetStatusAsync(
         CancellationToken cancellationToken)
@@ -44,49 +50,16 @@ public sealed class FormAiController(
     }
 
     /// <summary>
-    /// Returns the public settings view including masked key and suggestions.
-    /// </summary>
-    [HttpGet("settings", Name = "getFormAiSettings")]
-    [EndpointDescription(
-        "Returns Form AI settings for the admin UI, including a masked API key "
-        + "indicator and endpoint suggestions.")]
-    [ProducesResponseType(typeof(FormAiSettingsResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<FormAiSettingsResponse>> GetSettingsAsync(
-        CancellationToken cancellationToken)
-    {
-        return Ok(await formAiService.GetSettingsAsync(cancellationToken)
-            .ConfigureAwait(false));
-    }
-
-    /// <summary>
-    /// Updates AI settings (including optional API key rotation).
-    /// Prefer JSON:API PATCH on aiProviderSettings when only resource fields change.
-    /// </summary>
-    [HttpPut("settings", Name = "putFormAiSettings")]
-    [EndpointDescription(
-        "Upserts Form AI settings. Use clearApiKey to remove a stored secret. "
-        + "Does not echo the raw API key. Content-Type: application/json.")]
-    [Consumes("application/json")]
-    [ProducesResponseType(typeof(FormAiSettingsResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<FormAiSettingsResponse>> PutSettingsAsync(
-        CancellationToken cancellationToken)
-    {
-        FormAiSettingsUpdateRequest request = await ReadBodyAsync<FormAiSettingsUpdateRequest>(
-            cancellationToken).ConfigureAwait(false);
-        return Ok(await formAiService.UpdateSettingsAsync(request, cancellationToken)
-            .ConfigureAwait(false));
-    }
-
-    /// <summary>
     /// Runs a non-streaming AI authoring turn against a form's editable draft.
     /// </summary>
     [HttpPost("forms/{formDefinitionId:guid}/chat", Name = "postFormAiChat")]
     [EndpointDescription(
-        "Invokes Form AI chat against the editable draft of the given form "
-        + "definition. Returns proposed clinical/UI/rules schema updates. "
-        + "Content-Type: application/json.")]
+        "Non-resource RPC (application/json). Invokes Form AI chat against "
+        + "the editable draft of the given form definition. Returns proposed "
+        + "clinical/UI/rules schema updates. Not modeled as JSON:API because "
+        + "the payload is a command/result turn, not a persisted resource.")]
     [Consumes("application/json")]
+    [Produces("application/json")]
     [ProducesResponseType(typeof(FormAiChatResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FormAiChatResponse>> ChatAsync(
@@ -106,8 +79,11 @@ public sealed class FormAiController(
     /// </summary>
     [HttpPost("forms/{formDefinitionId:guid}/chat/stream", Name = "postFormAiChatStream")]
     [EndpointDescription(
-        "Streams Form AI chat events (text/event-stream) for progressive UI "
-        + "updates while drafting schemas. Content-Type: application/json.")]
+        "Non-resource SSE stream (text/event-stream). Progressive Form AI "
+        + "authoring events for the designer UI. Kept outside JSON:API by "
+        + "design: media type and incremental event framing are incompatible "
+        + "with application/vnd.api+json resource documents. "
+        + "Request body Content-Type: application/json.")]
     [Consumes("application/json")]
     [Produces("text/event-stream")]
     [ProducesResponseType(StatusCodes.Status200OK)]

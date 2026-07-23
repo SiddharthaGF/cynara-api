@@ -57,20 +57,6 @@ public sealed partial class FormAiService(
             view.BaseUrlConfigured);
     }
 
-    public Task<FormAiSettingsResponse> GetSettingsAsync(
-        CancellationToken cancellationToken)
-    {
-        return settings.GetPublicViewAsync(cancellationToken);
-    }
-
-    public Task<FormAiSettingsResponse> UpdateSettingsAsync(
-        FormAiSettingsUpdateRequest request,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return settings.UpsertAsync(request, cancellationToken);
-    }
-
     public async Task<FormAiChatResponse> ChatAsync(
         string formCode,
         FormAiChatRequest request,

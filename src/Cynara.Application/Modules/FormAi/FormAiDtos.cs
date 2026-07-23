@@ -38,7 +38,8 @@ public sealed record FormAiSettingsResponse(
     bool JsonObject,
     string Source,
     bool BaseUrlConfigured,
-    IReadOnlyList<AiEndpointSuggestion> Suggestions);
+    IReadOnlyList<AiEndpointSuggestion> Suggestions,
+    DateTimeOffset? UpdatedAt = null);
 
 public sealed record FormAiSettingsUpdateRequest(
     string? ApiKey = null,

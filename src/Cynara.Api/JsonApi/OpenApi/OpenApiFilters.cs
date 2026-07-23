@@ -54,7 +54,11 @@ public sealed class CynaraOpenApiDocumentFilter : IDocumentFilter
         {
             swaggerDoc.Info.Description =
                 "Cynara JSON:API. Media type application/vnd.api+json. "
-                + "Mutating workflows accept rowVersion as a query parameter.";
+                + "Mutating workflows accept rowVersion as a query parameter. "
+                + "Non-resource Form AI: GET /api/ai/status and POST "
+                + "/api/ai/forms/{id}/chat (application/json); POST "
+                + ".../chat/stream (text/event-stream). Settings: "
+                + "GET/PATCH /api/aiProviderSettings/{id}.";
         }
         else if (!swaggerDoc.Info.Description.Contains(
                      "page[size]",

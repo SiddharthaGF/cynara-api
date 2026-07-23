@@ -72,9 +72,32 @@ POST {{baseUrl}}/api/formResponses/{{responseId}}/complete?rowVersion=0
 Accept: {{jsonApi}}
 X-Actor-Id: {{actor}}
 
-### Form AI status (application/json)
+### Form AI status (application/json, intentional non-resource)
 GET {{baseUrl}}/api/ai/status
 Accept: application/json
+
+### AI provider settings (JSON:API singleton)
+GET {{baseUrl}}/api/aiProviderSettings/default
+Accept: {{jsonApi}}
+
+### Upsert AI provider settings
+PATCH {{baseUrl}}/api/aiProviderSettings/default
+Content-Type: {{jsonApi}}
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+{
+  "data": {
+    "type": "aiProviderSettings",
+    "id": "default",
+    "attributes": {
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "jsonObject": true,
+      "apiKey": "sk-replace-me"
+    }
+  }
+}
 
 ### Audit events
 GET {{baseUrl}}/api/auditEvents?sort=-occurredAt&page[size]=20

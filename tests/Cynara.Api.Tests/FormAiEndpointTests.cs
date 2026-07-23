@@ -49,19 +49,129 @@ public sealed class FormAiEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Settings_RequiresApiKeyWithoutStoredProvider()
+    public async Task PlainJsonSettingsRoutes_AreRemoved()
     {
-        using HttpResponseMessage response = await client.PutAsJsonAsync(
+        using HttpResponseMessage get = await client.GetAsync(
+            new Uri("/api/ai/settings", UriKind.Relative)).ConfigureAwait(false);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, get.StatusCode);
+
+        using HttpResponseMessage put = await client.PutAsJsonAsync(
             "/api/ai/settings",
-            new
+            new { baseUrl = "https://api.openai.com/v1", model = "gpt-4o-mini" })
+            .ConfigureAwait(false);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, put.StatusCode);
+    }
+
+    [Fact]
+    public async Task AiProviderSettings_GetDefault_ProjectsPublicView()
+    {
+        var api = new JsonApiClient(client);
+        using JsonDocument document = await api.GetAsync(
+            "/api/aiProviderSettings/default").ConfigureAwait(false);
+
+        Assert.Equal("default", JsonApiClient.RequireId(document));
+        Assert.Equal("env", JsonApiClient.AttrString(document, "source"));
+        Assert.True(
+            document.RootElement
+                .GetProperty("data")
+                .GetProperty("attributes")
+                .GetProperty("configured")
+                .GetBoolean());
+        Assert.True(
+            document.RootElement
+                .GetProperty("data")
+                .GetProperty("attributes")
+                .GetProperty("hasApiKey")
+                .GetBoolean());
+        Assert.True(
+            document.RootElement
+                .GetProperty("data")
+                .GetProperty("attributes")
+                .TryGetProperty("suggestions", out JsonElement suggestions));
+        Assert.True(suggestions.GetArrayLength() > 0);
+        Assert.DoesNotContain(
+            "test-api-key",
+            document.RootElement.GetRawText(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AiProviderSettings_PatchRequiresApiKeyWithoutStoredProvider()
+    {
+        using StringContent content = JsonApiClient.CreateJsonApiContent(new
+        {
+            data = new
             {
-                baseUrl = "https://api.openai.com/v1",
-                model = "gpt-4o-mini",
-            }).ConfigureAwait(false);
+                type = "aiProviderSettings",
+                id = "default",
+                attributes = new
+                {
+                    baseUrl = "https://api.openai.com/v1",
+                    model = "gpt-4o-mini",
+                },
+            },
+        });
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            new Uri("/api/aiProviderSettings/default", UriKind.Relative))
+        {
+            Content = content,
+        };
+        using HttpResponseMessage response = await client
+            .SendAsync(request)
+            .ConfigureAwait(false);
 
         Assert.Equal(
             System.Net.HttpStatusCode.BadRequest,
             response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AiProviderSettings_PatchUpsertsAndClearApiKey()
+    {
+        var api = new JsonApiClient(client);
+        using JsonDocument upserted = await api.PatchResourceAsync(
+            "aiProviderSettings",
+            "default",
+            new
+            {
+                baseUrl = "https://api.openai.com/v1",
+                model = "gpt-4o-mini",
+                jsonObject = true,
+                apiKey = "sk-test-upsert-key",
+            }).ConfigureAwait(false);
+
+        Assert.Equal("database", JsonApiClient.AttrString(upserted, "source"));
+        Assert.True(
+            upserted.RootElement
+                .GetProperty("data")
+                .GetProperty("attributes")
+                .GetProperty("hasApiKey")
+                .GetBoolean());
+        Assert.Equal(
+            "gpt-4o-mini",
+            JsonApiClient.AttrString(upserted, "model"));
+        Assert.DoesNotContain(
+            "sk-test-upsert-key",
+            upserted.RootElement.GetRawText(),
+            StringComparison.Ordinal);
+
+        using JsonDocument cleared = await api.PatchResourceAsync(
+            "aiProviderSettings",
+            "default",
+            new
+            {
+                clearApiKey = true,
+                baseUrl = "https://api.openai.com/v1",
+                model = "gpt-4o-mini",
+            }).ConfigureAwait(false);
+
+        // DB secret cleared; factory env key becomes the active source.
+        Assert.Equal("env", JsonApiClient.AttrString(cleared, "source"));
+        Assert.DoesNotContain(
+            "sk-test-upsert-key",
+            cleared.RootElement.GetRawText(),
+            StringComparison.Ordinal);
     }
 
     [Fact]
