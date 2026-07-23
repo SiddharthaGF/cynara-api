@@ -1,9 +1,7 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
-using Cynara.Application.Audit;
-using Cynara.Application.Forms;
+using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
@@ -12,7 +10,10 @@ public sealed class AuditQueryTests : IDisposable
     public AuditQueryTests()
     {
         Client = Factory.CreateClient();
+        Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "auditor-1");
+        Api = new JsonApiClient(Client);
+        Workflow = new JsonApiWorkflow(Api, Client);
     }
 
     public void Dispose()
@@ -23,136 +24,126 @@ public sealed class AuditQueryTests : IDisposable
     }
 
     [Fact]
-    public async Task ListAuditEvents_RequiresAtLeastOneFilter()
+    public async Task ListAuditEvents_WithoutFilter_ReturnsCollection()
     {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri("/api/audit/events", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // JSON:API allows unfiltered reads; ensure the resource route is wired.
+        using JsonDocument document = await Api.GetAsync("/api/auditEvents")
+            .ConfigureAwait(false);
+        Assert.True(document.RootElement.TryGetProperty("data", out _));
     }
 
     [Fact]
     public async Task ListAuditEvents_ByResourceId_ReturnsFormLifecycleEvents()
     {
-        var createRequest = new CreateFormRequest(
+        string definitionId = await Workflow.CreateFormDefinitionAsync(
             "audit-form",
             "Audit form",
-            MinimalClinicalSchema("notes", "form.notes"),
-UiSchemaJson: null);
+            JsonApiWorkflow.MinimalClinicalSchema("notes", "form.notes"))
+            .ConfigureAwait(false);
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using JsonDocument actorEvents = await Api.GetAsync(
+            "/api/auditEvents?filter=equals(actorId,'auditor-1')"
+            + "&filter=equals(resourceType,'form-definition')")
+            .ConfigureAwait(false);
+        JsonElement created = Assert.Single(
+            actorEvents.RootElement.GetProperty("data").EnumerateArray(),
+            item => string.Equals(
+                item.GetProperty("attributes").GetProperty("action").GetString(),
+                "form.created",
+                StringComparison.Ordinal)
+                && (item.GetProperty("attributes").GetProperty("metadataJson")
+                    .GetString() ?? string.Empty)
+                    .Contains("audit-form", StringComparison.Ordinal));
 
-        using HttpResponseMessage actorEventsResponse = await Client.GetAsync(
-            new Uri("/api/audit/events?actorId=auditor-1&resourceType=form-definition&limit=50", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, actorEventsResponse.StatusCode);
+        string resourceId = created.GetProperty("attributes")
+            .GetProperty("resourceId")
+            .GetString()!;
+        Assert.Equal(definitionId, resourceId);
 
-        List<AuditEventDto> actorEvents =
-            (await actorEventsResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        AuditEventDto createdEvent = Assert.Single(
-            actorEvents,
-            item => string.Equals(item.Action, "form.created"
-, StringComparison.Ordinal) && item.MetadataJson!.Contains("audit-form", StringComparison.Ordinal));
-
-        using HttpResponseMessage auditResponse = await Client.GetAsync(
-            new Uri($"/api/audit/events?resourceType=form-definition&resourceId={createdEvent.ResourceId}", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
-
-        List<AuditEventDto> events = (await auditResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        Assert.Contains(events, item => string.Equals(item.Action, "form.created", StringComparison.Ordinal));
-        Assert.All(events, item => Assert.Equal(createdEvent.ResourceId, item.ResourceId));
+        using JsonDocument auditResponse = await Api.GetAsync(
+            "/api/auditEvents?filter=equals(resourceType,'form-definition')"
+            + $"&filter=equals(resourceId,'{resourceId}')")
+            .ConfigureAwait(false);
+        JsonElement events = auditResponse.RootElement.GetProperty("data");
+        Assert.Contains(
+            events.EnumerateArray(),
+            item => string.Equals(
+                item.GetProperty("attributes").GetProperty("action").GetString(),
+                "form.created",
+                StringComparison.Ordinal));
+        Assert.All(
+            events.EnumerateArray(),
+            item => Assert.Equal(
+                resourceId,
+                item.GetProperty("attributes").GetProperty("resourceId").GetString()));
     }
 
     [Fact]
     public async Task SoftDeleteResponse_RecordsActorAndReasonInAuditTrail()
     {
-        FormResponseDto response = await CreatePublishedResponseAsync("audit-response").ConfigureAwait(false);
+        (_, string versionId) = await Workflow.PublishFormAsync(
+            "audit-response",
+            "audit-response",
+            JsonApiWorkflow.MinimalClinicalSchema("field", "audit-response.field"))
+            .ConfigureAwait(false);
+        using JsonDocument response = await Workflow.CreateResponseAsync(versionId)
+            .ConfigureAwait(false);
+        string responseId = JsonApiClient.RequireId(response);
 
-        using HttpResponseMessage deleteResponse = await Client.DeleteAsync(
-            new Uri($"/api/responses/{response.Id}?reason=Entered%20in%20error", UriKind.Relative)).ConfigureAwait(false);
+        using HttpResponseMessage deleteResponse = await Api.DeleteAsync(
+            $"/api/formResponses/{responseId}?reason=Entered%20in%20error")
+            .ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
-        using HttpResponseMessage auditResponse = await Client.GetAsync(
-            new Uri($"/api/audit/events?resourceType=form-response&resourceId={response.Id}", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
-
-        List<AuditEventDto> events = (await auditResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        AuditEventDto deletedEvent = Assert.Single(events, item => string.Equals(item.Action, "response.draft.deleted", StringComparison.Ordinal));
-        Assert.Equal("auditor-1", deletedEvent.ActorId);
-        Assert.Contains("Entered in error", deletedEvent.MetadataJson, StringComparison.Ordinal);
+        using JsonDocument auditResponse = await Api.GetAsync(
+            "/api/auditEvents?filter=equals(resourceType,'form-response')"
+            + $"&filter=equals(resourceId,'{responseId}')")
+            .ConfigureAwait(false);
+        JsonElement deletedEvent = Assert.Single(
+            auditResponse.RootElement.GetProperty("data").EnumerateArray(),
+            item => string.Equals(
+                item.GetProperty("attributes").GetProperty("action").GetString(),
+                "response.draft.deleted",
+                StringComparison.Ordinal));
+        Assert.Equal(
+            "auditor-1",
+            deletedEvent.GetProperty("attributes").GetProperty("actorId").GetString());
+        Assert.Contains(
+            "Entered in error",
+            deletedEvent.GetProperty("attributes").GetProperty("metadataJson")
+                .GetString(),
+            StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task ListAuditEvents_ByActorId_ReturnsMatchingEvents()
     {
-        await CreatePublishedResponseAsync("actor-query").ConfigureAwait(false);
+        (_, string versionId) = await Workflow.PublishFormAsync(
+            "actor-query",
+            "actor-query",
+            JsonApiWorkflow.MinimalClinicalSchema("field", "actor-query.field"))
+            .ConfigureAwait(false);
+        using JsonDocument createdResponse = await Workflow.CreateResponseAsync(versionId)
+            .ConfigureAwait(false);
+        Assert.NotNull(JsonApiClient.RequireId(createdResponse));
 
-        using HttpResponseMessage auditResponse = await Client.GetAsync(new Uri("/api/audit/events?actorId=auditor-1", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
-
-        List<AuditEventDto> events = (await auditResponse.Content.ReadFromJsonAsync<List<AuditEventDto>>().ConfigureAwait(false))!;
-        Assert.NotEmpty(events);
-        Assert.All(events, item => Assert.Equal("auditor-1", item.ActorId));
+        using JsonDocument auditResponse = await Api.GetAsync(
+            "/api/auditEvents?filter=equals(actorId,'auditor-1')")
+            .ConfigureAwait(false);
+        JsonElement events = auditResponse.RootElement.GetProperty("data");
+        Assert.NotEmpty(events.EnumerateArray());
+        Assert.All(
+            events.EnumerateArray(),
+            item => Assert.Equal(
+                "auditor-1",
+                item.GetProperty("attributes").GetProperty("actorId").GetString()));
     }
 
     private HttpClient Client { get; }
 
+    private JsonApiClient Api { get; }
+
+    private JsonApiWorkflow Workflow { get; }
+
     private FormWebApplicationFactory Factory { get; } = new();
-
-    private async Task<FormResponseDto> CreatePublishedResponseAsync(string code)
-    {
-        var createFormRequest = new CreateFormRequest(
-            code,
-            code,
-            MinimalClinicalSchema("field", $"{code}.field"),
-UiSchemaJson: null);
-        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, createFormResponse.StatusCode);
-
-        FormVersionDto draft = await GetEditableVersionAsync(code).ConfigureAwait(false);
-        FormVersionDto inReview = await SubmitForReviewAsync(code, draft.RowVersion).ConfigureAwait(false);
-
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
-
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/versions/1.0.0/responses",
-            new CreateFormResponseRequest()).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-        return (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> GetEditableVersionAsync(string code)
-    {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> SubmitForReviewAsync(string code, uint rowVersion)
-    {
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private static string MinimalClinicalSchema(string id, string code)
-    {
-        return JsonSerializer.Serialize(new
-        {
-            schemaVersion = "1.0.0",
-            fields = new[]
-            {
-                new
-                {
-                    id,
-                    code,
-                    type = "text",
-                    maxLength = 500,
-                },
-            },
-        });
-    }
 }

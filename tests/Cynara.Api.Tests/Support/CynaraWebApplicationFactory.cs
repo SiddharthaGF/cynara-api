@@ -5,22 +5,17 @@ using Microsoft.Extensions.Hosting;
 
 namespace Cynara.Api.Tests.Support;
 
-internal class CynaraWebApplicationFactory : WebApplicationFactory<Program>
+internal class CynaraWebApplicationFactory(TestDatabaseSettings database)
+    : WebApplicationFactory<Program>
 {
-    private readonly TestDatabaseSettings database;
-
     public CynaraWebApplicationFactory()
         : this(TestDatabaseSettings.SqliteInMemory)
     {
     }
 
-    public CynaraWebApplicationFactory(TestDatabaseSettings database)
-    {
-        this.database = database;
-    }
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        _ = builder.UseEnvironment("Development");
         _ = builder.UseCynaraTestDatabase(database);
     }
 

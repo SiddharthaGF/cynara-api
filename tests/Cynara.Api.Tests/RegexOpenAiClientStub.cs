@@ -5,15 +5,8 @@ using Cynara.Application.Modules.FormAi;
 
 namespace Cynara.Api.Tests;
 
-internal sealed class RegexOpenAiClientStub : IOpenAiClient
+internal sealed class RegexOpenAiClientStub(bool emitRegexValidation) : IOpenAiClient
 {
-    private readonly bool emitRegexValidation;
-
-    public RegexOpenAiClientStub(bool emitRegexValidation)
-    {
-        this.emitRegexValidation = emitRegexValidation;
-    }
-
     public Task<OpenAiCompletionResult> CreateChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,

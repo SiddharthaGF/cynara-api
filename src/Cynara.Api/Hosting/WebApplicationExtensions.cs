@@ -1,12 +1,9 @@
 using Cynara.Api.Common.ErrorHandling;
-using Cynara.Api.Modules.Audit;
-using Cynara.Api.Modules.Components;
-using Cynara.Api.Modules.FormAi;
-using Cynara.Api.Modules.FormResponses;
-using Cynara.Api.Modules.Forms;
 using Cynara.Api.Modules.Health;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Preview;
+
+using JsonApiDotNetCore.Configuration;
 
 using Scalar.AspNetCore;
 
@@ -27,7 +24,9 @@ internal static class WebApplicationExtensions
                 await next().ConfigureAwait(false);
             });
         _ = app.UseCynaraExceptionHandling();
+        _ = app.UseRouting();
         _ = app.UseCors();
+        app.UseJsonApi();
 
         await app.Services.InitializeDatabaseAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -41,24 +40,19 @@ internal static class WebApplicationExtensions
 
         if (app.Environment.IsDevelopment())
         {
-            _ = app.MapOpenApi();
-            _ = app.MapScalarApiReference(
-                options => _ = options.WithTitle("Cynara API"));
+            _ = app.UseSwagger();
+            _ = app.MapScalarApiReference(options =>
+            {
+                _ = options.WithTitle("Cynara API");
+                _ = options.WithOpenApiRoutePattern(
+                    "/swagger/{documentName}/swagger.json");
+            });
         }
 
-        app.MapCynaraEndpoints();
+        // Probe/root endpoints stay out of Scalar; JSON:API is the contract UI.
+        _ = app.MapHealthEndpoints();
+        _ = app.MapControllers();
 
         return app;
-    }
-
-    private static void MapCynaraEndpoints(this WebApplication app)
-    {
-        _ = app.MapGet("/", () => Results.Text("Cynara API"));
-        _ = app.MapComponentEndpoints();
-        _ = app.MapFormEndpoints();
-        _ = app.MapFormResponseEndpoints();
-        _ = app.MapFormAiEndpoints();
-        _ = app.MapAuditEndpoints();
-        _ = app.MapHealthEndpoints();
     }
 }

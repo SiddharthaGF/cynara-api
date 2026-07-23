@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
 
-public sealed partial class FileFormAiSkillLoader : IFormAiSkillLoader
+public sealed partial class FileFormAiSkillLoader(
+    ILogger<FileFormAiSkillLoader> logger) : IFormAiSkillLoader
 {
     private const string SkillRootRelativePath = ".cursor/skills/form-schema-authoring";
 
@@ -23,15 +24,10 @@ public sealed partial class FileFormAiSkillLoader : IFormAiSkillLoader
         "rules-examples.json",
     ];
 
-    private readonly Lazy<string> cachedBody;
-    private readonly ILogger<FileFormAiSkillLoader> logger;
-
-    public FileFormAiSkillLoader(ILogger<FileFormAiSkillLoader> logger)
-    {
-        ArgumentNullException.ThrowIfNull(logger);
-        this.logger = logger;
-        cachedBody = new Lazy<string>(LoadAndConcatenate, LazyThreadSafetyMode.ExecutionAndPublication);
-    }
+    private readonly Lazy<string> cachedBody = new(
+        () => LoadAndConcatenate(
+            logger ?? throw new ArgumentNullException(nameof(logger))),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
     public string GetSkillBody()
     {
@@ -110,7 +106,7 @@ public sealed partial class FileFormAiSkillLoader : IFormAiSkillLoader
         }
     }
 
-    private string LoadAndConcatenate()
+    private static string LoadAndConcatenate(ILogger<FileFormAiSkillLoader> logger)
     {
         string? skillRoot = LocateSkillDirectory();
         if (skillRoot is null)

@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Cynara.Api.Tests.Support;
 using Cynara.Application.Modules.FormAi;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,8 +39,11 @@ public sealed class FormAiRuleOperatorGuardTests : IDisposable
             """;
 
         HttpClient client = factory.WithRegexValidationResponse().CreateClient();
+        client.AcceptJsonApi();
+        string formId = await CreateFormDefinitionAsync(client, "ai-regex-guard")
+            .ConfigureAwait(false);
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/forms/demo/draft/ai-chat",
+            $"/api/ai/forms/{formId}/chat",
             new
             {
                 messages = new[]
@@ -60,6 +63,23 @@ public sealed class FormAiRuleOperatorGuardTests : IDisposable
         using var returned = JsonDocument.Parse(returnedRules);
         JsonElement validations = returned.RootElement.GetProperty("validations");
         Assert.Equal(0, validations.GetArrayLength());
+    }
+
+    private static async Task<string> CreateFormDefinitionAsync(
+        HttpClient client,
+        string code)
+    {
+        var api = new JsonApiClient(client);
+        using JsonDocument created = await api.PostResourceAsync(
+            "formDefinitions",
+            new
+            {
+                code,
+                name = code,
+                initialClinicalSchemaJson =
+                    JsonApiWorkflow.MinimalClinicalSchema("notes", "form.notes"),
+            }).ConfigureAwait(false);
+        return JsonApiClient.RequireId(created);
     }
 
     [Fact]
@@ -107,12 +127,13 @@ public sealed class FormAiRuleOperatorGuardTests : IDisposable
     }
 }
 
-internal sealed class GuardFactory : WebApplicationFactory<Program>
+internal sealed class GuardFactory : CynaraWebApplicationFactory
 {
     private RegexOpenAiClientStub? stubOverride;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        base.ConfigureWebHost(builder);
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>

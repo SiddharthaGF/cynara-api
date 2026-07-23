@@ -1,0 +1,93 @@
+using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Forms;
+using Cynara.Domain.Forms;
+using Cynara.Infrastructure.Persistence;
+
+using JsonApiDotNetCore.Configuration;
+using JsonApiDotNetCore.Middleware;
+using JsonApiDotNetCore.Queries;
+using JsonApiDotNetCore.Repositories;
+using JsonApiDotNetCore.Resources;
+using JsonApiDotNetCore.Services;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Cynara.Api.JsonApi.Services;
+
+/// <summary>
+/// Routes form-version PATCH through draft update rules in <see cref="IFormService"/>.
+/// </summary>
+public sealed class FormVersionResourceService(
+    IResourceRepositoryAccessor repositoryAccessor,
+    IQueryLayerComposer queryLayerComposer,
+    IPaginationContext paginationContext,
+    IJsonApiOptions options,
+    ILoggerFactory loggerFactory,
+    IJsonApiRequest request,
+    IResourceChangeTracker<FormVersion> resourceChangeTracker,
+    IResourceDefinitionAccessor resourceDefinitionAccessor,
+    IFormService formService,
+    IHttpContextAccessor httpContextAccessor,
+    CynaraDbContext dbContext)
+    : JsonApiResourceService<FormVersion, Guid>(
+        repositoryAccessor,
+        queryLayerComposer,
+        paginationContext,
+        options,
+        loggerFactory,
+        request,
+        resourceChangeTracker,
+        resourceDefinitionAccessor)
+{
+    public override Task<FormVersion?> CreateAsync(
+        FormVersion resource,
+        CancellationToken cancellationToken)
+    {
+        throw new Application.InvalidStateException(
+            "Create draft versions via POST /api/formDefinitions/{id}/create-draft "
+            + "or by creating a form definition.");
+    }
+
+    public override async Task<FormVersion?> UpdateAsync(
+        Guid id,
+        FormVersion resource,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+
+        FormVersion existing = await dbContext.FormVersions
+            .Include(item => item.FormDefinition)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new Application.NotFoundException(
+                $"Form version '{id}' was not found.");
+
+        if (existing.Status != FormVersionStatus.Draft)
+        {
+            throw new Application.InvalidStateException(
+                "Only draft form versions can be patched via JSON:API.");
+        }
+
+        FormVersionDto updated = await formService.UpdateDraftAsync(
+            existing.FormDefinition.Code,
+            new UpdateFormDraftRequest(
+                resource.ClinicalSchemaJson,
+                resource.UiSchemaJson,
+                resource.RulesSchemaJson,
+                resource.RowVersion),
+            httpContextAccessor.HttpContext?.GetActorId(),
+            cancellationToken).ConfigureAwait(false);
+
+        return await GetAsync(updated.Id, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public override Task DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        throw new Application.InvalidStateException(
+            "Form versions cannot be hard-deleted. Soft-delete the definition "
+            + "or retire published versions.");
+    }
+}

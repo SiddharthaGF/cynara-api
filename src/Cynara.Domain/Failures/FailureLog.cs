@@ -1,5 +1,8 @@
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Failures;
 
+[NoResource]
 public sealed class FailureLog
 {
     public Guid Id { get; set; }

@@ -11,22 +11,20 @@ using Polly.Registry;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
 
-public sealed partial class OpenAiClient : IOpenAiClient
+public sealed partial class OpenAiClient(
+    IOpenAiChatClientFactory chatClientFactory,
+    ResiliencePipelineProvider<string> pipelineProvider) : IOpenAiClient
 {
     internal const string ResiliencePipelineKey = "openai";
 
-    private readonly IOpenAiChatClientFactory chatClientFactory;
-    private readonly ResiliencePipeline resilience;
+    private readonly IOpenAiChatClientFactory chatClientFactory =
+        chatClientFactory
+        ?? throw new ArgumentNullException(nameof(chatClientFactory));
 
-    public OpenAiClient(
-        IOpenAiChatClientFactory chatClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider)
-    {
-        ArgumentNullException.ThrowIfNull(chatClientFactory);
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-        this.chatClientFactory = chatClientFactory;
-        resilience = pipelineProvider.GetPipeline(ResiliencePipelineKey);
-    }
+    private readonly ResiliencePipeline resilience =
+        (pipelineProvider
+            ?? throw new ArgumentNullException(nameof(pipelineProvider)))
+        .GetPipeline(ResiliencePipelineKey);
 
     public async Task<OpenAiCompletionResult> CreateChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,

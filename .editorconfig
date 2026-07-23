@@ -64,6 +64,11 @@ dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.CA1848.severity = suggestion
 dotnet_diagnostic.CA1505.severity = suggestion
 
+# Prefer primary constructors in new code, but do not flag types that need a
+# classic ctor body (FluentValidation RuleFor, Lazy init, exception hierarchy).
+csharp_style_prefer_primary_constructors = true:silent
+dotnet_diagnostic.IDE0290.severity = none
+
 # Opt into Roslynator so default-disabled rules emit as warnings.
 dotnet_analyzer_diagnostic.Roslynator_CSharp.Analyzers.severity = warning
 
@@ -83,7 +88,6 @@ dotnet_style_require_accessibility_modifiers = omit_if_default:silent
 dotnet_diagnostic.IDE0008.severity = none
 dotnet_diagnostic.IDE0040.severity = none
 dotnet_diagnostic.IDE0058.severity = none
-dotnet_diagnostic.IDE0290.severity = none
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.xUnit1000.severity = none
 dotnet_diagnostic.MA0004.severity = none

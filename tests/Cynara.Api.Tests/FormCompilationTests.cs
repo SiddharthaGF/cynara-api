@@ -1,10 +1,7 @@
-using System.Globalization;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
-using Cynara.Application.Components;
-using Cynara.Application.Forms;
+using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
@@ -13,6 +10,9 @@ public sealed class FormCompilationTests : IDisposable
     public FormCompilationTests()
     {
         Client = Factory.CreateClient();
+        Client.AcceptJsonApi();
+        Api = new JsonApiClient(Client);
+        Workflow = new JsonApiWorkflow(Api, Client);
     }
 
     public void Dispose()
@@ -27,69 +27,143 @@ public sealed class FormCompilationTests : IDisposable
     {
         await CreateAndPublishComponentAsync(
             "patient-demographics",
-            MinimalComponentClinicalSchema("patient-name", "patient.name"),
-            MinimalUiSchema("patient-name", "Patient name")).ConfigureAwait(false);
+            JsonApiWorkflow.MinimalClinicalSchema("patient-name", "patient.name"),
+            JsonApiWorkflow.MinimalUiSchema("patient-name", "Patient name"))
+            .ConfigureAwait(false);
 
-        string formClinical = FormWithComponentRef("patient-section", "section.patient", "patient-demographics", "1.0.0");
+        string formClinical = FormWithComponentRef(
+            "patient-section",
+            "section.patient",
+            "patient-demographics",
+            "1.0.0");
         string formUi = FormUiWithComponentRef("patient-section", "Demographics");
 
-        await CreateFormAsync("intake-form", "Intake form", formClinical, formUi).ConfigureAwait(false);
-        FormVersionDto draft = await GetEditableVersionAsync("intake-form").ConfigureAwait(false);
+        string definitionId = await Workflow.CreateFormDefinitionAsync(
+            "intake-form",
+            "Intake form",
+            formClinical,
+            formUi).ConfigureAwait(false);
+        string draftId = await Workflow.GetFormDraftIdAsync(definitionId)
+            .ConfigureAwait(false);
+        using JsonDocument published = await Workflow.SubmitAndPublishFormAsync(draftId)
+            .ConfigureAwait(false);
 
-        FormVersionDto published = await PublishDraftAsync("intake-form", draft.RowVersion).ConfigureAwait(false);
-
-        Assert.Equal("published", published.Status);
-        Assert.DoesNotContain("component-ref", published.ClinicalSchemaJson, StringComparison.Ordinal);
-        Assert.Contains("\"type\":\"group\"", published.ClinicalSchemaJson, StringComparison.Ordinal);
-        Assert.Contains("patient-name", published.ClinicalSchemaJson, StringComparison.Ordinal);
-        Assert.Contains("Patient name", published.UiSchemaJson, StringComparison.Ordinal);
-        Assert.NotNull(published.DependencyMetadataJson);
-        Assert.Contains("patient-demographics", published.DependencyMetadataJson, StringComparison.Ordinal);
-        Assert.Contains("1.0.0", published.DependencyMetadataJson, StringComparison.Ordinal);
-        Assert.False(string.IsNullOrWhiteSpace(published.ContentHash));
+        Assert.Equal("published", JsonApiClient.AttrString(published, "status"));
+        Assert.DoesNotContain(
+            "component-ref",
+            JsonApiClient.AttrString(published, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"type\":\"group\"",
+            JsonApiClient.AttrString(published, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "patient-name",
+            JsonApiClient.AttrString(published, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Patient name",
+            JsonApiClient.AttrString(published, "uiSchemaJson"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "patient-demographics",
+            JsonApiClient.AttrString(published, "dependencyMetadataJson"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "1.0.0",
+            JsonApiClient.AttrString(published, "dependencyMetadataJson"),
+            StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(
+            JsonApiClient.AttrString(published, "contentHash")));
     }
 
     [Fact]
     public async Task PublishDraft_PublishedFormDoesNotChangeWhenComponentReceivesNewVersion()
     {
-        await CreateAndPublishComponentAsync(
+        string componentDefinitionId = await CreateAndPublishComponentAsync(
             "vitals-panel",
-            MinimalComponentClinicalSchema("heart-rate", "vital.heart-rate"),
-            MinimalUiSchema("heart-rate", "Heart rate")).ConfigureAwait(false);
+            JsonApiWorkflow.MinimalClinicalSchema("heart-rate", "vital.heart-rate"),
+            JsonApiWorkflow.MinimalUiSchema("heart-rate", "Heart rate"))
+            .ConfigureAwait(false);
 
-        string formClinical = FormWithComponentRef("vitals", "section.vitals", "vitals-panel", "1.0.0");
-        await CreateFormAsync("vitals-form", "Vitals form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
-        FormVersionDto draft = await GetEditableVersionAsync("vitals-form").ConfigureAwait(false);
-        FormVersionDto published = await PublishDraftAsync("vitals-form", draft.RowVersion).ConfigureAwait(false);
+        string formClinical = FormWithComponentRef(
+            "vitals",
+            "section.vitals",
+            "vitals-panel",
+            "1.0.0");
+        string formDefinitionId = await Workflow.CreateFormDefinitionAsync(
+            "vitals-form",
+            "Vitals form",
+            formClinical).ConfigureAwait(false);
+        string formDraftId = await Workflow.GetFormDraftIdAsync(formDefinitionId)
+            .ConfigureAwait(false);
+        using JsonDocument published = await Workflow.SubmitAndPublishFormAsync(formDraftId)
+            .ConfigureAwait(false);
+        string publishedClinical = JsonApiClient.AttrString(published, "clinicalSchemaJson")!;
+        string publishedHash = JsonApiClient.AttrString(published, "contentHash")!;
+        string publishedId = JsonApiClient.RequireId(published);
 
-        using HttpResponseMessage createComponentDraftResponse = await Client.PostAsync(
-            new Uri("/api/components/vitals-panel/draft", UriKind.Relative),
+        using HttpResponseMessage createDraft = await Client.PostAsync(
+            new Uri(
+                $"/api/componentDefinitions/{componentDefinitionId}/create-draft",
+                UriKind.Relative),
             content: null).ConfigureAwait(false);
-        await AssertStatusAsync(createComponentDraftResponse, HttpStatusCode.Created).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, createDraft.StatusCode);
 
-        ComponentVersionDto componentDraft = await GetComponentDraftAsync("vitals-panel").ConfigureAwait(false);
-        string updatedClinical = MinimalComponentClinicalSchema("heart-rate-updated", "vital.heart-rate-updated");
-        await UpdateComponentDraftAsync("vitals-panel", updatedClinical, componentDraft.UiSchemaJson, componentDraft.RowVersion).ConfigureAwait(false);
-        componentDraft = await GetComponentDraftAsync("vitals-panel").ConfigureAwait(false);
-        await PublishComponentDraftAsync("vitals-panel", componentDraft.RowVersion).ConfigureAwait(false);
+        string componentDraftId = await Workflow.GetComponentDraftIdAsync(
+            componentDefinitionId).ConfigureAwait(false);
+        using JsonDocument componentDraft = await Workflow.GetVersionAsync(
+            "componentVersions",
+            componentDraftId).ConfigureAwait(false);
+        using JsonDocument unusedDoc = await Api.PatchResourceAsync(
+            "componentVersions",
+            componentDraftId,
+            new
+            {
+                clinicalSchemaJson = JsonApiWorkflow.MinimalClinicalSchema(
+                    "heart-rate-updated",
+                    "vital.heart-rate-updated"),
+                uiSchemaJson = JsonApiClient.AttrString(componentDraft, "uiSchemaJson"),
+                rowVersion = JsonApiClient.AttrUInt(componentDraft, "rowVersion"),
+            }).ConfigureAwait(false);
+        await Workflow.PublishComponentAsync(componentDraftId).ConfigureAwait(false);
 
-        FormVersionDto resolved = await GetVersionAsync("vitals-form", published.Version!).ConfigureAwait(false);
-        Assert.Equal(published.ClinicalSchemaJson, resolved.ClinicalSchemaJson);
-        Assert.Equal(published.ContentHash, resolved.ContentHash);
-        Assert.Contains("heart-rate", resolved.ClinicalSchemaJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("heart-rate-updated", resolved.ClinicalSchemaJson, StringComparison.Ordinal);
+        using JsonDocument resolved = await Api.GetAsync(
+            $"/api/formVersions/{publishedId}").ConfigureAwait(false);
+        Assert.Equal(
+            publishedClinical,
+            JsonApiClient.AttrString(resolved, "clinicalSchemaJson"));
+        Assert.Equal(publishedHash, JsonApiClient.AttrString(resolved, "contentHash"));
+        Assert.Contains(
+            "heart-rate",
+            JsonApiClient.AttrString(resolved, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "heart-rate-updated",
+            JsonApiClient.AttrString(resolved, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task PublishDraft_FailsWhenComponentVersionIsMissing()
     {
-        string formClinical = FormWithComponentRef("patient-section", "section.patient", "missing-component", "9.9.9");
-        await CreateFormAsync("broken-form", "Broken form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
-        FormVersionDto draft = await GetEditableVersionAsync("broken-form").ConfigureAwait(false);
+        string formClinical = FormWithComponentRef(
+            "patient-section",
+            "section.patient",
+            "missing-component",
+            "9.9.9");
+        string definitionId = await Workflow.CreateFormDefinitionAsync(
+            "broken-form",
+            "Broken form",
+            formClinical).ConfigureAwait(false);
+        string draftId = await Workflow.GetFormDraftIdAsync(definitionId)
+            .ConfigureAwait(false);
+        uint rowVersion = await Workflow.GetRowVersionAsync("formVersions", draftId)
+            .ConfigureAwait(false);
 
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            new Uri("/api/forms/broken-form/draft/submit-review", UriKind.Relative),
-            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
+        using HttpResponseMessage response = await Api.PostActionRawAsync(
+            $"/api/formVersions/{draftId}/submit-review",
+            new { rowVersion }).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -101,16 +175,26 @@ public sealed class FormCompilationTests : IDisposable
     {
         await CreateAndPublishComponentAsync(
             "allergies",
-            MinimalComponentClinicalSchema("allergy-list", "allergy.list"),
-uiSchemaJson: null).ConfigureAwait(false);
+            JsonApiWorkflow.MinimalClinicalSchema("allergy-list", "allergy.list"),
+            uiSchemaJson: null).ConfigureAwait(false);
 
-        string formClinical = FormWithComponentRef("allergy-section", "section.allergies", "allergies", componentVersion: null);
-        await CreateFormAsync("allergy-form", "Allergy form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
-        FormVersionDto draft = await GetEditableVersionAsync("allergy-form").ConfigureAwait(false);
+        string formClinical = FormWithComponentRef(
+            "allergy-section",
+            "section.allergies",
+            "allergies",
+            componentVersion: null);
+        string definitionId = await Workflow.CreateFormDefinitionAsync(
+            "allergy-form",
+            "Allergy form",
+            formClinical).ConfigureAwait(false);
+        string draftId = await Workflow.GetFormDraftIdAsync(definitionId)
+            .ConfigureAwait(false);
+        uint rowVersion = await Workflow.GetRowVersionAsync("formVersions", draftId)
+            .ConfigureAwait(false);
 
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/forms/allergy-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
+        using HttpResponseMessage response = await Api.PostActionRawAsync(
+            $"/api/formVersions/{draftId}/submit-review",
+            new { rowVersion }).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -120,30 +204,41 @@ uiSchemaJson: null).ConfigureAwait(false);
     [Fact]
     public async Task PublishDraft_FailsOnCircularComponentReferences()
     {
-        await CreateComponentAsync(
+        string definitionA = await Workflow.CreateComponentDefinitionAsync(
             "component-a",
             "Component A",
-            ComponentRefClinicalSchema("ref-b", "component.b", "component-b", "1.0.0"),
-uiSchemaJson: null).ConfigureAwait(false);
-
-        await CreateComponentAsync(
+            ComponentRefClinicalSchema("ref-b", "component.b", "component-b", "1.0.0"))
+            .ConfigureAwait(false);
+        string definitionB = await Workflow.CreateComponentDefinitionAsync(
             "component-b",
             "Component B",
-            ComponentRefClinicalSchema("ref-a", "component.a", "component-a", "1.0.0"),
-uiSchemaJson: null).ConfigureAwait(false);
+            ComponentRefClinicalSchema("ref-a", "component.a", "component-a", "1.0.0"))
+            .ConfigureAwait(false);
 
-        ComponentVersionDto draftA = await GetComponentDraftAsync("component-a").ConfigureAwait(false);
-        await PublishComponentDraftAsync("component-a", draftA.RowVersion).ConfigureAwait(false);
-        ComponentVersionDto draftB = await GetComponentDraftAsync("component-b").ConfigureAwait(false);
-        await PublishComponentDraftAsync("component-b", draftB.RowVersion).ConfigureAwait(false);
+        string draftA = await Workflow.GetComponentDraftIdAsync(definitionA)
+            .ConfigureAwait(false);
+        await Workflow.PublishComponentAsync(draftA).ConfigureAwait(false);
+        string draftB = await Workflow.GetComponentDraftIdAsync(definitionB)
+            .ConfigureAwait(false);
+        await Workflow.PublishComponentAsync(draftB).ConfigureAwait(false);
 
-        string formClinical = FormWithComponentRef("section-a", "section.a", "component-a", "1.0.0");
-        await CreateFormAsync("circular-form", "Circular form", formClinical, uiSchemaJson: null).ConfigureAwait(false);
-        FormVersionDto draft = await GetEditableVersionAsync("circular-form").ConfigureAwait(false);
+        string formClinical = FormWithComponentRef(
+            "section-a",
+            "section.a",
+            "component-a",
+            "1.0.0");
+        string formDefinitionId = await Workflow.CreateFormDefinitionAsync(
+            "circular-form",
+            "Circular form",
+            formClinical).ConfigureAwait(false);
+        string formDraftId = await Workflow.GetFormDraftIdAsync(formDefinitionId)
+            .ConfigureAwait(false);
+        uint rowVersion = await Workflow.GetRowVersionAsync("formVersions", formDraftId)
+            .ConfigureAwait(false);
 
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/forms/circular-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
+        using HttpResponseMessage response = await Api.PostActionRawAsync(
+            $"/api/formVersions/{formDraftId}/submit-review",
+            new { rowVersion }).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -155,162 +250,67 @@ uiSchemaJson: null).ConfigureAwait(false);
     {
         await CreateAndPublishComponentAsync(
             "consent-block",
-            MinimalComponentClinicalSchema("consent-given", "consent.given"),
-            MinimalUiSchema("consent-given", "Consent given")).ConfigureAwait(false);
+            JsonApiWorkflow.MinimalClinicalSchema("consent-given", "consent.given"),
+            JsonApiWorkflow.MinimalUiSchema("consent-given", "Consent given"))
+            .ConfigureAwait(false);
 
-        string formClinical = FormWithComponentRef("consent-section", "section.consent", "consent-block", "1.0.0");
-        await CreateFormAsync("consent-form-a", "Consent form A", formClinical, uiSchemaJson: null).ConfigureAwait(false);
-        await CreateFormAsync("consent-form-b", "Consent form B", formClinical, uiSchemaJson: null).ConfigureAwait(false);
+        string formClinical = FormWithComponentRef(
+            "consent-section",
+            "section.consent",
+            "consent-block",
+            "1.0.0");
+        string definitionA = await Workflow.CreateFormDefinitionAsync(
+            "consent-form-a",
+            "Consent form A",
+            formClinical).ConfigureAwait(false);
+        string definitionB = await Workflow.CreateFormDefinitionAsync(
+            "consent-form-b",
+            "Consent form B",
+            formClinical).ConfigureAwait(false);
 
-        FormVersionDto draftA = await GetEditableVersionAsync("consent-form-a").ConfigureAwait(false);
-        FormVersionDto draftB = await GetEditableVersionAsync("consent-form-b").ConfigureAwait(false);
+        string draftA = await Workflow.GetFormDraftIdAsync(definitionA).ConfigureAwait(false);
+        string draftB = await Workflow.GetFormDraftIdAsync(definitionB).ConfigureAwait(false);
+        using JsonDocument publishedA = await Workflow.SubmitAndPublishFormAsync(draftA)
+            .ConfigureAwait(false);
+        using JsonDocument publishedB = await Workflow.SubmitAndPublishFormAsync(draftB)
+            .ConfigureAwait(false);
 
-        FormVersionDto publishedA = await PublishDraftAsync("consent-form-a", draftA.RowVersion).ConfigureAwait(false);
-        FormVersionDto publishedB = await PublishDraftAsync("consent-form-b", draftB.RowVersion).ConfigureAwait(false);
-
-        Assert.Equal(publishedA.ClinicalSchemaJson, publishedB.ClinicalSchemaJson);
-        Assert.Equal(publishedA.UiSchemaJson, publishedB.UiSchemaJson);
-        Assert.Equal(publishedA.DependencyMetadataJson, publishedB.DependencyMetadataJson);
-        Assert.Equal(publishedA.ContentHash, publishedB.ContentHash);
+        Assert.Equal(
+            JsonApiClient.AttrString(publishedA, "clinicalSchemaJson"),
+            JsonApiClient.AttrString(publishedB, "clinicalSchemaJson"));
+        Assert.Equal(
+            JsonApiClient.AttrString(publishedA, "uiSchemaJson"),
+            JsonApiClient.AttrString(publishedB, "uiSchemaJson"));
+        Assert.Equal(
+            JsonApiClient.AttrString(publishedA, "dependencyMetadataJson"),
+            JsonApiClient.AttrString(publishedB, "dependencyMetadataJson"));
+        Assert.Equal(
+            JsonApiClient.AttrString(publishedA, "contentHash"),
+            JsonApiClient.AttrString(publishedB, "contentHash"));
     }
 
     private HttpClient Client { get; }
 
+    private JsonApiClient Api { get; }
+
+    private JsonApiWorkflow Workflow { get; }
+
     private FormWebApplicationFactory Factory { get; } = new();
 
-    private async Task CreateAndPublishComponentAsync(
+    private async Task<string> CreateAndPublishComponentAsync(
         string code,
         string clinicalSchemaJson,
         string? uiSchemaJson)
     {
-        await CreateComponentAsync(code, code, clinicalSchemaJson, uiSchemaJson).ConfigureAwait(false);
-        ComponentVersionDto draft = await GetComponentDraftAsync(code).ConfigureAwait(false);
-        await PublishComponentDraftAsync(code, draft.RowVersion).ConfigureAwait(false);
-    }
-
-    private async Task CreateComponentAsync(
-        string code,
-        string name,
-        string clinicalSchemaJson,
-        string? uiSchemaJson)
-    {
-        var request = new CreateComponentRequest(code, name, clinicalSchemaJson, uiSchemaJson);
-        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/components", request).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.Created).ConfigureAwait(false);
-    }
-
-    private async Task CreateFormAsync(
-        string code,
-        string name,
-        string clinicalSchemaJson,
-        string? uiSchemaJson)
-    {
-        var request = new CreateFormRequest(code, name, clinicalSchemaJson, uiSchemaJson);
-        using HttpResponseMessage response = await Client.PostAsJsonAsync("/api/forms", request).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.Created).ConfigureAwait(false);
-    }
-
-    private async Task<FormVersionDto> GetEditableVersionAsync(string code)
-    {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> GetVersionAsync(string code, string version)
-    {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/versions/{version}", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> PublishDraftAsync(string code, uint rowVersion)
-    {
-        using HttpResponseMessage submitResponse = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
-        await AssertStatusAsync(submitResponse, HttpStatusCode.OK).ConfigureAwait(false);
-        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<ComponentVersionDto> GetComponentDraftAsync(string code)
-    {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/components/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<ComponentVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task UpdateComponentDraftAsync(
-        string code,
-        string clinicalSchemaJson,
-        string? uiSchemaJson,
-        uint rowVersion)
-    {
-        using HttpResponseMessage response = await Client.PutAsJsonAsync(
-            $"/api/components/{code}/draft",
-            new UpdateComponentDraftRequest(clinicalSchemaJson, uiSchemaJson, rowVersion)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-    }
-
-    private async Task PublishComponentDraftAsync(string code, uint rowVersion)
-    {
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            $"/api/components/{code}/draft/publish",
-            new PublishComponentDraftRequest(rowVersion)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-    }
-
-    private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        if (response.StatusCode == expected)
-        {
-            return;
-        }
-
-        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
-    }
-
-    private static string MinimalComponentClinicalSchema(string id, string code)
-    {
-        return JsonSerializer.Serialize(new
-        {
-            schemaVersion = "1.0.0",
-            fields = new[]
-            {
-                new
-                {
-                    id,
-                    code,
-                    type = "text",
-                    maxLength = 500,
-                },
-            },
-        });
-    }
-
-    private static string MinimalUiSchema(string fieldId, string label)
-    {
-        return JsonSerializer.Serialize(new
-        {
-            schemaVersion = "1.0.0",
-            clinicalSchemaVersion = "1.0.0",
-            fields = new Dictionary<string, object>
-(StringComparer.Ordinal)
-            {
-                [fieldId] = new
-                {
-                    label,
-                    widget = "text-input",
-                },
-            },
-        });
+        string definitionId = await Workflow.CreateComponentDefinitionAsync(
+            code,
+            code,
+            clinicalSchemaJson,
+            uiSchemaJson).ConfigureAwait(false);
+        string draftId = await Workflow.GetComponentDraftIdAsync(definitionId)
+            .ConfigureAwait(false);
+        await Workflow.PublishComponentAsync(draftId).ConfigureAwait(false);
+        return definitionId;
     }
 
     private static string FormWithComponentRef(
@@ -319,8 +319,7 @@ uiSchemaJson: null).ConfigureAwait(false);
         string componentCode,
         string? componentVersion)
     {
-        var field = new Dictionary<string, object?>
-(StringComparer.Ordinal)
+        var field = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["id"] = id,
             ["code"] = code,
@@ -346,8 +345,7 @@ uiSchemaJson: null).ConfigureAwait(false);
         {
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
-            fields = new Dictionary<string, object>
-(StringComparer.Ordinal)
+            fields = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {

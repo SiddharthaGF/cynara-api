@@ -35,16 +35,24 @@ The API listens on `http://localhost:5080` by default.
 
 In Development, interactive OpenAPI docs are at
 [`http://localhost:5080/scalar/v1`](http://localhost:5080/scalar/v1)
-(JSON document: `/openapi/v1.json`).
+(JSON document: [`/swagger/v1/swagger.json`](http://localhost:5080/swagger/v1/swagger.json)).
+
+The HTTP contract is **JSON:API** (`application/vnd.api+json`) via
+`JsonApiDotNetCore`, with resource routes under `/api` (for example
+`/api/formDefinitions`, `/api/formVersions`). Workflow actions such as
+publish/review/complete remain custom routes on those resources. Sample
+requests live in [`http/cynara.http`](http/cynara.http).
 
 ### Notable libraries
 
 | Library | Role |
 |---------|------|
-| `Scalar.AspNetCore` | OpenAPI UI in Development |
+| `JsonApiDotNetCore` | JSON:API resources, query, pagination |
+| `JsonApiDotNetCore.OpenApi.Swashbuckle` | OpenAPI document for JSON:API (experimental) |
+| `Scalar.AspNetCore` | OpenAPI UI in Development (points at Swagger JSON) |
 | `Microsoft.Extensions.AI` + `OpenAI` | Chat completions for Form AI |
 | `Polly` | Retries/timeouts on non-streaming AI calls |
-| `FluentValidation` | Request DTO validation at Minimal API filters |
+| `FluentValidation` | Request DTO validation for retained command models |
 | `Stateless` | Form/component/response status transitions |
 | `Verify.Xunit` | Snapshot tests for stable contracts |
 | `Testcontainers.MsSql` | Optional SQL Server integration tests |

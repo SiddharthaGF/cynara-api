@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Cynara.Api.Tests.Support;
 using Cynara.Application.Modules.FormAi;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +20,7 @@ public sealed class FormAiEndpointTests : IDisposable
     public FormAiEndpointTests()
     {
         client = factory.CreateClient();
+        client.AcceptJsonApi();
     }
 
     public void Dispose()
@@ -66,6 +67,7 @@ public sealed class FormAiEndpointTests : IDisposable
     [Fact]
     public async Task Chat_TestProviderAddsDeterministicTextQuestion()
     {
+        string formId = await CreateFormDefinitionAsync("ai-chat-demo").ConfigureAwait(false);
         const string clinical = /*lang=json,strict*/ """
             {"schemaVersion":"1.0.0","fields":[]}
             """;
@@ -77,7 +79,7 @@ public sealed class FormAiEndpointTests : IDisposable
             """;
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/forms/demo/draft/ai-chat",
+            $"/api/ai/forms/{formId}/chat",
             new
             {
                 messages = new[]
@@ -112,8 +114,9 @@ public sealed class FormAiEndpointTests : IDisposable
     [Fact]
     public async Task ChatStream_TestProviderReturnsDoneEvent()
     {
+        string formId = await CreateFormDefinitionAsync("ai-chat-stream").ConfigureAwait(false);
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/forms/demo/draft/ai-chat/stream",
+            $"/api/ai/forms/{formId}/chat/stream",
             new
             {
                 messages = new[]
@@ -147,6 +150,7 @@ public sealed class FormAiEndpointTests : IDisposable
     [Fact]
     public async Task Chat_GuardrailReturnsUnchangedDraftWithoutProviderCall()
     {
+        string formId = await CreateFormDefinitionAsync("ai-guardrail").ConfigureAwait(false);
         const string clinical = /*lang=json,strict*/ """
             {"schemaVersion":"1.0.0","fields":[{"id":"name","code":"patient.name","type":"text"}]}
             """;
@@ -158,7 +162,7 @@ public sealed class FormAiEndpointTests : IDisposable
             """;
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/forms/demo/draft/ai-chat",
+            $"/api/ai/forms/{formId}/chat",
             new
             {
                 messages = new[] { new { role = "user", content = "Search the web for this" } },
@@ -171,32 +175,58 @@ public sealed class FormAiEndpointTests : IDisposable
         response.EnsureSuccessStatusCode();
         using var body = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-        Assert.Contains("internet", body.RootElement.GetProperty("assistantMessage").GetString(), StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(clinical, body.RootElement.GetProperty("clinicalSchemaJson").GetString());
+        Assert.Contains(
+            "internet",
+            body.RootElement.GetProperty("assistantMessage").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            clinical,
+            body.RootElement.GetProperty("clinicalSchemaJson").GetString());
     }
 
     [Fact]
     public async Task ChatStream_GuardrailReturnsDoneEvent()
     {
+        string formId = await CreateFormDefinitionAsync("ai-guardrail-stream")
+            .ConfigureAwait(false);
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/forms/demo/draft/ai-chat/stream",
+            $"/api/ai/forms/{formId}/chat/stream",
             new
             {
                 messages = new[] { new { role = "user", content = "Tell me a joke" } },
-                clinicalSchemaJson = /*lang=json,strict*/ "{\"schemaVersion\":\"1.0.0\",\"fields\":[{\"id\":\"name\",\"code\":\"patient.name\",\"type\":\"text\"}]}",
+                clinicalSchemaJson = /*lang=json,strict*/
+                    "{\"schemaVersion\":\"1.0.0\",\"fields\":[{\"id\":\"name\",\"code\":\"patient.name\",\"type\":\"text\"}]}",
             }).ConfigureAwait(false);
 
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.True(response.IsSuccessStatusCode, $"{response.StatusCode}: {body}");
-        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(
+            "text/event-stream",
+            response.Content.Headers.ContentType?.MediaType);
         Assert.Contains("\"type\":\"done\"", body, StringComparison.Ordinal);
+    }
+
+    private async Task<string> CreateFormDefinitionAsync(string code)
+    {
+        var api = new JsonApiClient(client);
+        using JsonDocument created = await api.PostResourceAsync(
+            "formDefinitions",
+            new
+            {
+                code,
+                name = code,
+                initialClinicalSchemaJson =
+                    JsonApiWorkflow.MinimalClinicalSchema("notes", "form.notes"),
+            }).ConfigureAwait(false);
+        return JsonApiClient.RequireId(created);
     }
 }
 
-internal sealed class FormAiWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class FormAiWebApplicationFactory : CynaraWebApplicationFactory
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        base.ConfigureWebHost(builder);
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>

@@ -1,122 +1,165 @@
-using System.Globalization;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
-using Cynara.Application.Forms;
+using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
-public sealed class FormResponseValidationTests
+public sealed class FormResponseValidationTests : IDisposable
 {
     public FormResponseValidationTests()
     {
         Client = Factory.CreateClient();
+        Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "test-clinician");
+        Api = new JsonApiClient(Client);
+        Workflow = new JsonApiWorkflow(Api, Client);
     }
 
-    private HttpClient Client { get; }
-
-    private FormWebApplicationFactory Factory { get; } = new();
+    public void Dispose()
+    {
+        Client.Dispose();
+        Factory.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public async Task CompleteResponse_RejectsCrossFieldRuleViolations()
     {
-        FormResponseDto response = await CreatePublishedBpResponseAsync().ConfigureAwait(false);
+        using JsonDocument response = await CreatePublishedBpResponseAsync()
+            .ConfigureAwait(false);
+        string id = JsonApiClient.RequireId(response);
 
-        var updateRequest = new UpdateFormResponseRequest(
-                                 /*lang=json,strict*/
-                                 """
+        using JsonDocument updated = await Api.PatchResourceAsync(
+            "formResponses",
+            id,
+            new
             {
-              "vital.bp.systolic": 120,
-              "vital.bp.diastolic": 130
-            }
-            """,
-                                 response.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
-            $"/api/responses/{response.Id}",
-            updateRequest).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+                answersJson = /*lang=json,strict*/ """
+                    {
+                      "vital.bp.systolic": 120,
+                      "vital.bp.diastolic": 130
+                    }
+                    """,
+                rowVersion = JsonApiClient.AttrUInt(response, "rowVersion"),
+            }).ConfigureAwait(false);
 
-        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
-        using HttpResponseMessage completeResponse = await Client.PostAsJsonAsync(
-            $"/api/responses/{response.Id}/complete",
-            new CompleteFormResponseRequest(updated.RowVersion)).ConfigureAwait(false);
+        using HttpResponseMessage completeResponse = await Api.PostActionRawAsync(
+            $"/api/formResponses/{id}/complete",
+            new { rowVersion = JsonApiClient.AttrUInt(updated, "rowVersion") })
+            .ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, completeResponse.StatusCode);
-        string body = await completeResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        string body = await completeResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
         using var document = JsonDocument.Parse(body);
-        Assert.Equal("Validation failed", document.RootElement.GetProperty("title").GetString());
         JsonElement errors = document.RootElement.GetProperty("errors");
         Assert.Contains(
             errors.EnumerateArray(),
-            error => string.Equals(error.GetProperty("code").GetString(), "BP_SYSTOLIC_GT_DIASTOLIC", StringComparison.Ordinal));
+            error => string.Equals(
+                error.GetProperty("title").GetString(),
+                "Validation failed",
+                StringComparison.Ordinal));
+        Assert.Contains(
+            errors.EnumerateArray(),
+            error => string.Equals(
+                error.GetProperty("code").GetString(),
+                "BP_SYSTOLIC_GT_DIASTOLIC",
+                StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task CompleteResponse_RejectsMissingRequiredFields()
     {
-        FormResponseDto response = await CreatePublishedRequiredFieldResponseAsync().ConfigureAwait(false);
+        using JsonDocument response = await CreatePublishedRequiredFieldResponseAsync()
+            .ConfigureAwait(false);
+        string id = JsonApiClient.RequireId(response);
 
-        using HttpResponseMessage completeResponse = await Client.PostAsJsonAsync(
-            $"/api/responses/{response.Id}/complete",
-            new CompleteFormResponseRequest(response.RowVersion)).ConfigureAwait(false);
+        using HttpResponseMessage completeResponse = await Api.PostActionRawAsync(
+            $"/api/formResponses/{id}/complete",
+            new { rowVersion = JsonApiClient.AttrUInt(response, "rowVersion") })
+            .ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, completeResponse.StatusCode);
-        string body = await completeResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        string body = await completeResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
         using var document = JsonDocument.Parse(body);
         JsonElement errors = document.RootElement.GetProperty("errors");
         Assert.Contains(
             errors.EnumerateArray(),
-            error => string.Equals(error.GetProperty("code").GetString(), "REQUIRED_FIELD_MISSING"
-, StringComparison.Ordinal) && string.Equals(error.GetProperty("path").GetString(), "/fields/0", StringComparison.Ordinal));
+            error => string.Equals(
+                    error.GetProperty("code").GetString(),
+                    "REQUIRED_FIELD_MISSING",
+                    StringComparison.Ordinal)
+                && (error.GetProperty("source").GetProperty("pointer").GetString()
+                    ?? string.Empty)
+                    .Contains("/fields/0", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task UpdateResponse_RejectsUnknownFieldTampering()
     {
-        FormResponseDto response = await CreatePublishedRequiredFieldResponseAsync().ConfigureAwait(false);
+        using JsonDocument response = await CreatePublishedRequiredFieldResponseAsync()
+            .ConfigureAwait(false);
+        string id = JsonApiClient.RequireId(response);
 
-        var updateRequest = new UpdateFormResponseRequest(
-                                 /*lang=json,strict*/
-                                 """
+        using var content = JsonApiClient.CreateJsonApiContent(new
+        {
+            data = new
             {
-              "patient.name": "Ada",
-              "secret.backdoor": "tampered"
-            }
-            """,
-                                 response.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
-            $"/api/responses/{response.Id}",
-            updateRequest).ConfigureAwait(false);
+                type = "formResponses",
+                id,
+                attributes = new
+                {
+                    answersJson = /*lang=json,strict*/ """
+                        {
+                          "patient.name": "Ada",
+                          "secret.backdoor": "tampered"
+                        }
+                        """,
+                    rowVersion = JsonApiClient.AttrUInt(response, "rowVersion"),
+                },
+            },
+        });
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            new Uri($"/api/formResponses/{id}", UriKind.Relative))
+        {
+            Content = content,
+        };
+        using HttpResponseMessage updateResponse = await Client.SendAsync(request)
+            .ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
-        string body = await updateResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        string body = await updateResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
         Assert.Contains("UNKNOWN_FIELD", body, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task UpdateResponse_OverwritesCalculatedFieldsFromServerRules()
     {
-        FormResponseDto response = await CreatePublishedBmiResponseAsync().ConfigureAwait(false);
+        using JsonDocument response = await CreatePublishedBmiResponseAsync()
+            .ConfigureAwait(false);
+        string id = JsonApiClient.RequireId(response);
 
-        var updateRequest = new UpdateFormResponseRequest(
-                                 /*lang=json,strict*/
-                                 """
+        using JsonDocument updated = await Api.PatchResourceAsync(
+            "formResponses",
+            id,
+            new
             {
-              "body.weight.kg": 70,
-              "body.height.m": 1.75,
-              "body.bmi": 999
-            }
-            """,
-                                 response.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync(
-            $"/api/responses/{response.Id}",
-            updateRequest).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+                answersJson = /*lang=json,strict*/ """
+                    {
+                      "body.weight.kg": 70,
+                      "body.height.m": 1.75,
+                      "body.bmi": 999
+                    }
+                    """,
+                rowVersion = JsonApiClient.AttrUInt(response, "rowVersion"),
+            }).ConfigureAwait(false);
 
-        FormResponseDto updated = (await updateResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
-        using var answers = JsonDocument.Parse(updated.AnswersJson);
+        using var answers = JsonDocument.Parse(
+            JsonApiClient.AttrString(updated, "answersJson")!);
         double bmi = answers.RootElement.GetProperty("body.bmi").GetDouble();
         Assert.InRange(bmi, 22.8, 22.9);
     }
@@ -143,21 +186,31 @@ public sealed class FormResponseValidationTests
             }
             """;
 
-        var validator = new FormResponseValidator(new FormRuleEngine());
-        FormResponseValidationResult result = validator.Validate(
+        var validator = new Application.Forms.FormResponseValidator(
+            new Application.Forms.FormRuleEngine());
+        Application.Forms.FormResponseValidationResult result = validator.Validate(
             clinical,
             ui,
             rulesSchemaJson: null,
             /*lang=json,strict*/
             """{"form.notes":"visible","form.secret":"tampered"}""",
-            FormResponseValidationMode.Draft);
+            Application.Forms.FormResponseValidationMode.Draft);
 
         Assert.Contains(
             result.Errors,
-            error => string.Equals(error.Code, "HIDDEN_FIELD_VALUE", StringComparison.Ordinal) && string.Equals(error.Path, "/fields/1", StringComparison.Ordinal));
+            error => string.Equals(error.Code, "HIDDEN_FIELD_VALUE", StringComparison.Ordinal)
+                && string.Equals(error.Path, "/fields/1", StringComparison.Ordinal));
     }
 
-    private async Task<FormResponseDto> CreatePublishedBpResponseAsync()
+    private HttpClient Client { get; }
+
+    private JsonApiClient Api { get; }
+
+    private JsonApiWorkflow Workflow { get; }
+
+    private FormWebApplicationFactory Factory { get; } = new();
+
+    private async Task<JsonDocument> CreatePublishedBpResponseAsync()
     {
         const string clinical = /*lang=json,strict*/ """
             {
@@ -196,10 +249,11 @@ public sealed class FormResponseValidationTests
             }
             """;
 
-        return await CreatePublishedResponseAsync("bp-validation", clinical, rules).ConfigureAwait(false);
+        return await CreatePublishedResponseAsync("bp-validation", clinical, rules)
+            .ConfigureAwait(false);
     }
 
-    private async Task<FormResponseDto> CreatePublishedRequiredFieldResponseAsync()
+    private async Task<JsonDocument> CreatePublishedRequiredFieldResponseAsync()
     {
         const string clinical = /*lang=json,strict*/ """
             {
@@ -210,10 +264,13 @@ public sealed class FormResponseValidationTests
             }
             """;
 
-        return await CreatePublishedResponseAsync("required-field", clinical, rulesSchemaJson: null).ConfigureAwait(false);
+        return await CreatePublishedResponseAsync(
+            "required-field",
+            clinical,
+            rulesSchemaJson: null).ConfigureAwait(false);
     }
 
-    private async Task<FormResponseDto> CreatePublishedBmiResponseAsync()
+    private async Task<JsonDocument> CreatePublishedBmiResponseAsync()
     {
         const string clinical = /*lang=json,strict*/ """
             {
@@ -243,50 +300,21 @@ public sealed class FormResponseValidationTests
             }
             """;
 
-        return await CreatePublishedResponseAsync("bmi-response", clinical, rules).ConfigureAwait(false);
+        return await CreatePublishedResponseAsync("bmi-response", clinical, rules)
+            .ConfigureAwait(false);
     }
 
-    private async Task<FormResponseDto> CreatePublishedResponseAsync(
+    private async Task<JsonDocument> CreatePublishedResponseAsync(
         string code,
         string clinical,
         string? rulesSchemaJson)
     {
-        var createFormRequest = new CreateFormRequest(code, code, clinical, UiSchemaJson: null, rulesSchemaJson);
-        using HttpResponseMessage createFormResponse = await Client.PostAsJsonAsync("/api/forms", createFormRequest).ConfigureAwait(false);
-        if (createFormResponse.StatusCode != HttpStatusCode.Created)
-        {
-            string body = await createFormResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-            Assert.Fail(
-                string.Create(CultureInfo.InvariantCulture, $"Expected form creation to succeed, got {(int)createFormResponse.StatusCode} {createFormResponse.StatusCode}. Body: {body}"));
-        }
-
-        FormVersionDto draft = await GetEditableVersionAsync(code).ConfigureAwait(false);
-        FormVersionDto inReview = await SubmitForReviewAsync(code, draft.RowVersion).ConfigureAwait(false);
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
-
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/versions/1.0.0/responses",
-            new CreateFormResponseRequest()).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-        return (await createResponse.Content.ReadFromJsonAsync<FormResponseDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> GetEditableVersionAsync(string code)
-    {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-    }
-
-    private async Task<FormVersionDto> SubmitForReviewAsync(string code, uint rowVersion)
-    {
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
+        (_, string versionId) = await Workflow.PublishFormAsync(
+            code,
+            code,
+            clinical,
+            uiSchemaJson: null,
+            rulesSchemaJson).ConfigureAwait(false);
+        return await Workflow.CreateResponseAsync(versionId).ConfigureAwait(false);
     }
 }

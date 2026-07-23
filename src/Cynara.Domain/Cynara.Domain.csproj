@@ -12,4 +12,8 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="JsonApiDotNetCore.Annotations" Version="5.11.0" />
+  </ItemGroup>
+
 </Project>

@@ -44,17 +44,17 @@ internal static class ExceptionHandlingExtensions
                     ? "An unexpected error occurred."
                     : "An unexpected error occurred. See the failure log for details.";
 
-                await Results.Problem(
-                    detail: detail,
-                    statusCode: StatusCodes.Status500InternalServerError,
-                    title: "Unexpected error").ExecuteAsync(context).ConfigureAwait(false);
+                await ProblemDetailsMapping.Unexpected(detail)
+                    .ExecuteAsync(context)
+                    .ConfigureAwait(false);
             });
         });
 
         return app;
     }
 
-    private static FailureRequestContext BuildFailureRequestContext(HttpContext context)
+    private static FailureRequestContext BuildFailureRequestContext(
+        HttpContext context)
     {
         HttpRequest request = context.Request;
         return new FailureRequestContext(

@@ -8,10 +8,7 @@ dotnet_analyzer_diagnostic.category-Maintainability.severity = warning
 dotnet_analyzer_diagnostic.category-Style.severity = warning
 dotnet_analyzer_diagnostic.category-Naming.severity = warning
 dotnet_analyzer_diagnostic.category-roslynator.severity = suggestion
-dotnet_diagnostic.RCS1227.severity = error
 
-# StyleCop / Meziantou: warning so -warnaserror enforces them in make lint.
-# DocumentationRules=none covers all SA16xx (aligned with NoWarn CS1591).
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.DocumentationRules.severity = none
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.ReadabilityRules.severity = warning
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.OrderingRules.severity = warning
@@ -21,6 +18,11 @@ dotnet_analyzer_diagnostic.category-StyleCop.CSharp.MaintainabilityRules.severit
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpacingRules.severity = warning
 dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpecialRules.severity = warning
 dotnet_analyzer_diagnostic.category-Meziantou.severity = warning
+
+dotnet_diagnostic.RCS1227.severity = error
+
+# Scalar types should not be used for parameter names
+dotnet_diagnostic.RCS1141.severity = none
 
 # Public API / persistence contracts
 dotnet_diagnostic.CA1054.severity = none

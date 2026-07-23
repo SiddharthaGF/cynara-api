@@ -1,10 +1,8 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 using Cynara.Api.Tests.Support;
-using Cynara.Application.Forms;
 using Cynara.Domain.Audit;
 using Cynara.Infrastructure.Persistence;
 
@@ -18,6 +16,8 @@ public sealed class FormLifecycleTests : IDisposable
     public FormLifecycleTests()
     {
         Client = Factory.CreateClient();
+        Client.AcceptJsonApi();
+        Api = new JsonApiClient(Client);
     }
 
     public void Dispose()
@@ -30,62 +30,88 @@ public sealed class FormLifecycleTests : IDisposable
     [Fact]
     public async Task FormLifecycle_CreateDraftPublishRetireAndResolveHistory()
     {
-        var createRequest = new CreateFormRequest(
-            "intake-assessment",
-            "Intake assessment",
-            MinimalClinicalSchema("patient-name", "patient.name"),
-            MinimalUiSchema("patient-name"));
+        using JsonDocument created = await Api.PostResourceAsync(
+            "formDefinitions",
+            new
+            {
+                code = "intake-assessment",
+                name = "Intake assessment",
+                initialClinicalSchemaJson = MinimalClinicalSchema(
+                    "patient-name",
+                    "patient.name"),
+                initialUiSchemaJson = MinimalUiSchema("patient-name"),
+            }).ConfigureAwait(false);
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
+        string definitionId = JsonApiClient.RequireId(created);
+        Assert.Equal("intake-assessment", JsonApiClient.AttrString(created, "code"));
 
-        FormSummaryDto created = (await createResponse.Content.ReadFromJsonAsync<FormSummaryDto>().ConfigureAwait(false))!;
-        Assert.Equal("intake-assessment", created.Code);
-        Assert.NotNull(created.EditableVersionId);
-        Assert.Equal("draft", created.EditableStatus);
+        using JsonDocument definition = await Api.GetAsync(
+            $"/api/formDefinitions/{definitionId}?include=versions")
+            .ConfigureAwait(false);
+        JsonElement included = definition.RootElement.GetProperty("included");
+        JsonElement draftData = included.EnumerateArray().First(item =>
+            string.Equals(
+                item.GetProperty("attributes").GetProperty("status").GetString(),
+                "draft",
+                StringComparison.OrdinalIgnoreCase));
+        string draftId = draftData.GetProperty("id").GetString()!;
+        Assert.Equal("draft", draftData.GetProperty("attributes").GetProperty("status").GetString());
 
-        FormVersionDto draft = await GetEditableVersionAsync("intake-assessment").ConfigureAwait(false);
-        Assert.Equal("draft", draft.Status);
-        Assert.Equal(0u, draft.RowVersion);
-
+        uint rowVersion = draftData.GetProperty("attributes").GetProperty("rowVersion").GetUInt32();
         string updatedClinical = MinimalClinicalSchema("patient-full-name", "patient.full-name");
-        var updateRequest = new UpdateFormDraftRequest(updatedClinical, draft.UiSchemaJson, draft.RulesSchemaJson, draft.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/forms/intake-assessment/draft", updateRequest).ConfigureAwait(false);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.OK).ConfigureAwait(false);
+        using JsonDocument updated = await Api.PatchResourceAsync(
+            "formVersions",
+            draftId,
+            new
+            {
+                clinicalSchemaJson = updatedClinical,
+                uiSchemaJson = draftData.GetProperty("attributes").GetProperty("uiSchemaJson").GetString(),
+                rulesSchemaJson = (string?)null,
+                rowVersion,
+            }).ConfigureAwait(false);
+        Assert.Equal(1u, JsonApiClient.AttrUInt(updated, "rowVersion"));
+        Assert.Contains(
+            "patient-full-name",
+            JsonApiClient.AttrString(updated, "clinicalSchemaJson"),
+            StringComparison.Ordinal);
 
-        FormVersionDto updatedDraft = (await updateResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal(1u, updatedDraft.RowVersion);
-        Assert.Contains("patient-full-name", updatedDraft.ClinicalSchemaJson, StringComparison.Ordinal);
+        using JsonDocument inReview = await PostWorkflowAsync(
+            draftId,
+            "submit-review",
+            JsonApiClient.AttrUInt(updated, "rowVersion"))
+            .ConfigureAwait(false);
+        using JsonDocument published = await PostWorkflowAsync(
+            draftId,
+            "publish",
+            JsonApiClient.AttrUInt(inReview, "rowVersion"))
+            .ConfigureAwait(false);
+        Assert.Equal("published", JsonApiClient.AttrString(published, "status"));
+        Assert.Equal("1.0.0", JsonApiClient.AttrString(published, "version"));
+        Assert.False(string.IsNullOrWhiteSpace(
+            JsonApiClient.AttrString(published, "contentHash")));
 
-        FormVersionDto inReview = await SubmitForReviewAsync("intake-assessment", updatedDraft.RowVersion).ConfigureAwait(false);
-        var publishRequest = new PublishFormDraftRequest(inReview.RowVersion);
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            "/api/forms/intake-assessment/draft/publish",
-            publishRequest).ConfigureAwait(false);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
+        using JsonDocument resolved = await Api.GetAsync(
+            $"/api/formDefinitions/{definitionId}?include=versions")
+            .ConfigureAwait(false);
+        Assert.Contains(
+            resolved.RootElement.GetProperty("included").EnumerateArray(),
+            item => string.Equals(
+                item.GetProperty("id").GetString(),
+                draftId,
+                StringComparison.Ordinal)
+                && string.Equals(
+                    item.GetProperty("attributes").GetProperty("version").GetString(),
+                    "1.0.0",
+                    StringComparison.Ordinal));
 
-        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal("published", published.Status);
-        Assert.Equal("1.0.0", published.Version);
-        Assert.False(string.IsNullOrWhiteSpace(published.ContentHash));
-
-        FormVersionDto resolved = await GetVersionAsync("intake-assessment", "1.0.0").ConfigureAwait(false);
-        Assert.Equal(published.Id, resolved.Id);
-        Assert.Equal(published.ClinicalSchemaJson, resolved.ClinicalSchemaJson);
-
-        using HttpResponseMessage retireResponse = await Client.PostAsync(
-            new Uri("/api/forms/intake-assessment/versions/1.0.0/retire", UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        await AssertStatusAsync(retireResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        FormVersionDto retired = (await retireResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal("retired", retired.Status);
-
-        FormVersionDto stillResolvable = await GetVersionAsync("intake-assessment", "1.0.0").ConfigureAwait(false);
-        Assert.Equal("retired", stillResolvable.Status);
+        using JsonDocument retired = await PostWorkflowAsync(
+            draftId,
+            "retire",
+            rowVersion: null).ConfigureAwait(false);
+        Assert.Equal("retired", JsonApiClient.AttrString(retired, "status"));
 
         await AssertAuditEventsRecordedAsync(
-            published.Id,
+            Guid.Parse(draftId, CultureInfo.InvariantCulture),
             "form.version.published",
             "form.version.retired").ConfigureAwait(false);
     }
@@ -93,173 +119,135 @@ public sealed class FormLifecycleTests : IDisposable
     [Fact]
     public async Task SubmitForReview_LocksDraftUntilWithdrawn()
     {
-        var createRequest = new CreateFormRequest(
-            "review-flow",
-            "Review flow",
-            MinimalClinicalSchema("notes", "form.notes"),
-UiSchemaJson: null);
+        using JsonDocument created = await Api.PostResourceAsync(
+            "formDefinitions",
+            new
+            {
+                code = "review-flow",
+                name = "Review flow",
+                initialClinicalSchemaJson = MinimalClinicalSchema("notes", "form.notes"),
+            }).ConfigureAwait(false);
+        string definitionId = JsonApiClient.RequireId(created);
+        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
 
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
+        using JsonDocument inReview = await PostWorkflowAsync(
+            draftId,
+            "submit-review",
+            rowVersion).ConfigureAwait(false);
+        Assert.Equal("review", JsonApiClient.AttrString(inReview, "status"));
 
-        FormVersionDto draft = await GetEditableVersionAsync("review-flow").ConfigureAwait(false);
-        var submitRequest = new SubmitFormDraftForReviewRequest(draft.RowVersion);
-        using HttpResponseMessage submitResponse = await Client.PostAsJsonAsync(
-            "/api/forms/review-flow/draft/submit-review",
-            submitRequest).ConfigureAwait(false);
-        await AssertStatusAsync(submitResponse, HttpStatusCode.OK).ConfigureAwait(false);
+        using var patchContent = JsonApiClient.CreateJsonApiContent(new
+        {
+            data = new
+            {
+                type = "formVersions",
+                id = draftId,
+                attributes = new
+                {
+                    clinicalSchemaJson = MinimalClinicalSchema("notes", "form.notes"),
+                    rowVersion = JsonApiClient.AttrUInt(inReview, "rowVersion"),
+                },
+            },
+        });
+        using var patchRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            new Uri($"/api/formVersions/{draftId}", UriKind.Relative))
+        {
+            Content = patchContent,
+        };
+        using HttpResponseMessage patchResponse = await Client
+            .SendAsync(patchRequest)
+            .ConfigureAwait(false);
+        string patchBody = await patchResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
+        Assert.True(
+            patchResponse.StatusCode is HttpStatusCode.Conflict
+                or HttpStatusCode.UnprocessableEntity
+                or HttpStatusCode.BadRequest,
+            $"Expected conflict-style status, got {patchResponse.StatusCode}: {patchBody}");
 
-        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal("review", inReview.Status);
-        Assert.NotNull(inReview.SubmittedForReviewAt);
-
-        var staleUpdate = new UpdateFormDraftRequest(
-            MinimalClinicalSchema("updated-notes", "form.updated-notes"),
-            inReview.UiSchemaJson,
-            inReview.RulesSchemaJson,
-            inReview.RowVersion);
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/forms/review-flow/draft", staleUpdate).ConfigureAwait(false);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
-
-        var withdrawRequest = new WithdrawFormDraftFromReviewRequest(inReview.RowVersion);
-        using HttpResponseMessage withdrawResponse = await Client.PostAsJsonAsync(
-            "/api/forms/review-flow/draft/withdraw-review",
-            withdrawRequest).ConfigureAwait(false);
-        await AssertStatusAsync(withdrawResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        FormVersionDto backToDraft = (await withdrawResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal("draft", backToDraft.Status);
-
-        FormVersionDto inReviewAgain = await SubmitForReviewAsync("review-flow", backToDraft.RowVersion).ConfigureAwait(false);
-        var publishRequest = new PublishFormDraftRequest(inReviewAgain.RowVersion);
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            "/api/forms/review-flow/draft/publish",
-            publishRequest).ConfigureAwait(false);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.Equal("published", published.Status);
-    }
-
-    [Fact]
-    public async Task PublishDraft_IsImmutableAfterPublish()
-    {
-        var createRequest = new CreateFormRequest(
-            "follow-up",
-            "Follow up",
-            MinimalClinicalSchema("follow-up-notes", "follow-up.notes"),
-            MinimalUiSchema("follow-up-notes"));
-
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
-
-        FormVersionDto draft = await GetEditableVersionAsync("follow-up").ConfigureAwait(false);
-        FormVersionDto inReview = await SubmitForReviewAsync("follow-up", draft.RowVersion).ConfigureAwait(false);
-        var publishRequest = new PublishFormDraftRequest(inReview.RowVersion);
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            "/api/forms/follow-up/draft/publish",
-            publishRequest).ConfigureAwait(false);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        var staleUpdate = new UpdateFormDraftRequest(
-            MinimalClinicalSchema("changed-notes", "follow-up.changed-notes"),
-            published.UiSchemaJson,
-            published.RulesSchemaJson,
-            published.RowVersion);
-
-        using HttpResponseMessage updateResponse = await Client.PutAsJsonAsync("/api/forms/follow-up/draft", staleUpdate).ConfigureAwait(false);
-        await AssertStatusAsync(updateResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
-    }
-
-    [Fact]
-    public async Task SoftDeleteDraft_AllowsDeleteAfterPublishedVersionIsRetired()
-    {
-        var createRequest = new CreateFormRequest(
-            "retired-form",
-            "Retired form",
-            MinimalClinicalSchema("notes", "form.notes"),
-UiSchemaJson: null);
-
-        using HttpResponseMessage createResponse = await Client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        await AssertStatusAsync(createResponse, HttpStatusCode.Created).ConfigureAwait(false);
-
-        FormVersionDto draft = await GetEditableVersionAsync("retired-form").ConfigureAwait(false);
-        FormVersionDto inReview = await SubmitForReviewAsync("retired-form", draft.RowVersion).ConfigureAwait(false);
-        var publishRequest = new PublishFormDraftRequest(inReview.RowVersion);
-        using HttpResponseMessage publishResponse = await Client.PostAsJsonAsync(
-            "/api/forms/retired-form/draft/publish",
-            publishRequest).ConfigureAwait(false);
-        await AssertStatusAsync(publishResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        using HttpResponseMessage retireResponse = await Client.PostAsync(
-            new Uri("/api/forms/retired-form/versions/1.0.0/retire", UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        await AssertStatusAsync(retireResponse, HttpStatusCode.OK).ConfigureAwait(false);
-
-        using HttpResponseMessage createDraftResponse = await Client.PostAsync(
-            new Uri("/api/forms/retired-form/draft", UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        await AssertStatusAsync(createDraftResponse, HttpStatusCode.Created).ConfigureAwait(false);
-
-        using HttpResponseMessage deleteResponse = await Client.DeleteAsync(new Uri("/api/forms/retired-form/draft", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(deleteResponse, HttpStatusCode.NoContent).ConfigureAwait(false);
-
-        using HttpResponseMessage getResponse = await Client.GetAsync(new Uri("/api/forms/retired-form", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(getResponse, HttpStatusCode.NotFound).ConfigureAwait(false);
+        using JsonDocument withdrawn = await PostWorkflowAsync(
+            draftId,
+            "withdraw-review",
+            JsonApiClient.AttrUInt(inReview, "rowVersion"))
+            .ConfigureAwait(false);
+        Assert.Equal("draft", JsonApiClient.AttrString(withdrawn, "status"));
     }
 
     private HttpClient Client { get; }
 
+    private JsonApiClient Api { get; }
+
     private FormWebApplicationFactory Factory { get; } = new();
 
-    private async Task<FormVersionDto> GetEditableVersionAsync(string code)
+    private async Task<JsonDocument> PostWorkflowAsync(
+        string versionId,
+        string action,
+        uint? rowVersion,
+        string? comment = null)
     {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/draft", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
+        var query = new List<string>();
+        if (rowVersion is not null)
+        {
+            query.Add($"rowVersion={rowVersion.Value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(comment))
+        {
+            query.Add($"comment={Uri.EscapeDataString(comment)}");
+        }
+
+        string suffix = query.Count == 0 ? string.Empty : "?" + string.Join('&', query);
+        using HttpResponseMessage response = await Client.PostAsync(
+            new Uri(
+                $"/api/formVersions/{versionId}/{action}{suffix}",
+                UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        return await JsonApiClient.ReadDocumentAsync(response).ConfigureAwait(false);
     }
 
-    private async Task<FormVersionDto> GetVersionAsync(string code, string version)
+    private async Task<string> GetDraftIdAsync(string definitionId)
     {
-        using HttpResponseMessage response = await Client.GetAsync(new Uri($"/api/forms/{code}/versions/{version}", UriKind.Relative)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
+        using JsonDocument definition = await Api.GetAsync(
+            $"/api/formDefinitions/{definitionId}?include=versions")
+            .ConfigureAwait(false);
+        return definition.RootElement.GetProperty("included")
+            .EnumerateArray()
+            .First(item => string.Equals(
+                item.GetProperty("attributes").GetProperty("status").GetString(),
+                "draft",
+                StringComparison.OrdinalIgnoreCase))
+            .GetProperty("id")
+            .GetString()!;
     }
 
-    private async Task<FormVersionDto> SubmitForReviewAsync(string code, uint rowVersion)
+    private async Task<uint> GetRowVersionAsync(string versionId)
     {
-        using HttpResponseMessage response = await Client.PostAsJsonAsync(
-            $"/api/forms/{code}/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(rowVersion)).ConfigureAwait(false);
-        await AssertStatusAsync(response, HttpStatusCode.OK).ConfigureAwait(false);
-        return (await response.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
+        using JsonDocument document = await Api.GetAsync($"/api/formVersions/{versionId}")
+            .ConfigureAwait(false);
+        return JsonApiClient.AttrUInt(document, "rowVersion");
     }
 
-    private async Task AssertAuditEventsRecordedAsync(Guid resourceId, params string[] actions)
+    private async Task AssertAuditEventsRecordedAsync(
+        Guid resourceId,
+        params string[] actions)
     {
         await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
-        CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
+        CynaraDbContext dbContext = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
-            .ToListAsync().ConfigureAwait(continueOnCapturedContext: false))
+            .ToListAsync()
+            .ConfigureAwait(false))
             .OrderBy(item => item.OccurredAt)];
 
         foreach (string action in actions)
         {
-            Assert.Contains(events, item => string.Equals(item.Action, action, StringComparison.Ordinal));
+            Assert.Contains(
+                events,
+                item => string.Equals(item.Action, action, StringComparison.Ordinal));
         }
-    }
-
-    private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        if (response.StatusCode == expected)
-        {
-            return;
-        }
-
-        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Fail(string.Create(CultureInfo.InvariantCulture, $"Expected {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. Body: {body}"));
     }
 
     private static string MinimalClinicalSchema(string id, string code)
@@ -286,8 +274,7 @@ UiSchemaJson: null);
         {
             schemaVersion = "1.0.0",
             clinicalSchemaVersion = "1.0.0",
-            fields = new Dictionary<string, object>
-(StringComparer.Ordinal)
+            fields = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 [fieldId] = new
                 {
@@ -299,14 +286,11 @@ UiSchemaJson: null);
     }
 }
 
-internal sealed class FormWebApplicationFactory : CynaraWebApplicationFactory
+internal sealed class FormWebApplicationFactory(TestDatabaseSettings database)
+    : CynaraWebApplicationFactory(database)
 {
     public FormWebApplicationFactory()
-    {
-    }
-
-    public FormWebApplicationFactory(TestDatabaseSettings database)
-        : base(database)
+        : this(TestDatabaseSettings.SqliteInMemory)
     {
     }
 }

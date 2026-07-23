@@ -1,0 +1,26 @@
+using Cynara.Domain.Audit;
+using Cynara.Domain.Forms;
+
+using JsonApiDotNetCore.Configuration;
+
+namespace Cynara.Api.JsonApi.Services;
+
+internal static class JsonApiResourceServiceRegistration
+{
+    public static IServiceCollection AddCynaraJsonApiResourceServices(
+        this IServiceCollection services)
+    {
+        _ = services.AddResourceService<FormDefinitionResourceService>();
+        _ = services.AddResourceService<FormVersionResourceService>();
+        _ = services.AddResourceService<FormResponseResourceService>();
+        _ = services.AddResourceService<ComponentDefinitionResourceService>();
+        _ = services.AddResourceService<ComponentVersionResourceService>();
+        _ = services.AddResourceService<
+            ReadOnlyResourceService<FormResponseRevision, Guid>>();
+        _ = services.AddResourceService<
+            ReadOnlyResourceService<AuditEvent, Guid>>();
+        _ = services.AddResourceService<AiProviderSettingsResourceService>();
+
+        return services;
+    }
+}

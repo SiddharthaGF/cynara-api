@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
+using Cynara.Api.Tests.Support;
 using Cynara.Application;
 using Cynara.Application.Forms;
 
@@ -89,6 +89,7 @@ public sealed class FormRuleTests
     {
         await using FormWebApplicationFactory factory = new();
         using HttpClient client = factory.CreateClient();
+        client.AcceptJsonApi();
 
         string clinical = MinimalClinicalSchema();
         const string rules = /*lang=json,strict*/ """
@@ -103,8 +104,23 @@ public sealed class FormRuleTests
             }
             """;
 
-        var createRequest = new CreateFormRequest("rules-form", "Rules form", clinical, UiSchemaJson: null, rules);
-        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
+        using var content = JsonApiClient.CreateJsonApiContent(new
+        {
+            data = new
+            {
+                type = "formDefinitions",
+                attributes = new
+                {
+                    code = "rules-form",
+                    name = "Rules form",
+                    initialClinicalSchemaJson = clinical,
+                    initialRulesSchemaJson = rules,
+                },
+            },
+        });
+        using HttpResponseMessage createResponse = await client.PostAsync(
+            new Uri("/api/formDefinitions", UriKind.Relative),
+            content).ConfigureAwait(false);
 
         Assert.Equal(HttpStatusCode.BadRequest, createResponse.StatusCode);
         string body = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -116,6 +132,9 @@ public sealed class FormRuleTests
     {
         await using FormWebApplicationFactory factory = new();
         using HttpClient client = factory.CreateClient();
+        client.AcceptJsonApi();
+        var api = new JsonApiClient(client);
+        var workflow = new JsonApiWorkflow(api, client);
 
         const string clinical = /*lang=json,strict*/ """
             {
@@ -145,30 +164,26 @@ public sealed class FormRuleTests
             }
             """;
 
-        var createRequest = new CreateFormRequest("bmi-form", "BMI form", clinical, UiSchemaJson: null, rules);
-        using HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/forms", createRequest).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        string definitionId = await workflow.CreateFormDefinitionAsync(
+            "bmi-form",
+            "BMI form",
+            clinical,
+            uiSchemaJson: null,
+            rules).ConfigureAwait(false);
+        string draftId = await workflow.GetFormDraftIdAsync(definitionId)
+            .ConfigureAwait(false);
+        using JsonDocument published = await workflow.SubmitAndPublishFormAsync(draftId)
+            .ConfigureAwait(false);
 
-        FormVersionDto draft = await createResponse.Content
-            .ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false) ?? throw new InvalidOperationException("Missing draft response.");
-
-        using HttpResponseMessage submitResponse = await client.PostAsJsonAsync(
-            "/api/forms/bmi-form/draft/submit-review",
-            new SubmitFormDraftForReviewRequest(draft.RowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, submitResponse.StatusCode);
-
-        FormVersionDto inReview = (await submitResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        using HttpResponseMessage publishResponse = await client.PostAsJsonAsync(
-            "/api/forms/bmi-form/draft/publish",
-            new PublishFormDraftRequest(inReview.RowVersion)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
-
-        FormVersionDto published = (await publishResponse.Content.ReadFromJsonAsync<FormVersionDto>().ConfigureAwait(false))!;
-        Assert.NotNull(published.RulesSchemaJson);
-        Assert.Contains("body.weight.kg", published.RulesSchemaJson, StringComparison.Ordinal);
-        Assert.NotNull(published.DependencyMetadataJson);
-        Assert.Contains("evaluationOrder", published.DependencyMetadataJson, StringComparison.Ordinal);
-        Assert.Contains("bmi", published.DependencyMetadataJson, StringComparison.Ordinal);
+        string? rulesSchemaJson = JsonApiClient.AttrString(published, "rulesSchemaJson");
+        Assert.NotNull(rulesSchemaJson);
+        Assert.Contains("body.weight.kg", rulesSchemaJson, StringComparison.Ordinal);
+        string? dependencyMetadataJson = JsonApiClient.AttrString(
+            published,
+            "dependencyMetadataJson");
+        Assert.NotNull(dependencyMetadataJson);
+        Assert.Contains("evaluationOrder", dependencyMetadataJson, StringComparison.Ordinal);
+        Assert.Contains("bmi", dependencyMetadataJson, StringComparison.Ordinal);
     }
 
     private static JsonDocument LoadFixture(string fixtureName)
