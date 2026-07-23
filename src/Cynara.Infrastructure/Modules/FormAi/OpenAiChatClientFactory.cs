@@ -26,11 +26,9 @@ public sealed class OpenAiChatClientFactory : IOpenAiChatClientFactory
                 nameof(config));
         }
 
-        char slash = Path.AltDirectorySeparatorChar;
         var options = new OpenAIClientOptions
         {
-            Endpoint = new Uri(
-                uriString: string.Concat(config.BaseUrl.TrimEnd(slash), slash)),
+            Endpoint = CreateEndpoint(config.BaseUrl),
             NetworkTimeout = TimeSpan.FromMinutes(2),
         };
 
@@ -45,5 +43,12 @@ public sealed class OpenAiChatClientFactory : IOpenAiChatClientFactory
             new ApiKeyCredential(config.ApiKey),
             options);
         return client.GetChatClient(config.Model).AsIChatClient();
+    }
+
+    private static Uri CreateEndpoint(string baseUrl)
+    {
+        char slash = Path.AltDirectorySeparatorChar;
+        string trimmed = baseUrl.Trim().TrimEnd(slash);
+        return new Uri(string.Concat(trimmed, slash), UriKind.Absolute);
     }
 }
