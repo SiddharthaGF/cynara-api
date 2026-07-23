@@ -140,7 +140,9 @@ public sealed class FormResponseLifecycleService(
             response.AnswersJson,
             FormResponseValidationMode.Complete);
         DateTimeOffset now = timeProvider.GetUtcNow();
-        response.Status = FormResponseStatus.Completed;
+        FormResponseLifecycle.Fire(
+            response,
+            FormResponseLifecycle.Trigger.Complete);
         response.RevisionNumber++;
         response.RowVersion = request.RowVersion + 1;
         response.UpdatedAt = now;

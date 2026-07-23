@@ -10,8 +10,6 @@ using Cynara.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-using Xunit;
-
 namespace Cynara.Api.Tests;
 
 public sealed class FormResponseLifecycleTests : IDisposable

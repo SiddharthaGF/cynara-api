@@ -8,6 +8,8 @@ using Cynara.Api.Modules.Health;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Preview;
 
+using Scalar.AspNetCore;
+
 namespace Cynara.Api.Hosting;
 
 internal static class WebApplicationExtensions
@@ -40,6 +42,8 @@ internal static class WebApplicationExtensions
         if (app.Environment.IsDevelopment())
         {
             _ = app.MapOpenApi();
+            _ = app.MapScalarApiReference(
+                options => _ = options.WithTitle("Cynara API"));
         }
 
         app.MapCynaraEndpoints();

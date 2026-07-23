@@ -38,6 +38,9 @@ appsettings.*.local.json
 ## Local tooling caches
 .atl/
 
+## Test snapshots
+*.received.*
+
 ## SonarQube local analysis
 .sonar/
 .sonarqube/

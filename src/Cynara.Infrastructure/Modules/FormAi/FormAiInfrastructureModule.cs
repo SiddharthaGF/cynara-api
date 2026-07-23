@@ -2,6 +2,9 @@ using Cynara.Application.Modules.FormAi;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Polly;
+using Polly.Retry;
+
 namespace Cynara.Infrastructure.Modules.FormAi;
 
 public static class FormAiInfrastructureModule
@@ -11,8 +14,30 @@ public static class FormAiInfrastructureModule
     {
         _ = services.AddSingleton<IOpenAiConfiguration, OpenAiConfiguration>();
         _ = services.AddSingleton<IFormAiSkillLoader, FileFormAiSkillLoader>();
-        _ = services.AddHttpClient<IOpenAiClient, OpenAiClient>(client =>
-            client.Timeout = TimeSpan.FromMinutes(2));
+        _ = services.AddSingleton<IOpenAiChatClientFactory, OpenAiChatClientFactory>();
+        _ = services.AddSingleton<IOpenAiClient, OpenAiClient>();
+        _ = services.AddResiliencePipeline(
+            OpenAiClient.ResiliencePipelineKey,
+            builder =>
+            {
+                _ = builder.AddRetry(new RetryStrategyOptions
+                {
+                    MaxRetryAttempts = 3,
+                    Delay = TimeSpan.FromMilliseconds(250),
+                    BackoffType = DelayBackoffType.Exponential,
+                    ShouldHandle = new PredicateBuilder()
+                        .Handle<HttpRequestException>()
+                        .Handle<System.ClientModel.ClientResultException>(
+                            static ex => IsTransientStatus(ex.Status))
+                        .Handle<IOException>(),
+                });
+                _ = builder.AddTimeout(TimeSpan.FromMinutes(2));
+            });
         return services;
+    }
+
+    private static bool IsTransientStatus(int status)
+    {
+        return status is 408 or 429 or >= 500;
     }
 }

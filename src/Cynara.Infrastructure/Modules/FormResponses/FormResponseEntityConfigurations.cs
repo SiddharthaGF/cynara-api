@@ -42,5 +42,7 @@ public sealed class FormResponseRevisionConfiguration
             .WithMany(item => item.Revisions)
             .HasForeignKey(item => item.FormResponseId)
             .OnDelete(DeleteBehavior.Cascade);
+        _ = builder.HasQueryFilter(
+            item => item.FormResponse.DeletedAt == null);
     }
 }

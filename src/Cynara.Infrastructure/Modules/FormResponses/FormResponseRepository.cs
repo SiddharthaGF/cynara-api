@@ -71,6 +71,7 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
         CancellationToken cancellationToken)
     {
         return dbContext.FormResponseRevisions
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 item => item.FormResponseId == responseId
@@ -83,6 +84,7 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
         CancellationToken cancellationToken)
     {
         return await dbContext.FormResponseRevisions
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.FormResponseId == responseId)
             .OrderBy(item => item.RevisionNumber)

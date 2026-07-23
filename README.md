@@ -33,6 +33,23 @@ dotnet run --project src/Cynara.Api
 
 The API listens on `http://localhost:5080` by default.
 
+In Development, interactive OpenAPI docs are at
+[`http://localhost:5080/scalar/v1`](http://localhost:5080/scalar/v1)
+(JSON document: `/openapi/v1.json`).
+
+### Notable libraries
+
+| Library | Role |
+|---------|------|
+| `Scalar.AspNetCore` | OpenAPI UI in Development |
+| `Microsoft.Extensions.AI` + `OpenAI` | Chat completions for Form AI |
+| `Polly` | Retries/timeouts on non-streaming AI calls |
+| `FluentValidation` | Request DTO validation at Minimal API filters |
+| `Stateless` | Form/component/response status transitions |
+| `Verify.Xunit` | Snapshot tests for stable contracts |
+| `Testcontainers.MsSql` | Optional SQL Server integration tests |
+| `JsonSchema.Net` | Structural schema validation (Draft 2020-12) |
+
 ### WSL (Windows Subsystem for Linux)
 
 Run everything **inside the WSL terminal**, not PowerShell or CMD.
@@ -71,12 +88,17 @@ Linting and formatting follow .NET conventions via [NetAnalyzers](https://learn.
 make format        # write formatting changes
 make format-check  # verify only (--verify-no-changes)
 make lint          # dotnet build --no-restore -warnaserror
-make test          # dotnet test --no-restore
+make test          # SQLite suite (excludes Category=MsSql)
+make test-mssql    # SQL Server via Testcontainers (needs Docker)
 make check         # full local/CI validation
 make fix           # format + apply safe analyzer fixes
 make sonar         # local SonarQube Community Build analysis
 make seed          # seed demo showcase into configured DB (no HTTP)
 ```
+
+Default `make test` keeps the fast in-memory SQLite host. `make test-mssql`
+starts a disposable SQL Server container and runs the `Category=MsSql` smoke
+tests against the same API path (`Database:Provider=SqlServer`).
 
 Seed uses the same `Database:Provider` / `ConnectionStrings:Default` resolution as the API
 (`appsettings`, env vars, or CLI). Examples:

@@ -1,0 +1,5 @@
+﻿[
+  ClinicalSchemaJson: 'Clinical Schema Json' must not be empty.,
+  Code: Form code must match pattern ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$ and be at most 128 characters.,
+  Name: 'Name' must not be empty.
+]

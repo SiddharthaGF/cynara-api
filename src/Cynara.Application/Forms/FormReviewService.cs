@@ -39,7 +39,9 @@ public sealed class FormReviewService(
             cancellationToken).ConfigureAwait(false);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        draft.Status = FormVersionStatus.Review;
+        FormVersionLifecycle.Fire(
+            draft,
+            FormVersionLifecycle.Trigger.SubmitForReview);
         draft.SubmittedForReviewAt = now;
         draft.LastReviewComment = null;
         draft.LastReviewDecision = null;
@@ -77,7 +79,9 @@ public sealed class FormReviewService(
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        review.Status = FormVersionStatus.Draft;
+        FormVersionLifecycle.Fire(
+            review,
+            FormVersionLifecycle.Trigger.WithdrawFromReview);
         review.SubmittedForReviewAt = null;
         review.RowVersion = request.RowVersion + 1;
         definition.UpdatedAt = now;
@@ -117,7 +121,9 @@ public sealed class FormReviewService(
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        review.Status = FormVersionStatus.Draft;
+        FormVersionLifecycle.Fire(
+            review,
+            FormVersionLifecycle.Trigger.RejectReview);
         review.SubmittedForReviewAt = null;
         review.LastReviewComment = request.Comment.Trim();
         review.LastReviewDecision = "rejected";
@@ -174,7 +180,9 @@ public sealed class FormReviewService(
 
         DateTimeOffset now = timeProvider.GetUtcNow();
         review.Version = version;
-        review.Status = FormVersionStatus.Published;
+        FormVersionLifecycle.Fire(
+            review,
+            FormVersionLifecycle.Trigger.Publish);
         review.ClinicalSchemaJson = compiled.ClinicalSchemaJson;
         review.UiSchemaJson = compiled.UiSchemaJson;
         review.RulesSchemaJson = compiled.RulesSchemaJson;

@@ -3,18 +3,13 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Cynara.Api.Tests.Support;
 using Cynara.Application.Forms;
 using Cynara.Domain.Audit;
 using Cynara.Infrastructure.Persistence;
 
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-
-using Xunit;
 
 namespace Cynara.Api.Tests;
 
@@ -247,7 +242,7 @@ UiSchemaJson: null);
         CynaraDbContext dbContext = scope.ServiceProvider.GetRequiredService<CynaraDbContext>();
         List<AuditEvent> events = [.. (await dbContext.AuditEvents
             .Where(item => item.ResourceId == resourceId)
-            .ToListAsync().ConfigureAwait(false))
+            .ToListAsync().ConfigureAwait(continueOnCapturedContext: false))
             .OrderBy(item => item.OccurredAt)];
 
         foreach (string action in actions)
@@ -304,43 +299,14 @@ UiSchemaJson: null);
     }
 }
 
-internal sealed class FormWebApplicationFactory : WebApplicationFactory<Program>
+internal sealed class FormWebApplicationFactory : CynaraWebApplicationFactory
 {
-    private readonly SqliteConnection sharedConnection = new("Data Source=:memory:");
-
-    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    public FormWebApplicationFactory()
     {
-        sharedConnection.Open();
-
-        builder.ConfigureAppConfiguration((_, configuration) =>
-        {
-            configuration.AddJsonFile(
-                Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
-                optional: false,
-                reloadOnChange: false);
-        })
-            .ConfigureServices(services =>
-        {
-            ServiceDescriptor? dbContextDescriptor = services.SingleOrDefault(
-                descriptor => descriptor.ServiceType == typeof(DbContextOptions<CynaraDbContext>));
-            if (dbContextDescriptor is not null)
-            {
-                services.Remove(dbContextDescriptor);
-            }
-
-            services.RemoveAll<CynaraDbContext>();
-
-            services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(sharedConnection));
-        });
     }
 
-    protected override void Dispose(bool disposing)
+    public FormWebApplicationFactory(TestDatabaseSettings database)
+        : base(database)
     {
-        if (disposing)
-        {
-            sharedConnection.Dispose();
-        }
-
-        base.Dispose(disposing);
     }
 }

@@ -1,4 +1,5 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Api.Common.Validation;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Components;
 
@@ -11,6 +12,7 @@ internal static class ComponentEndpoints
     public static IEndpointRouteBuilder MapComponentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder group = endpoints.MapGroup("/api/components").WithTags("Components");
+        _ = group.AddEndpointFilter<FluentValidationEndpointFilter>();
 
         _ = group.MapPost("/", CreateComponentAsync);
         _ = group.MapGet("/", ListComponentsAsync);

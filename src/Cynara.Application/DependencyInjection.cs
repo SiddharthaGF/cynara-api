@@ -4,6 +4,8 @@ using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
 
+using FluentValidation;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Application;
@@ -18,6 +20,8 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddFormsModule();
         _ = services.AddFormResponsesModule();
         _ = services.AddFormAiModule();
+        _ = services.AddValidatorsFromAssembly(
+            typeof(ApplicationServiceCollectionExtensions).Assembly);
 
         return services;
     }

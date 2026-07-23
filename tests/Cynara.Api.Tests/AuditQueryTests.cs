@@ -5,8 +5,6 @@ using System.Text.Json;
 using Cynara.Application.Audit;
 using Cynara.Application.Forms;
 
-using Xunit;
-
 namespace Cynara.Api.Tests;
 
 public sealed class AuditQueryTests : IDisposable

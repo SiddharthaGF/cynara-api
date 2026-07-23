@@ -1,4 +1,5 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Api.Common.Validation;
 using Cynara.Application.Forms;
 
 namespace Cynara.Api.Modules.Forms;
@@ -10,6 +11,7 @@ internal static class FormEndpoints
     public static IEndpointRouteBuilder MapFormEndpoints(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder group = endpoints.MapGroup("/api/forms").WithTags("Forms");
+        _ = group.AddEndpointFilter<FluentValidationEndpointFilter>();
 
         _ = group.MapPost("/", CreateFormAsync);
         _ = group.MapGet("/", ListFormsAsync);

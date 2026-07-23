@@ -6,8 +6,6 @@ using System.Text.Json;
 using Cynara.Application;
 using Cynara.Application.Forms;
 
-using Xunit;
-
 namespace Cynara.Api.Tests;
 
 public sealed class FormRuleTests

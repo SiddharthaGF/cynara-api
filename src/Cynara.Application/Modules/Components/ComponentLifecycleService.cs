@@ -150,7 +150,9 @@ public sealed class ComponentLifecycleService(
                 .Select(item => item.Version!));
         DateTimeOffset now = timeProvider.GetUtcNow();
         draft.Version = version;
-        draft.Status = ComponentVersionStatus.Published;
+        ComponentVersionLifecycle.Fire(
+            draft,
+            ComponentVersionLifecycle.Trigger.Publish);
         draft.ContentHash = ContentHashCalculator.Compute(
             draft.ClinicalSchemaJson,
             draft.UiSchemaJson);
@@ -242,7 +244,9 @@ public sealed class ComponentLifecycleService(
                 $"Published component '{code}' version '{version}' was not found.");
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        published.Status = ComponentVersionStatus.Retired;
+        ComponentVersionLifecycle.Fire(
+            published,
+            ComponentVersionLifecycle.Trigger.Retire);
         published.RetiredAt = now;
         definition.UpdatedAt = now;
         auditWriter.Append(

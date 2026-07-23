@@ -218,7 +218,9 @@ public sealed class FormService(
             ?? throw new NotFoundException($"Published form '{code}' version '{version}' was not found.");
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        published.Status = FormVersionStatus.Retired;
+        FormVersionLifecycle.Fire(
+            published,
+            FormVersionLifecycle.Trigger.Retire);
         published.RetiredAt = now;
         definition.UpdatedAt = now;
 

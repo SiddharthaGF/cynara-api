@@ -8,8 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
-using Xunit;
-
 namespace Cynara.Api.Tests.Failures;
 
 public sealed class FailureLogWriterTests : IDisposable
