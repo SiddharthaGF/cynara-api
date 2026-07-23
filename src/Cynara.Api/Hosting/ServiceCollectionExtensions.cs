@@ -99,7 +99,9 @@ internal static class ServiceCollectionExtensions
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,
                 });
-            swagger.OperationFilter<ActorIdOperationFilter>();
+
+            // ActorIdOperationFilter is registered in
+            // CynaraSwaggerGenConfigureOptions (after JADNC docs filter).
             swagger.DocumentFilter<CynaraOpenApiDocumentFilter>();
 
             string apiXml = Path.Combine(
@@ -123,11 +125,11 @@ internal static class ServiceCollectionExtensions
             }
         });
 
-        // After JADNC ConfigureSwaggerGenOptions so Title Case wraps its
-        // TagsSelector (and XmlCommentsDocumentFilter stays aligned).
+        // After JADNC ConfigureSwaggerGenOptions: title-case tags and add
+        // X-Actor-Id only after get-by-id documentation is applied.
         _ = services.AddSingleton<
             IConfigureOptions<SwaggerGenOptions>,
-            TitleCaseOpenApiTagsConfigureOptions>();
+            CynaraSwaggerGenConfigureOptions>();
 
         return services;
     }

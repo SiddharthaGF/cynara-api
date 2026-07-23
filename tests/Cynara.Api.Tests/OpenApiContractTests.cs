@@ -77,6 +77,29 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Contains("AI Provider Settings", tagNames);
         Assert.DoesNotContain("formDefinitions", tagNames);
         Assert.DoesNotContain("aiProviderSettings", tagNames);
+
+        // JADNC docs distinguish collection (0 params) vs get-by-id (1 param).
+        // X-Actor-Id must be injected after that filter or summaries break.
+        Assert.True(
+            paths.TryGetProperty("/api/aiProviderSettings", out JsonElement coll));
+        Assert.True(coll.TryGetProperty("get", out JsonElement collGet));
+        Assert.Contains(
+            "collection",
+            collGet.GetProperty("summary").GetString() ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.True(
+            paths.TryGetProperty(
+                "/api/aiProviderSettings/{id}",
+                out JsonElement byId));
+        Assert.True(byId.TryGetProperty("get", out JsonElement byIdGet));
+        Assert.Contains(
+            "individual",
+            byIdGet.GetProperty("summary").GetString() ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.True(byId.TryGetProperty("head", out JsonElement byIdHead));
+        Assert.False(
+            string.IsNullOrWhiteSpace(byIdHead.GetProperty("summary").GetString()));
     }
 
     [Fact]
