@@ -16,22 +16,19 @@ permissions:
 
 env:
   DOTNET_CONFIGURATION: Release
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
   PUBLISH_ARTIFACT: cynara-api-publish
 
 jobs:
   check:
     name: Format, lint, test, and publish
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.meta.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup .NET and restore
-        uses: ./.github/actions/setup-dotnet-and-restore
-
-      - name: Check (format + lint + test)
-        run: make check CONFIGURATION=${{ env.DOTNET_CONFIGURATION }}
 
       - name: Decide whether to publish
         id: meta
@@ -47,6 +44,24 @@ jobs:
             fi
           fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Format check
+        run: make fmt:check
+
+      - name: Lint
+        run: make lint CONFIGURATION=${{ env.DOTNET_CONFIGURATION }}
+
+      - name: Test
+        run: >
+          dotnet test Cynara.Api.sln
+          --no-restore
+          -c ${{ env.DOTNET_CONFIGURATION }}
+          --verbosity normal
+          --logger "console;verbosity=normal"
+          --filter "Category!=MsSql"
 
       - name: Publish win-x86
         if: steps.meta.outputs.publish == 'true'

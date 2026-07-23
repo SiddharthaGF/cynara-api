@@ -1,8 +1,8 @@
 name: Publish Cynara API
 description: |
   Publish the API for IIS (win-x86, framework-dependent). Callers must
-  checkout, set up .NET, and restore first. Use no-build=true when the
-  solution was already built as Release for win-x86.
+  checkout and set up .NET first. Restores the project for win-x86, then
+  publishes.
 
 inputs:
   project:
@@ -18,13 +18,19 @@ inputs:
     required: false
     default: "./publish"
   no-build:
-    description: Pass --no-build (solution must already be built).
+    description: Pass --no-build (project must already be built for win-x86).
     required: false
     default: "false"
 
 runs:
   using: composite
   steps:
+    - name: Restore ${{ inputs.project }} for win-x86
+      shell: bash
+      run: >
+        dotnet restore "${{ inputs.project }}"
+        --runtime win-x86
+
     - name: Publish ${{ inputs.project }}
       shell: bash
       run: |
