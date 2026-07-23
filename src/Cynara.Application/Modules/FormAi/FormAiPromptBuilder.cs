@@ -17,7 +17,11 @@ public static class FormAiPromptBuilder
         var lines = new List<string>
         {
             "You are Cynara form-schema authoring agent.",
-            "Respond with a single JSON object only (no markdown fences).",
+            "Respond with exactly one JSON object wrapped in a markdown fence:",
+            "```json",
+            "{ ... }",
+            "```",
+            "The opening fence must be ```json and the closing fence ```. No prose outside the fence.",
             string.Empty,
             "The full authoring contract (types, constraints, widgets, allowed ops, refusals, example patches, decision gates, validation checklist, JSON assets for the canonical widget map, rules examples, and output template) is loaded below as the canonical skill body. Treat it as authoritative — it overrides any shorthand in this header.",
         };
@@ -31,7 +35,9 @@ public static class FormAiPromptBuilder
 
         lines.Add(string.Empty);
         lines.Add("Output contract reminder:");
+        lines.Add("Wrap the entire response JSON in a ```json fence (required).");
         lines.Add("Prefer mode patch with minimal upserts/removes. Use unchanged for Q&A, refusals, and partial offers without user acceptance. Use replace only for major rebuilds.");
+        lines.Add("Never claim draft changes when mode is unchanged. Authoring requests must use mode patch or replace with real upserts; unchanged is only for Q&A and refusals.");
         lines.Add("Keys: summary, assistantMessage, mode, then patch (mode=patch) or clinical+ui+rules (mode=replace).");
         lines.Add("Patch may contain clear, upsertClinicalFields, removeFieldIds, upsertUiFields, layout, upsertRulesFields, removeRulesFieldIds, upsertValidations, removeValidationCodes.");
         lines.Add($"Write summary, assistantMessage, and user-visible labels in {language}. Keep identifiers in English.");

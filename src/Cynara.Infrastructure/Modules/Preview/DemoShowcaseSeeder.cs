@@ -11,9 +11,10 @@ namespace Cynara.Infrastructure.Modules.Preview;
 
 public static class DemoShowcaseSeeder
 {
-    public const string ActorId = "demo-seed";
     public const string ComponentCode = "patient-demographics";
     public const string FormCode = "demo-showcase";
+
+    private const string ActorId = "demo-seed";
 
     public static async Task SeedDemoShowcaseAsync(
         this IServiceProvider services,

@@ -88,7 +88,15 @@ public sealed partial class FormAiService(
             formCode,
             cancellationToken).ConfigureAwait(false);
         ParsedAiOutput parsed = ParseModelOutput(completion.Content, draft, locale);
-        return PrepareResponse(parsed, draft, completion.Thinking);
+        FormAiChatResponse result = PrepareResponse(parsed, draft, completion.Thinking);
+        return FormAiDraftConsistency.EnsureConsistent(
+            result,
+            draft.ClinicalSchemaJson,
+            draft.UiSchemaJson,
+            draft.RulesSchemaJson,
+            latestUser.Content,
+            locale,
+            parsed.IsRefusal);
     }
 
     public async Task ChatStreamAsync(
@@ -130,6 +138,14 @@ public sealed partial class FormAiService(
                 partialState.Thinking.Length == 0 ? null : partialState.Thinking.ToString());
             ParsedAiOutput parsed = ParseModelOutput(completion.Content, draft, locale);
             FormAiChatResponse result = PrepareResponse(parsed, draft, completion.Thinking);
+            result = FormAiDraftConsistency.EnsureConsistent(
+                result,
+                draft.ClinicalSchemaJson,
+                draft.UiSchemaJson,
+                draft.RulesSchemaJson,
+                latestUser.Content,
+                locale,
+                parsed.IsRefusal);
             await EmitFinalMessageTail(
                 output,
                 result,
@@ -149,7 +165,8 @@ public sealed partial class FormAiService(
             exception is HttpRequestException
             or JsonException
             or InvalidOperationException
-            or IOException)
+            or IOException
+            or ValidationException)
         {
             await TryWriteStreamError(output, exception).ConfigureAwait(false);
         }

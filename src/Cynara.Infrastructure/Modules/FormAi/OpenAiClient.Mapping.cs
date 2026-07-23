@@ -116,7 +116,7 @@ public sealed partial class OpenAiClient
             _ => ChatRole.User,
         };
 
-        if (!attachCacheControl && message.CacheControl is null)
+        if (!attachCacheControl)
         {
             return new ChatMessage(role, message.Content);
         }
@@ -135,20 +135,13 @@ public sealed partial class OpenAiClient
             openAiMessage = new UserChatMessage(message.Content);
         }
 
-        IReadOnlyDictionary<string, string>? cache =
-            message.CacheControl
-            ?? (attachCacheControl
-                ? new Dictionary<string, string>(StringComparer.Ordinal)
+        openAiMessage.Patch.Set(
+            jsonPath: "$.cache_control"u8,
+            utf8Json: BinaryData.FromObjectAsJson(
+                new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["type"] = "ephemeral",
-                }
-                : null);
-        if (cache is not null)
-        {
-            openAiMessage.Patch.Set(
-                jsonPath: "$.cache_control"u8,
-                utf8Json: BinaryData.FromObjectAsJson(cache));
-        }
+                }));
 
         return new ChatMessage(role, message.Content)
         {

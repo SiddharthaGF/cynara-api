@@ -27,13 +27,18 @@ public sealed partial class FormAiService
             return ParsedAiOutput.Unchanged(
                 FormAiGuardrails.LimitationSummary(locale),
                 message,
-                draft);
+                draft,
+                isRefusal: true);
         }
 
         string mode = ReadText(parsed["mode"])?.ToLowerInvariant() ?? ResolveMode(parsed);
         if (string.Equals(mode, "unchanged", StringComparison.Ordinal))
         {
-            return ParsedAiOutput.Unchanged(summary, assistantMessage, draft);
+            return ParsedAiOutput.Unchanged(
+                summary,
+                assistantMessage,
+                draft,
+                isRefusal: false);
         }
 
         if (string.Equals(mode, AiModePatch, StringComparison.Ordinal))

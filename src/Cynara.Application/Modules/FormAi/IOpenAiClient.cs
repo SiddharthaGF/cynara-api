@@ -15,10 +15,7 @@ public interface IOpenAiClient
         CancellationToken cancellationToken);
 }
 
-public sealed record OpenAiMessage(string Role, string Content)
-{
-    public IReadOnlyDictionary<string, string>? CacheControl { get; init; }
-}
+public sealed record OpenAiMessage(string Role, string Content);
 
 public sealed record OpenAiCompletionResult(string Content, string? Thinking);
 

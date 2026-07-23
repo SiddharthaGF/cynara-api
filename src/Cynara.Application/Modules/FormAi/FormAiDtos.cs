@@ -54,13 +54,3 @@ public sealed record AiEndpointSuggestion(
     string BaseUrl,
     string DefaultModel,
     bool JsonObject);
-
-public sealed record FormAiModelOutput(
-    string? Summary,
-    string? AssistantMessage,
-    string? Mode,
-    System.Text.Json.Nodes.JsonNode? Patch,
-    System.Text.Json.Nodes.JsonNode? Clinical,
-    System.Text.Json.Nodes.JsonNode? Ui,
-    System.Text.Json.Nodes.JsonNode? Rules,
-    System.Text.Json.Nodes.JsonNode? Error);

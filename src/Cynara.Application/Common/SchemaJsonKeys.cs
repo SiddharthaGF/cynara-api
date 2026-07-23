@@ -55,7 +55,6 @@ public static class WidgetNames
     public const string Select = "select";
     public const string Group = "group";
     public const string Repeater = "repeater";
-    public const string ComponentSlot = "component-slot";
 }
 
 public static class AuditEntityTypes
