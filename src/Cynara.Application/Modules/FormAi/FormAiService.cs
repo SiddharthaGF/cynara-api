@@ -95,14 +95,15 @@ public sealed partial class FormAiService(
             completion.Thinking,
             out FormAiFallbackReport fallback);
         return FormAiDraftConsistency.EnsureConsistent(
-            result,
-            draft.ClinicalSchemaJson,
-            draft.UiSchemaJson,
-            draft.RulesSchemaJson,
-            latestUser.Content,
-            locale,
-            parsed.IsRefusal,
-            fallback);
+            new FormAiDraftConsistency.EnsureConsistentRequest(
+                result,
+                draft.ClinicalSchemaJson,
+                draft.UiSchemaJson,
+                draft.RulesSchemaJson,
+                latestUser.Content,
+                locale,
+                parsed.IsRefusal,
+                fallback));
     }
 
     public async Task ChatStreamAsync(
@@ -151,14 +152,15 @@ public sealed partial class FormAiService(
                 completion.Thinking,
                 out FormAiFallbackReport fallback);
             result = FormAiDraftConsistency.EnsureConsistent(
-                result,
-                draft.ClinicalSchemaJson,
-                draft.UiSchemaJson,
-                draft.RulesSchemaJson,
-                latestUser.Content,
-                locale,
-                parsed.IsRefusal,
-                fallback);
+                new FormAiDraftConsistency.EnsureConsistentRequest(
+                    result,
+                    draft.ClinicalSchemaJson,
+                    draft.UiSchemaJson,
+                    draft.RulesSchemaJson,
+                    latestUser.Content,
+                    locale,
+                    parsed.IsRefusal,
+                    fallback));
             await EmitFinalMessageTail(
                 output,
                 result,

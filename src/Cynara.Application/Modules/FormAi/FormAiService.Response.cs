@@ -1,10 +1,7 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using Cynara.Application.Common;
 using Cynara.Application.Forms;
-using Cynara.Application.Schemas;
 
 namespace Cynara.Application.Modules.FormAi;
 
@@ -90,236 +87,6 @@ public sealed partial class FormAiService
             ParseObjectOrEmpty(draft.ClinicalSchemaJson),
             ParseObjectOrEmpty(draft.UiSchemaJson),
             ParseObjectOrEmpty(draft.RulesSchemaJson));
-    }
-
-    private static JsonObject? ExtractJsonObject(string raw)
-    {
-        string content = UnwrapMarkdownJsonFence(raw.Trim()) ?? raw.Trim();
-
-        try
-        {
-            return JsonNode.Parse(content) as JsonObject;
-        }
-        catch (JsonException)
-        {
-            return ExtractLastJsonObject(content);
-        }
-    }
-
-    /// <summary>
-    /// Prefers the last <c>```json</c> … <c>```</c> fence body when present so
-    /// thinking prose outside the fence cannot poison parsing.
-    /// </summary>
-    private static string? UnwrapMarkdownJsonFence(string raw)
-    {
-        const string openFence = "```json";
-        const string closeFence = "```";
-        int searchFrom = 0;
-        string? lastBody = null;
-        while (searchFrom < raw.Length)
-        {
-            int open = raw.IndexOf(openFence, searchFrom, StringComparison.OrdinalIgnoreCase);
-            if (open < 0)
-            {
-                break;
-            }
-
-            int bodyStart = open + openFence.Length;
-            if (bodyStart < raw.Length && raw[bodyStart] is '\r')
-            {
-                bodyStart++;
-            }
-
-            if (bodyStart < raw.Length && raw[bodyStart] is '\n')
-            {
-                bodyStart++;
-            }
-
-            int close = raw.IndexOf(closeFence, bodyStart, StringComparison.Ordinal);
-            if (close < 0)
-            {
-                break;
-            }
-
-            lastBody = raw[bodyStart..close].Trim();
-            searchFrom = close + closeFence.Length;
-        }
-
-        if (lastBody is not null)
-        {
-            return lastBody;
-        }
-
-        // Generic ``` … ``` wrapper with no language tag.
-        if (raw.StartsWith(closeFence, StringComparison.Ordinal)
-            && raw.EndsWith(closeFence, StringComparison.Ordinal)
-            && raw.Length > closeFence.Length * 2)
-        {
-            int firstNewline = raw.IndexOf('\n', StringComparison.Ordinal);
-            return firstNewline >= 0
-                ? raw[(firstNewline + 1)..^closeFence.Length].Trim()
-                : raw[closeFence.Length..^closeFence.Length].Trim();
-        }
-
-        return null;
-    }
-
-    private static JsonObject? ExtractLastJsonObject(string content)
-    {
-        JsonObject? lastEnvelope = null;
-        JsonObject? lastBarePatch = null;
-        for (int index = 0; index < content.Length; index++)
-        {
-            if (content[index] != '{')
-            {
-                continue;
-            }
-
-            if (!TryParseBalancedJsonObject(content, index, out JsonObject? parsed)
-                || parsed is null)
-            {
-                continue;
-            }
-
-            index = Math.Max(index, FindBalancedObjectEnd(content, index));
-            if (LooksLikeAiResponseEnvelope(parsed))
-            {
-                lastEnvelope = parsed;
-            }
-            else if (LooksLikeBarePatch(parsed))
-            {
-                lastBarePatch = parsed;
-            }
-        }
-
-        return lastEnvelope
-            ?? (lastBarePatch is null ? null : WrapBarePatch(lastBarePatch));
-    }
-
-    private static bool LooksLikeAiResponseEnvelope(JsonObject parsed)
-    {
-        return parsed["mode"] is not null
-            || parsed["summary"] is not null
-            || parsed["assistantMessage"] is not null
-            || parsed["clinical"] is not null
-            || parsed[AiModePatch] is not null
-            || parsed["error"] is not null;
-    }
-
-    private static bool LooksLikeBarePatch(JsonObject parsed)
-    {
-        return parsed["upsertClinicalFields"] is not null
-            || parsed["removeFieldIds"] is not null
-            || parsed["upsertUiFields"] is not null
-            || parsed["layout"] is not null
-            || parsed["upsertRulesFields"] is not null
-            || parsed["removeRulesFieldIds"] is not null
-            || parsed["upsertValidations"] is not null
-            || parsed["removeValidationCodes"] is not null
-            || parsed["clear"] is not null;
-    }
-
-    private static JsonObject WrapBarePatch(JsonObject patch)
-    {
-        return new JsonObject
-        {
-            ["summary"] = "Updated form schemas.",
-            ["assistantMessage"] = "Updated form schemas.",
-            ["mode"] = AiModePatch,
-            [AiModePatch] = patch.DeepClone(),
-        };
-    }
-
-    private static bool TryParseBalancedJsonObject(
-        string content,
-        int start,
-        out JsonObject? parsed)
-    {
-        parsed = null;
-        int end = FindBalancedObjectEnd(content, start);
-        if (end <= start)
-        {
-            return false;
-        }
-
-        try
-        {
-            parsed = JsonNode.Parse(content[start..(end + 1)]) as JsonObject;
-            return parsed is not null;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    private static int FindBalancedObjectEnd(string content, int start)
-    {
-        int depth = 0;
-        bool inString = false;
-        bool escaped = false;
-        for (int index = start; index < content.Length; index++)
-        {
-            char character = content[index];
-            if (inString)
-            {
-                if (escaped)
-                {
-                    escaped = false;
-                    continue;
-                }
-
-                if (character == '\\')
-                {
-                    escaped = true;
-                    continue;
-                }
-
-                if (character == '"')
-                {
-                    inString = false;
-                }
-
-                continue;
-            }
-
-            switch (character)
-            {
-                case '"':
-                    inString = true;
-                    break;
-                case '{':
-                    depth++;
-                    break;
-                case '}':
-                    depth--;
-                    if (depth == 0)
-                    {
-                        return index;
-                    }
-
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        return -1;
-    }
-
-    private static JsonObject ParseObjectOrEmpty(string? json)
-    {
-        return string.IsNullOrWhiteSpace(json) ? [] : ExtractJsonObject(json) ?? [];
-    }
-
-    private static string? ReadText(JsonNode? node)
-    {
-        if (node is JsonValue value && value.TryGetValue(out string? text))
-        {
-            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-        }
-
-        return null;
     }
 
     private static string ResolveMode(JsonObject parsed)
@@ -418,20 +185,21 @@ public sealed partial class FormAiService
         string clinical = sanitized.Clinical.ToJsonString();
         string ui = sanitized.Ui.ToJsonString();
         string rules = sanitized.Rules.ToJsonString();
+        fallback = FormAiFallbackReport.NoFallback;
         try
         {
             schemaValidator.ValidateFormDraft(clinical, ui, rules);
-            fallback = FormAiFallbackReport.NoFallback;
         }
-        catch (ValidationException) when (TryValidateWithFallback(
-                    schemaValidator,
-                    clinical,
-                    sanitized.Ui,
-                    sanitized.Rules,
-                    out ui,
-                    out rules,
-                    out fallback))
+        catch (ValidationException)
         {
+            _ = TryValidateWithFallback(
+                schemaValidator,
+                clinical,
+                sanitized.Ui,
+                sanitized.Rules,
+                out ui,
+                out rules,
+                out fallback);
         }
 
         return new FormAiChatResponse(
@@ -441,87 +209,6 @@ public sealed partial class FormAiService
             clinical,
             ui,
             rules);
-    }
-
-    private static bool TryValidateWithFallback(
-        ISchemaValidator schemaValidator,
-        string clinical,
-        JsonObject uiObject,
-        JsonObject rulesObject,
-        out string ui,
-        out string rules,
-        out FormAiFallbackReport fallback)
-    {
-        // 1) Drop layout only — keep field rules and validations.
-        var layoutClearedUi = (JsonObject)uiObject.DeepClone();
-        layoutClearedUi[SchemaJsonKeys.Layout] = new JsonArray();
-        if (TryValidate(
-                schemaValidator,
-                clinical,
-                layoutClearedUi,
-                rulesObject,
-                out ui,
-                out rules))
-        {
-            fallback = new FormAiFallbackReport(
-                FormAiFallbackOutcome.DroppedLayout,
-                LayoutOnly);
-            return true;
-        }
-
-        // 2) Drop field rules only — keep validations.
-        var fieldsClearedRules = (JsonObject)rulesObject.DeepClone();
-        fieldsClearedRules[SchemaJsonKeys.Fields] = new JsonObject();
-        if (TryValidate(
-                schemaValidator,
-                clinical,
-                layoutClearedUi,
-                fieldsClearedRules,
-                out ui,
-                out rules))
-        {
-            fallback = new FormAiFallbackReport(
-                FormAiFallbackOutcome.DroppedRulesFields,
-                LayoutAndRulesFields);
-            return true;
-        }
-
-        // 3) Last resort: empty rules validations too.
-        fieldsClearedRules[SchemaJsonKeys.Validations] = new JsonArray();
-        bool ok = TryValidate(
-            schemaValidator,
-            clinical,
-            layoutClearedUi,
-            fieldsClearedRules,
-            out ui,
-            out rules);
-        fallback = ok
-            ? new FormAiFallbackReport(
-                FormAiFallbackOutcome.DroppedValidations,
-                LayoutRulesFieldsAndValidations)
-            : FormAiFallbackReport.NoFallback;
-        return ok;
-    }
-
-    private static bool TryValidate(
-        ISchemaValidator schemaValidator,
-        string clinical,
-        JsonObject uiObject,
-        JsonObject rulesObject,
-        out string ui,
-        out string rules)
-    {
-        ui = uiObject.ToJsonString();
-        rules = rulesObject.ToJsonString();
-        try
-        {
-            schemaValidator.ValidateFormDraft(clinical, ui, rules);
-            return true;
-        }
-        catch (ValidationException)
-        {
-            return false;
-        }
     }
 
     private sealed record DraftContext(

@@ -276,10 +276,14 @@ public sealed partial class OpenAiClient
         }
 
         string? thinking = thoughts.Count == 0 ? null : string.Join("\n\n", thoughts);
-        return string.IsNullOrWhiteSpace(content)
-            ? throw new ValidationException(isTruncated
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            string emptyMessage = isTruncated
                 ? "AI provider truncated the response before completing the JSON output."
-                : "OpenAI-compatible provider returned an empty assistant message.")
-            : new OpenAiCompletionResult(content.Trim(), thinking, isTruncated);
+                : "OpenAI-compatible provider returned an empty assistant message.";
+            throw new ValidationException(emptyMessage);
+        }
+
+        return new OpenAiCompletionResult(content.Trim(), thinking, isTruncated);
     }
 }

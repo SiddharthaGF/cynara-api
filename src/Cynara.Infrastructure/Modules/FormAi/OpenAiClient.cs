@@ -26,6 +26,14 @@ public sealed partial class OpenAiClient(
             ?? throw new ArgumentNullException(nameof(pipelineProvider)))
         .GetPipeline(ResiliencePipelineKey);
 
+    private enum ChunkStatus
+    {
+        Chunk = 0,
+        EndOfStream = 1,
+        FirstChunkTimedOut = 2,
+        FirstChunkFailed = 3,
+    }
+
     public async Task<OpenAiCompletionResult> CreateChatCompletionAsync(
         IReadOnlyList<OpenAiMessage> messages,
         OpenAiConfig config,
@@ -85,116 +93,32 @@ public sealed partial class OpenAiClient(
         OpenAiConfig config,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        int attempt = 0;
         bool retried = false;
         while (true)
         {
-            attempt++;
-            using IChatClient chat = clientFactory();
-            List<ChatMessage> chatMessages = messagesFactory();
-            ChatOptions options = optionsFactory();
-            IAsyncEnumerator<ChatResponseUpdate>? inner = null;
-            Exception? firstChunkFailure = null;
-            bool exhaustedStream = false;
-            bool firstChunkConsumed = false;
-            bool emittedAny = false;
-            try
+            AttemptOutcome outcome = await TryStreamOnceAsync(
+                clientFactory,
+                messagesFactory,
+                optionsFactory,
+                config,
+                cancellationToken).ConfigureAwait(false);
+            foreach (OpenAiStreamDelta delta in outcome.Deltas)
             {
-                inner = chat.GetStreamingResponseAsync(chatMessages, options, cancellationToken)
-                    .GetAsyncEnumerator(cancellationToken);
-                while (true)
-                {
-                    bool moved;
-                    try
-                    {
-                        if (!firstChunkConsumed)
-                        {
-                            moved = await WaitForFirstChunkAsync(
-                                inner,
-                                config.FirstChunkTimeout,
-                                cancellationToken).ConfigureAwait(false);
-                            if (!moved)
-                            {
-                                firstChunkFailure = new TimeoutException(
-                                    FormatFirstChunkTimeout(config.FirstChunkTimeout));
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            moved = await inner.MoveNextAsync()
-                                .ConfigureAwait(false);
-                        }
-                    }
-                    catch (Exception ex) when (
-                        ex is not ValidationException
-                        and not OperationCanceledException)
-                    {
-                        if (!firstChunkConsumed)
-                        {
-                            firstChunkFailure = ex;
-                            break;
-                        }
-
-                        throw MapProviderException(ex);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-
-                    if (!moved)
-                    {
-                        exhaustedStream = true;
-                        break;
-                    }
-
-                    firstChunkConsumed = true;
-                    OpenAiStreamDelta? delta = ToStreamDelta(inner.Current);
-                    if (delta is null)
-                    {
-                        continue;
-                    }
-
-                    emittedAny = true;
-                    yield return delta;
-                }
-            }
-            finally
-            {
-                if (inner is not null)
-                {
-                    ValueTask dispose = inner.DisposeAsync();
-                    if (!dispose.IsCompletedSuccessfully)
-                    {
-                        try
-                        {
-                            await dispose.ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                        }
-                    }
-                }
+                yield return delta;
             }
 
-            if (exhaustedStream)
-            {
-                yield break;
-            }
-
-            if (firstChunkFailure is null)
+            if (outcome.ExhaustedStream || outcome.FirstChunkFailure is null)
             {
                 yield break;
             }
 
             if (retried)
             {
-                throw MapProviderException(firstChunkFailure);
+                throw MapProviderException(outcome.FirstChunkFailure);
             }
 
             retried = true;
-            if (!emittedAny && exhaustedStream)
+            if (!outcome.EmittedAny && outcome.ExhaustedStream)
             {
                 // The provider produced no chunks but the stream signalled an
                 // end-of-stream without raising; treat it as a fatal failure so
@@ -205,9 +129,132 @@ public sealed partial class OpenAiClient(
         }
 
         // Unreachable: the loop above always either yields, throws, or breaks.
-#pragma warning disable CS0162
         throw new InvalidOperationException("Unreachable");
-#pragma warning restore CS0162
+    }
+
+    private static async Task<AttemptOutcome> TryStreamOnceAsync(
+        Func<IChatClient> clientFactory,
+        Func<List<ChatMessage>> messagesFactory,
+        Func<ChatOptions> optionsFactory,
+        OpenAiConfig config,
+        CancellationToken cancellationToken)
+    {
+        using IChatClient chat = clientFactory();
+        List<ChatMessage> chatMessages = messagesFactory();
+        ChatOptions options = optionsFactory();
+        IAsyncEnumerator<ChatResponseUpdate> inner = chat
+            .GetStreamingResponseAsync(chatMessages, options, cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+        var deltas = new List<OpenAiStreamDelta>();
+        try
+        {
+            bool firstChunkConsumed = false;
+            Exception? firstChunkFailure = null;
+            bool exhaustedStream = false;
+            bool emittedAny = false;
+            bool keepReading = true;
+            while (keepReading)
+            {
+                ChunkResult chunk = await ReadNextChunkAsync(
+                    inner,
+                    firstChunkConsumed,
+                    config.FirstChunkTimeout,
+                    cancellationToken).ConfigureAwait(false);
+                switch (chunk.Status)
+                {
+                    case ChunkStatus.FirstChunkTimedOut:
+                        firstChunkFailure = new TimeoutException(
+                            FormatFirstChunkTimeout(config.FirstChunkTimeout));
+                        keepReading = false;
+                        break;
+                    case ChunkStatus.FirstChunkFailed:
+                        firstChunkFailure = chunk.Exception;
+                        keepReading = false;
+                        break;
+                    case ChunkStatus.EndOfStream:
+                        exhaustedStream = true;
+                        keepReading = false;
+                        break;
+                    case ChunkStatus.Chunk:
+                        firstChunkConsumed = true;
+                        OpenAiStreamDelta? delta = ToStreamDelta(inner.Current);
+                        if (delta is null)
+                        {
+                            continue;
+                        }
+
+                        emittedAny = true;
+                        deltas.Add(delta);
+                        break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"Unhandled {nameof(ChunkStatus)} value: {chunk.Status}");
+                }
+            }
+
+            return new AttemptOutcome(deltas, firstChunkFailure, exhaustedStream, emittedAny);
+        }
+        finally
+        {
+            await DisposeQuietlyAsync(inner).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<ChunkResult> ReadNextChunkAsync(
+        IAsyncEnumerator<ChatResponseUpdate> inner,
+        bool firstChunkConsumed,
+        TimeSpan firstChunkTimeout,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (firstChunkConsumed)
+            {
+                bool moved = await inner.MoveNextAsync().ConfigureAwait(false);
+                return moved
+                    ? new ChunkResult(Status: ChunkStatus.Chunk, Exception: null)
+                    : new ChunkResult(Status: ChunkStatus.EndOfStream, Exception: null);
+            }
+
+            bool firstMoved = await WaitForFirstChunkAsync(
+                enumerator: inner,
+                timeout: firstChunkTimeout,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            return firstMoved
+                ? new ChunkResult(Status: ChunkStatus.Chunk, Exception: null)
+                : new ChunkResult(Status: ChunkStatus.FirstChunkTimedOut, Exception: null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not ValidationException and not OperationCanceledException)
+        {
+            if (firstChunkConsumed)
+            {
+                throw MapProviderException(ex);
+            }
+
+            return new ChunkResult(ChunkStatus.FirstChunkFailed, ex);
+        }
+    }
+
+    private static async Task DisposeQuietlyAsync(IAsyncEnumerator<ChatResponseUpdate> inner)
+    {
+        ValueTask dispose = inner.DisposeAsync();
+        if (dispose.IsCompletedSuccessfully)
+        {
+            return;
+        }
+
+        try
+        {
+            await dispose.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Disposal raced with a cancellation; nothing to do.
+        }
     }
 
     private static async Task<bool> WaitForFirstChunkAsync(
@@ -248,4 +295,12 @@ public sealed partial class OpenAiClient(
             CultureInfo.InvariantCulture,
             $"AI provider did not deliver the first chunk within {timeout.TotalSeconds:0}s.");
     }
+
+    private sealed record ChunkResult(ChunkStatus Status, Exception? Exception);
+
+    private sealed record AttemptOutcome(
+        IReadOnlyList<OpenAiStreamDelta> Deltas,
+        Exception? FirstChunkFailure,
+        bool ExhaustedStream,
+        bool EmittedAny);
 }

@@ -64,18 +64,17 @@ internal static partial class FormAiDraftConsistency
         matchTimeoutMilliseconds: 1000)]
     private static partial Regex ClaimedApplyPattern { get; }
 
-    public static FormAiChatResponse EnsureConsistent(
-        FormAiChatResponse result,
-        string? draftClinical,
-        string? draftUi,
-        string? draftRules,
-        string latestUserContent,
-        string locale,
-        bool isRefusal,
-        FormAiFallbackReport fallback = null!)
+    public static FormAiChatResponse EnsureConsistent(EnsureConsistentRequest request)
     {
-        ArgumentNullException.ThrowIfNull(result);
-        fallback ??= FormAiFallbackReport.NoFallback;
+        ArgumentNullException.ThrowIfNull(request);
+        FormAiChatResponse result = request.Result;
+        FormAiFallbackReport fallback = request.Fallback ?? FormAiFallbackReport.NoFallback;
+        string? draftClinical = request.DraftClinical;
+        string? draftUi = request.DraftUi;
+        string? draftRules = request.DraftRules;
+        string latestUserContent = request.LatestUserContent;
+        string locale = request.Locale;
+        bool isRefusal = request.IsRefusal;
 
         // The fallback is the most interesting honesty bug: schemas may differ
         // from the draft (so the unchanged check passes), but layers were
@@ -217,4 +216,14 @@ internal static partial class FormAiDraftConsistency
             return [];
         }
     }
+
+    public sealed record EnsureConsistentRequest(
+        FormAiChatResponse Result,
+        string? DraftClinical,
+        string? DraftUi,
+        string? DraftRules,
+        string LatestUserContent,
+        string Locale,
+        bool IsRefusal,
+        FormAiFallbackReport? Fallback = null);
 }

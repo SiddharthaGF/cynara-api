@@ -129,16 +129,17 @@ public sealed class FormAiStreamHardeningTests
             RulesSchemaJson: responseRules);
 
         FormAiChatResponse rewritten = FormAiDraftConsistency.EnsureConsistent(
-            result,
-            EmptyClinical,
-            EmptyUi,
-            EmptyRules,
-            latestUserContent: "agrega una validación de presión arterial",
-            locale: "es",
-            isRefusal: false,
-            fallback: new FormAiFallbackReport(
-                FormAiFallbackOutcome.DroppedValidations,
-                ["layout", "rules.fields", "rules.validations"]));
+            new FormAiDraftConsistency.EnsureConsistentRequest(
+                result,
+                EmptyClinical,
+                EmptyUi,
+                EmptyRules,
+                LatestUserContent: "agrega una validación de presión arterial",
+                Locale: "es",
+                IsRefusal: false,
+                Fallback: new FormAiFallbackReport(
+                    FormAiFallbackOutcome.DroppedValidations,
+                    ["layout", "rules.fields", "rules.validations"])));
 
         Assert.DoesNotContain("I added", rewritten.AssistantMessage, StringComparison.Ordinal);
         Assert.Contains("descart", rewritten.AssistantMessage, StringComparison.Ordinal);
@@ -167,16 +168,17 @@ public sealed class FormAiStreamHardeningTests
             RulesSchemaJson: responseRules);
 
         FormAiChatResponse preserved = FormAiDraftConsistency.EnsureConsistent(
-            result,
-            EmptyClinical,
-            EmptyUi,
-            EmptyRules,
-            latestUserContent: "agrega una validación de presión arterial",
-            locale: "es",
-            isRefusal: false,
-            fallback: new FormAiFallbackReport(
-                FormAiFallbackOutcome.DroppedValidations,
-                ["layout", "rules.fields", "rules.validations"]));
+            new FormAiDraftConsistency.EnsureConsistentRequest(
+                result,
+                EmptyClinical,
+                EmptyUi,
+                EmptyRules,
+                LatestUserContent: "agrega una validación de presión arterial",
+                Locale: "es",
+                IsRefusal: false,
+                Fallback: new FormAiFallbackReport(
+                    FormAiFallbackOutcome.DroppedValidations,
+                    ["layout", "rules.fields", "rules.validations"])));
 
         Assert.Equal(result.AssistantMessage, preserved.AssistantMessage);
     }
