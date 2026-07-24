@@ -1,23 +1,27 @@
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.FormResponses.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 
 namespace Cynara.Application.Modules.FormResponses;
 
 public sealed class FormResponseQueriesService(
-    IFormResponseRepository responses) : IFormResponseQueryService
+    IFormResponseRepository responses,
+    IHospitalContext hospitalContext) : IFormResponseQueryService
 {
     public async Task<FormResponseDto> GetAsync(
         Guid id,
         bool includeDeleted,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         FormResponse response = await FormResponseWorkflowHelpers
             .RequireResponseAsync(
                 responses,
                 id,
                 track: false,
                 includeDeleted,
+                hospitalContext.HospitalId,
                 cancellationToken).ConfigureAwait(false);
         return FormResponseMappers.ToDto(response, response.FormVersion);
     }
@@ -26,14 +30,17 @@ public sealed class FormResponseQueriesService(
         Guid id,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,
             track: false,
             includeDeleted: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         IReadOnlyList<FormResponseRevision> revisions = await responses
-            .ListRevisionsAsync(id, cancellationToken).ConfigureAwait(false);
+            .ListRevisionsAsync(id, hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         return [.. revisions.Select(FormResponseMappers.ToRevisionDto)];
     }
 
@@ -42,15 +49,18 @@ public sealed class FormResponseQueriesService(
         uint revisionNumber,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,
             track: false,
             includeDeleted: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormResponseRevision revision = await responses.FindRevisionAsync(
                 id,
                 revisionNumber,
+                hospitalContext.HospitalId,
                 cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(
                 $"Revision {revisionNumber} for response '{id}' was not found.");

@@ -7,6 +7,7 @@ public interface IAuditRepository
     public void Add(AuditEvent auditEvent);
 
     public Task<IReadOnlyList<AuditEvent>> ListAsync(
+        Guid hospitalId,
         string? resourceType,
         Guid? resourceId,
         string? actorId,

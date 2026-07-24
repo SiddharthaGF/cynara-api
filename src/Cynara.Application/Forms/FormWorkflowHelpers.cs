@@ -9,10 +9,12 @@ internal static class FormWorkflowHelpers
         IFormRepository forms,
         string code,
         bool track,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         FormDefinition? definition = await forms.FindDefinitionByCodeAsync(
             code,
+            hospitalId,
             track,
             cancellationToken).ConfigureAwait(false);
         return definition ?? throw new NotFoundException(

@@ -1,3 +1,4 @@
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.FormAi;
 
@@ -7,6 +8,7 @@ public sealed class AiProviderSettingsService(
     Persistence.IAiProviderSettingsRepository repository,
     IOpenAiConfiguration environmentConfiguration,
     IUnitOfWork unitOfWork,
+    IHospitalContext hospitalContext,
     TimeProvider timeProvider) : IAiProviderSettingsService
 {
     private static readonly string DefaultOpenAiBaseUrl =
@@ -37,7 +39,10 @@ public sealed class AiProviderSettingsService(
     public async Task<OpenAiConfig> ResolveActiveConfigAsync(
         CancellationToken cancellationToken)
     {
-        AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
+        hospitalContext.RequireResolved();
+        AiProviderSettings? row = await repository
+            .GetAsync(hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         return IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model)
             ? MergeWithEnvironment(
                 row!.ApiKey,
@@ -50,7 +55,10 @@ public sealed class AiProviderSettingsService(
     public async Task<FormAiSettingsResponse> GetPublicViewAsync(
         CancellationToken cancellationToken)
     {
-        AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
+        hospitalContext.RequireResolved();
+        AiProviderSettings? row = await repository
+            .GetAsync(hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         if (IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model))
         {
             OpenAiConfig config = MergeWithEnvironment(
@@ -82,8 +90,11 @@ public sealed class AiProviderSettingsService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
 
-        AiProviderSettings? existing = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
+        AiProviderSettings? existing = await repository
+            .GetAsync(hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         string? apiKey = existing?.ApiKey;
         if (request.ClearApiKey)
         {
@@ -122,6 +133,7 @@ public sealed class AiProviderSettingsService(
         AiProviderSettings row = existing ?? new AiProviderSettings
         {
             Id = AiProviderSettings.DefaultId,
+            HospitalId = hospitalContext.HospitalId,
         };
         row.ApiKey = apiKey;
         row.BaseUrl = baseUrl;

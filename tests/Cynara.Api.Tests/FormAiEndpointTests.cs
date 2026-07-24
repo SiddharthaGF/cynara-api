@@ -21,6 +21,9 @@ public sealed class FormAiEndpointTests : IDisposable
     {
         client = factory.CreateClient();
         client.AcceptJsonApi();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
     }
 
     public void Dispose()

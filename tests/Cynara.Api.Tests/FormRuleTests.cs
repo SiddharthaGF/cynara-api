@@ -90,6 +90,9 @@ public sealed class FormRuleTests
         await using FormWebApplicationFactory factory = new();
         using HttpClient client = factory.CreateClient();
         client.AcceptJsonApi();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
 
         string clinical = MinimalClinicalSchema();
         const string rules = /*lang=json,strict*/ """
@@ -133,6 +136,9 @@ public sealed class FormRuleTests
         await using FormWebApplicationFactory factory = new();
         using HttpClient client = factory.CreateClient();
         client.AcceptJsonApi();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
         var api = new JsonApiClient(client);
         var workflow = new JsonApiWorkflow(api, client);
 

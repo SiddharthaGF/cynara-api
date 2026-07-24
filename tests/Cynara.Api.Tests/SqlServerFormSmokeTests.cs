@@ -20,6 +20,9 @@ public sealed class SqlServerFormSmokeTests : IDisposable
 
         factory = new FormWebApplicationFactory(database.Settings);
         client = factory.CreateClient();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
     }
 
     public void Dispose()

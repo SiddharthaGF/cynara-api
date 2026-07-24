@@ -13,6 +13,9 @@ namespace Cynara.Domain.Forms;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class FormVersion : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace (denormalized from the definition).</summary>
+    public Guid HospitalId { get; set; }
+
     /// <summary>FK to the owning definition (infrastructure; use relationship).</summary>
     public Guid FormDefinitionId { get; set; }
 

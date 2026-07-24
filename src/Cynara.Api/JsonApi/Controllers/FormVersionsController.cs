@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -25,6 +26,7 @@ public sealed class FormVersionsController(
     IResourceService<FormVersion, Guid> resourceService,
     IFormService formService,
     IFormReviewService reviewService,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext) : JsonApiController<FormVersion, Guid>(options, resourceGraph, loggerFactory, resourceService)
 {
@@ -180,12 +182,22 @@ public sealed class FormVersionsController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        return await dbContext.FormVersions
+        hospitalContext.RequireResolved();
+        FormVersion version = await dbContext.FormVersions
             .Include(item => item.FormDefinition)
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Form version '{id}' was not found.");
+
+        if (version.HospitalId != hospitalContext.HospitalId
+            || version.FormDefinition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form version '{id}' was not found.");
+        }
+
+        return version;
     }
 }

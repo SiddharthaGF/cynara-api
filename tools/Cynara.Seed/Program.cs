@@ -1,5 +1,7 @@
 using Cynara.Application;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
+using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Preview;
 using Cynara.Infrastructure.Schemas;
 
@@ -31,6 +33,10 @@ internal static class Program
             try
             {
                 await serviceProvider.InitializeDatabaseAsync()
+                    .ConfigureAwait(false);
+                HospitalBootstrapOptions hospitalOptions = ResolveHospitalOptions(configuration);
+                await serviceProvider
+                    .EnsureBootstrapHospitalAsync(hospitalOptions)
                     .ConfigureAwait(false);
                 await serviceProvider.SeedDemoShowcaseAsync()
                     .ConfigureAwait(false);
@@ -85,8 +91,20 @@ internal static class Program
                 {
                     ["--connection"] = "ConnectionStrings:Default",
                     ["--provider"] = "Database:Provider",
+                    ["--hospital-code"] = "Hospitals:BootstrapCode",
+                    ["--hospital-name"] = "Hospitals:BootstrapName",
                 })
             .Build();
+    }
+
+    private static HospitalBootstrapOptions ResolveHospitalOptions(
+        IConfiguration configuration)
+    {
+        HospitalBootstrapOptions options = new();
+        configuration
+            .GetSection(HospitalBootstrapOptions.SectionName)
+            .Bind(options);
+        return options;
     }
 
     private static string ResolveProvider(IConfiguration configuration)

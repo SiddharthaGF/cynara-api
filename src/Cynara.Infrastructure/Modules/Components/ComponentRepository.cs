@@ -10,10 +10,11 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
 {
     public Task<bool> CodeExistsAsync(
         string code,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return dbContext.ComponentDefinitions.AnyAsync(
-            component => component.Code == code,
+            component => component.HospitalId == hospitalId && component.Code == code,
             cancellationToken);
     }
 
@@ -26,10 +27,12 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
     }
 
     public async Task<IReadOnlyList<ComponentDefinition>> ListDefinitionsAsync(
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return await dbContext.ComponentDefinitions
             .AsNoTracking()
+            .Where(component => component.HospitalId == hospitalId)
             .Include(component => component.Versions)
             .OrderBy(component => component.Code)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -37,6 +40,7 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
 
     public Task<ComponentDefinition?> FindDefinitionByCodeAsync(
         string code,
+        Guid hospitalId,
         bool track,
         CancellationToken cancellationToken)
     {
@@ -45,23 +49,22 @@ public sealed class ComponentRepository(CynaraDbContext dbContext) : IComponentR
             : dbContext.ComponentDefinitions.AsNoTracking();
 
         return query
+            .Where(component => component.HospitalId == hospitalId && component.Code == code)
             .Include(component => component.Versions)
-            .SingleOrDefaultAsync(
-                component => component.Code == code,
-                cancellationToken);
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task<ComponentVersion?> FindPublishedVersionAsync(
         string code,
+        Guid hospitalId,
         string version,
         CancellationToken cancellationToken)
     {
         ComponentDefinition? definition = await dbContext.ComponentDefinitions
             .AsNoTracking()
+            .Where(item => item.HospitalId == hospitalId && item.Code == code)
             .Include(item => item.Versions)
-            .SingleOrDefaultAsync(
-                item => item.Code == code,
-                cancellationToken).ConfigureAwait(false);
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
         return definition?.Versions.SingleOrDefault(
             item => string.Equals(

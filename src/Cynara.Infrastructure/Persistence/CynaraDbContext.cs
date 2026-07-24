@@ -4,6 +4,7 @@ using Cynara.Domain.Components;
 using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
+using Cynara.Domain.Hospitals;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,8 @@ namespace Cynara.Infrastructure.Persistence;
 public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     : DbContext(options), IUnitOfWork
 {
+    public DbSet<Hospital> Hospitals => Set<Hospital>();
+
     public DbSet<ComponentDefinition> ComponentDefinitions => Set<ComponentDefinition>();
 
     public DbSet<ComponentVersion> ComponentVersions => Set<ComponentVersion>();

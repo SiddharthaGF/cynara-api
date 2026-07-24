@@ -43,6 +43,7 @@ internal static class ServiceCollectionExtensions
             })
             .AddCynaraApplication()
             .AddCynaraInfrastructure(configuration)
+            .AddCynaraHospitalContext(configuration)
             .AddSingleton(TimeProvider.System)
             .AddHttpContextAccessor();
 
@@ -83,8 +84,12 @@ internal static class ServiceCollectionExtensions
                         "JSON:API contract for Cynara clinical form "
                         + "lifecycle, responses, components, audit, and "
                         + "AI provider settings. Send `X-Actor-Id` on "
-                        + "mutating requests for audit attribution. Media "
-                        + "type: application/vnd.api+json. Workflow "
+                        + "mutating requests for audit attribution and "
+                        + "`X-Hospital-Code` on every request to select "
+                        + "the hospital workspace. The tenant context is "
+                        + "resolved by the API host and cannot be "
+                        + "overridden by client-supplied identifiers. "
+                        + "Media type: application/vnd.api+json. Workflow "
                         + "actions use rowVersion query parameters. "
                         + "Form AI status/chat use application/json; "
                         + "chat/stream uses text/event-stream (SSE).",
@@ -100,30 +105,25 @@ internal static class ServiceCollectionExtensions
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,
                 });
+            swagger.AddSecurityDefinition(
+                "HospitalCode",
+                new OpenApiSecurityScheme
+                {
+                    Description =
+                        "Required hospital workspace code. Selects the "
+                        + "tenant scope for the request. Unknown, missing, "
+                        + "or inactive codes are rejected before any "
+                        + "workflow runs.",
+                    Name = "X-Hospital-Code",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
+                });
 
             // ActorIdOperationFilter is registered in
             // CynaraSwaggerGenConfigureOptions (after JADNC docs filter).
             swagger.DocumentFilter<CynaraOpenApiDocumentFilter>();
 
-            string apiXml = Path.Combine(
-                AppContext.BaseDirectory,
-                "Cynara.Api.xml");
-            string domainXml = Path.Combine(
-                AppContext.BaseDirectory,
-                "Cynara.Domain.xml");
-            if (File.Exists(apiXml))
-            {
-                swagger.IncludeXmlComments(
-                    apiXml,
-                    includeControllerXmlComments: true);
-            }
-
-            if (File.Exists(domainXml))
-            {
-                swagger.IncludeXmlComments(
-                    domainXml,
-                    includeControllerXmlComments: false);
-            }
+            IncludeXmlDocumentation(swagger);
         });
 
         // After JADNC ConfigureSwaggerGenOptions: title-case tags and add
@@ -133,5 +133,25 @@ internal static class ServiceCollectionExtensions
             CynaraSwaggerGenConfigureOptions>();
 
         return services;
+    }
+
+    private static void IncludeXmlDocumentation(SwaggerGenOptions swagger)
+    {
+        ArgumentNullException.ThrowIfNull(swagger);
+        IncludeXmlIfPresent(swagger, "Cynara.Api.xml", includeControllerComments: true);
+        IncludeXmlIfPresent(swagger, "Cynara.Domain.xml", includeControllerComments: false);
+        IncludeXmlIfPresent(swagger, "Cynara.Application.xml", includeControllerComments: false);
+    }
+
+    private static void IncludeXmlIfPresent(
+        SwaggerGenOptions swagger,
+        string fileName,
+        bool includeControllerComments)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, fileName);
+        if (File.Exists(path))
+        {
+            swagger.IncludeXmlComments(path, includeControllerComments);
+        }
     }
 }

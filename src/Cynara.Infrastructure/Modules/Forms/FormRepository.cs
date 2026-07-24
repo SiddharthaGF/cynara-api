@@ -10,10 +10,11 @@ public sealed class FormRepository(CynaraDbContext dbContext) : IFormRepository
 {
     public Task<bool> CodeExistsAsync(
         string code,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return dbContext.FormDefinitions.AnyAsync(
-            form => form.Code == code,
+            form => form.HospitalId == hospitalId && form.Code == code,
             cancellationToken);
     }
 
@@ -26,10 +27,12 @@ public sealed class FormRepository(CynaraDbContext dbContext) : IFormRepository
     }
 
     public async Task<IReadOnlyList<FormDefinition>> ListDefinitionsAsync(
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return await dbContext.FormDefinitions
             .AsNoTracking()
+            .Where(form => form.HospitalId == hospitalId)
             .Include(form => form.Versions)
             .OrderBy(form => form.Code)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -37,6 +40,7 @@ public sealed class FormRepository(CynaraDbContext dbContext) : IFormRepository
 
     public Task<FormDefinition?> FindDefinitionByCodeAsync(
         string code,
+        Guid hospitalId,
         bool track,
         CancellationToken cancellationToken)
     {
@@ -45,10 +49,9 @@ public sealed class FormRepository(CynaraDbContext dbContext) : IFormRepository
             : dbContext.FormDefinitions.AsNoTracking();
 
         return query
+            .Where(form => form.HospitalId == hospitalId && form.Code == code)
             .Include(form => form.Versions)
-            .SingleOrDefaultAsync(
-                form => form.Code == code,
-                cancellationToken);
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public void AddVersion(FormVersion version)

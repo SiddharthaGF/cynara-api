@@ -1,6 +1,7 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.FormResponses;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -28,6 +29,7 @@ public sealed class FormResponseResourceService(
     IResourceChangeTracker<FormResponse> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IFormResponseLifecycleService lifecycle,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<FormResponse, Guid>(
@@ -45,6 +47,7 @@ public sealed class FormResponseResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
 
         if (resource.FormVersion is null && resource.FormVersionId == Guid.Empty)
         {
@@ -60,6 +63,13 @@ public sealed class FormResponseResourceService(
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Form version '{versionId}' was not found.");
+
+        if (formVersion.HospitalId != hospitalContext.HospitalId
+            || formVersion.FormDefinition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form version '{versionId}' was not found.");
+        }
 
         if (string.IsNullOrWhiteSpace(formVersion.Version))
         {
@@ -84,6 +94,7 @@ public sealed class FormResponseResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
 
         FormResponseDto updated = await lifecycle.UpdateAsync(
             id,
@@ -101,6 +112,7 @@ public sealed class FormResponseResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         string? reason = httpContextAccessor.HttpContext?.Request.Query["reason"]
             .FirstOrDefault();
         await lifecycle.SoftDeleteDraftAsync(
@@ -108,5 +120,31 @@ public sealed class FormResponseResourceService(
             reason,
             httpContextAccessor.HttpContext?.GetActorId(),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    public override async Task<FormResponse> GetAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+
+        var ownership = await dbContext.FormResponses
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (ownership is null
+            || ownership.HospitalId != hospitalContext.HospitalId
+            || ownership.DeletedAt is not null)
+        {
+            throw new Application.NotFoundException(
+                $"Form response '{id}' was not found.");
+        }
+
+        FormResponse? response = await base.GetAsync(id, cancellationToken)
+            .ConfigureAwait(false);
+        return response!;
     }
 }

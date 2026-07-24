@@ -62,4 +62,5 @@ public static class AuditEntityTypes
     public const string FormVersion = "form-version";
     public const string FormResponse = "form-response";
     public const string ComponentVersion = "component-version";
+    public const string Hospital = "hospital";
 }

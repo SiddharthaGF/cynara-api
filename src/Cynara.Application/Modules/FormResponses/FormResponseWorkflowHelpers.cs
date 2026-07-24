@@ -10,12 +10,14 @@ internal static class FormResponseWorkflowHelpers
         Guid id,
         bool track,
         bool includeDeleted,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         FormResponse? response = await responses.FindByIdAsync(
             id,
             track,
             includeDeleted,
+            hospitalId,
             cancellationToken).ConfigureAwait(false);
         return response ?? throw new NotFoundException(
             $"Form response '{id}' was not found.");
@@ -49,6 +51,7 @@ internal static class FormResponseWorkflowHelpers
         return new FormResponseRevision
         {
             Id = Guid.NewGuid(),
+            HospitalId = response.HospitalId,
             FormResponseId = response.Id,
             RevisionNumber = response.RevisionNumber,
             AnswersJson = response.AnswersJson,

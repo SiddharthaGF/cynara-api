@@ -13,13 +13,17 @@ public sealed class FormResponseConfiguration
         ArgumentNullException.ThrowIfNull(builder);
         _ = builder.ToTable("form_responses");
         _ = builder.HasKey(item => item.Id);
+        _ = builder.Property(item => item.HospitalId).IsRequired();
+        _ = builder.HasIndex(item => item.HospitalId);
         _ = builder.Property(item => item.AnswersJson).IsRequired();
         _ = builder.Property(item => item.RowVersion).IsConcurrencyToken();
         _ = builder.HasOne(item => item.FormVersion)
             .WithMany()
             .HasForeignKey(item => item.FormVersionId)
             .OnDelete(DeleteBehavior.Restrict);
-        _ = builder.HasQueryFilter(item => item.DeletedAt == null);
+        _ = builder.HasQueryFilter(item =>
+            item.HospitalId == item.FormVersion.HospitalId
+            && item.DeletedAt == null);
     }
 }
 
@@ -31,6 +35,8 @@ public sealed class FormResponseRevisionConfiguration
         ArgumentNullException.ThrowIfNull(builder);
         _ = builder.ToTable("form_response_revisions");
         _ = builder.HasKey(item => item.Id);
+        _ = builder.Property(item => item.HospitalId).IsRequired();
+        _ = builder.HasIndex(item => item.HospitalId);
         _ = builder.Property(item => item.AnswersJson).IsRequired();
         _ = builder.Property(item => item.ActorId).HasMaxLength(128);
         _ = builder.HasIndex(item => new
@@ -42,7 +48,8 @@ public sealed class FormResponseRevisionConfiguration
             .WithMany(item => item.Revisions)
             .HasForeignKey(item => item.FormResponseId)
             .OnDelete(DeleteBehavior.Cascade);
-        _ = builder.HasQueryFilter(
-            item => item.FormResponse.DeletedAt == null);
+        _ = builder.HasQueryFilter(item =>
+            item.HospitalId == item.FormResponse.HospitalId
+            && item.FormResponse.DeletedAt == null);
     }
 }

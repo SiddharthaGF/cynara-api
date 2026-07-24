@@ -130,3 +130,24 @@ public sealed class FormResponseValidationException : CynaraException
 
     public IReadOnlyList<FormResponseFieldError> Errors { get; } = [];
 }
+
+/// <summary>
+/// Raised when a request cannot be associated with a known, active hospital
+/// workspace. Maps to 400/403 depending on the failure cause.
+/// </summary>
+public sealed class TenantContextException : CynaraException
+{
+    public TenantContextException()
+    {
+    }
+
+    public TenantContextException(string message)
+        : base(message)
+    {
+    }
+
+    public TenantContextException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

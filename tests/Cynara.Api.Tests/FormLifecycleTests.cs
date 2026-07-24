@@ -18,6 +18,7 @@ public sealed class FormLifecycleTests : IDisposable
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
     }
 
     public void Dispose()

@@ -12,14 +12,15 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
     public async Task<FormVersion?> FindPublishedVersionAsync(
         string code,
         string version,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         FormDefinition? definition = await dbContext.FormDefinitions
             .AsNoTracking()
+            .Where(item => item.HospitalId == hospitalId && item.Code == code)
             .Include(item => item.Versions)
-            .SingleOrDefaultAsync(
-                item => item.Code == code,
-                cancellationToken).ConfigureAwait(false);
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
 
         return definition?.Versions.SingleOrDefault(
             item => string.Equals(
@@ -46,6 +47,7 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
         Guid id,
         bool track,
         bool includeDeleted,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         IQueryable<FormResponse> query = track
@@ -58,6 +60,7 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
         }
 
         return query
+            .Where(item => item.HospitalId == hospitalId)
             .Include(item => item.FormVersion)
             .ThenInclude(item => item.FormDefinition)
             .SingleOrDefaultAsync(
@@ -68,25 +71,28 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
     public Task<FormResponseRevision?> FindRevisionAsync(
         Guid responseId,
         uint revisionNumber,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return dbContext.FormResponseRevisions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .SingleOrDefaultAsync(
-                item => item.FormResponseId == responseId
-                    && item.RevisionNumber == revisionNumber,
-                cancellationToken);
+            .Where(item => item.HospitalId == hospitalId
+                && item.FormResponseId == responseId
+                && item.RevisionNumber == revisionNumber)
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
         Guid responseId,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         return await dbContext.FormResponseRevisions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(item => item.FormResponseId == responseId)
+            .Where(item => item.HospitalId == hospitalId
+                && item.FormResponseId == responseId)
             .OrderBy(item => item.RevisionNumber)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }

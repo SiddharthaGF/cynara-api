@@ -12,6 +12,9 @@ namespace Cynara.Domain.Audit;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class AuditEvent : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace. Stamped by the audit writer.</summary>
+    public Guid HospitalId { get; set; }
+
     [Attr(PublicName = "resourceType", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
     public required string ResourceType { get; set; }
 

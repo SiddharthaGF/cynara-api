@@ -1,18 +1,22 @@
 using Cynara.Application.Common;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Components.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Components;
 
 namespace Cynara.Application.Modules.Components;
 
 public sealed class ComponentQueriesService(
-    IComponentRepository components) : IComponentQueryService
+    IComponentRepository components,
+    IHospitalContext hospitalContext) : IComponentQueryService
 {
     public async Task<IReadOnlyList<ComponentSummaryDto>> ListAsync(
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         IReadOnlyList<ComponentDefinition> items = await components
-            .ListDefinitionsAsync(cancellationToken).ConfigureAwait(false);
+            .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         return [.. items.Select(ComponentMappers.ToSummary)];
     }
 
@@ -20,8 +24,10 @@ public sealed class ComponentQueriesService(
         string code,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         return ComponentMappers.ToSummary(definition);
     }
 
@@ -29,8 +35,10 @@ public sealed class ComponentQueriesService(
         string code,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         return ComponentMappers.ToVersionDto(definition, draft);
     }
@@ -40,9 +48,11 @@ public sealed class ComponentQueriesService(
         string version,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         SemverRules.EnsureValid(version);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: false, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: false, hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         ComponentVersion published = definition.Versions.SingleOrDefault(
                 item => string.Equals(item.Version, version, StringComparison.Ordinal)
                     && item.Status != ComponentVersionStatus.Draft)

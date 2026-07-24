@@ -21,11 +21,14 @@ public static class FormAiPersistenceModule
 public sealed class AiProviderSettingsRepository(CynaraDbContext dbContext)
     : IAiProviderSettingsRepository
 {
-    public Task<AiProviderSettings?> GetAsync(CancellationToken cancellationToken)
+    public Task<AiProviderSettings?> GetAsync(
+        Guid hospitalId,
+        CancellationToken cancellationToken)
     {
         return dbContext.AiProviderSettings
             .SingleOrDefaultAsync(
-                item => item.Id == AiProviderSettings.DefaultId,
+                item => item.Id == AiProviderSettings.DefaultId
+                    && item.HospitalId == hospitalId,
                 cancellationToken);
     }
 
@@ -42,7 +45,8 @@ public sealed class AiProviderSettingsConfiguration
     {
         ArgumentNullException.ThrowIfNull(builder);
         _ = builder.ToTable("ai_provider_settings");
-        _ = builder.HasKey(item => item.Id);
+        _ = builder.HasKey(item => new { item.HospitalId, item.Id });
+        _ = builder.Property(item => item.HospitalId).IsRequired();
         _ = builder.Property(item => item.Id).HasMaxLength(64);
         _ = builder.Property(item => item.ApiKey).HasMaxLength(2048);
         _ = builder.Property(item => item.BaseUrl).HasMaxLength(1024);
