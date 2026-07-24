@@ -103,45 +103,51 @@ jobs:
           aspnetcore-environment: Development
 
       - name: Drop and recreate preview database
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-        shell: pwsh
+        shell: bash
         env:
           DB_CONNECTION_STRING: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
           ADMIN_DB_CONNECTION_STRING: ${{ secrets.PREVIEW_ADMIN_DB_CONNECTION_STRING }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          if (-not $env:DB_CONNECTION_STRING -or -not $env:ADMIN_DB_CONNECTION_STRING) {
-            Write-Host "DB_CONNECTION_STRING or ADMIN_DB_CONNECTION_STRING not set; skipping DB reset."
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [ "$GITHUB_REF_NAME" != "develop" ]; then
+            echo "Skipping DB reset (event=$GITHUB_EVENT_NAME ref=$GITHUB_REF_NAME)"
             exit 0
-          }
-          $builder = New-Object System.Data.Common.DbConnectionStringBuilder
-          $builder.ConnectionString = $env:DB_CONNECTION_STRING
-          $targetDb = $builder['Initial Catalog']
-          if (-not $targetDb) { throw "Initial Catalog missing from DB_CONNECTION_STRING" }
-          $adminBuilder = New-Object System.Data.Common.DbConnectionStringBuilder
-          $adminBuilder.ConnectionString = $env:ADMIN_DB_CONNECTION_STRING
-          if ($adminBuilder['Initial Catalog']) { $adminBuilder['Initial Catalog'] = 'master' }
-          $conn = New-Object System.Data.SqlClient.SqlConnection($adminBuilder.ConnectionString)
-          $conn.Open()
-          try {
-            $cmd = $conn.CreateCommand()
-            $cmd.CommandTimeout = 60
-            $cmd.CommandText = @"
-          IF DB_ID('$targetDb') IS NOT NULL
-          BEGIN
-            ALTER DATABASE [$targetDb] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-            DROP DATABASE [$targetDb];
-          END
-"@
-            $cmd.ExecuteNonQuery() | Out-Null
-            Write-Host "Dropped database '$targetDb' (if it existed)."
-            $cmd.CommandText = "CREATE DATABASE [$targetDb];"
-            $cmd.ExecuteNonQuery() | Out-Null
-            Write-Host "Created empty database '$targetDb'. The API will apply migrations on startup."
-          }
-          finally {
-            $conn.Close()
-          }
+          fi
+          if [ -z "${DB_CONNECTION_STRING:-}" ] || [ -z "${ADMIN_DB_CONNECTION_STRING:-}" ]; then
+            echo "DB_CONNECTION_STRING or ADMIN_DB_CONNECTION_STRING not set; skipping DB reset."
+            exit 0
+          fi
+          TARGET_DB=$(printf '%s' "$DB_CONNECTION_STRING" | sed -nE 's/.*(Initial Catalog|Database)=([^;]+).*/\2/Ip' | tr -d ' ')
+          if [ -z "$TARGET_DB" ]; then
+            echo "Could not extract Initial Catalog from DB_CONNECTION_STRING"
+            exit 1
+          fi
+          echo "Reset target database: $TARGET_DB"
+          python - <<PY
+          import os
+          import pyodbc
+          target = os.environ["TARGET_DB"]
+          cs = os.environ["ADMIN_DB_CONNECTION_STRING"]
+          parts = [p for p in cs.split(";") if p.strip()]
+          cleaned = []
+          for p in parts:
+              key = p.split("=", 1)[0].strip().lower()
+              if key in ("initial catalog", "database"):
+                  continue
+              cleaned.append(p)
+          admin = ";".join(cleaned)
+          conn = pyodbc.connect(admin, autocommit=True, timeout=30)
+          cur = conn.cursor()
+          try:
+              cur.execute(f"IF DB_ID(?) IS NOT NULL BEGIN ALTER DATABASE [{target}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{target}]; END", target)
+          except Exception as exc:
+              print(f"Drop ignored: {exc}")
+          cur.execute(f"CREATE DATABASE [{target}]")
+          print(f"Recreated database '{target}'")
+          conn.close()
+          PY
 
       - name: Deploy preview via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
