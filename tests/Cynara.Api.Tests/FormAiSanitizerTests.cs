@@ -95,4 +95,30 @@ public sealed class FormAiSanitizerTests
         Assert.Null(section["unknown"]);
         Assert.Null(repeater["unknown"]);
     }
+
+    [Fact]
+    public void Sanitize_AllowsEmptyFieldsArray()
+    {
+        JsonObject clinical = new()
+        {
+            ["schemaVersion"] = "1.0.0",
+            ["fields"] = new JsonArray(),
+        };
+        JsonObject ui = new()
+        {
+            ["schemaVersion"] = "1.0.0",
+            ["clinicalSchemaVersion"] = "1.0.0",
+            ["fields"] = new JsonObject(),
+            ["layout"] = new JsonArray(),
+        };
+
+        SanitizedAiTriple sanitized = FormAiSanitizer.Sanitize(
+            clinical,
+            ui,
+            new JsonObject());
+
+        Assert.Empty((JsonArray)sanitized.Clinical["fields"]!);
+        Assert.Empty((JsonObject)sanitized.Ui["fields"]!);
+        Assert.Empty((JsonArray)sanitized.Ui["layout"]!);
+    }
 }

@@ -295,6 +295,45 @@ public sealed class FormAiEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task Chat_ClearAllFieldsReturnsEmptyFieldsArray()
+    {
+        string formId = await CreateFormDefinitionAsync("ai-clear-fields").ConfigureAwait(false);
+        const string clinical = /*lang=json,strict*/ """
+            {"schemaVersion":"1.0.0","fields":[{"id":"name","code":"patient.name","type":"text"}]}
+            """;
+        const string ui = /*lang=json,strict*/ """
+            {"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{"name":{"label":"Name","widget":"text-input"}},"layout":[]}
+            """;
+        const string rules = /*lang=json,strict*/ """
+            {"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{},"validations":[]}
+            """;
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/ai/forms/{formId}/chat",
+            new
+            {
+                messages = new[] { new { role = "user", content = "Clear all fields" } },
+                locale = "en",
+                clinicalSchemaJson = clinical,
+                uiSchemaJson = ui,
+                rulesSchemaJson = rules,
+            }).ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        using var updatedClinical = JsonDocument.Parse(
+            body.RootElement.GetProperty("clinicalSchemaJson").GetString()!);
+        Assert.Equal(
+            0,
+            updatedClinical.RootElement.GetProperty("fields").GetArrayLength());
+        Assert.Contains(
+            "cleared",
+            body.RootElement.GetProperty("assistantMessage").GetString()!,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ChatStream_GuardrailReturnsDoneEvent()
     {
         string formId = await CreateFormDefinitionAsync("ai-guardrail-stream")
