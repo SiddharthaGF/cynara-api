@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "name": "Cynara API (Debug)",
+      "type": "devtools",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/Cynara.Api/Cynara.Api.csproj",
+      "projectType": "web",
+      "targetFramework": "net9.0",
+      "launchProfile": "http",
+      "withDebug": true,
+      "configuration": "Debug",
+      "enableHotReload": false,
+      "skipBuild": false,
+      "console": "integratedTerminal",
+      "launchBrowser": false,
+      "url": "http://localhost:5000",
+      "cwd": "${workspaceFolder}/src/Cynara.Api",
+      "setAsStartup": true
+    }
+  ]
+}

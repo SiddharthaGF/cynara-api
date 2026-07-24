@@ -329,7 +329,7 @@ public sealed class FormAiEndpointTests : IDisposable
             updatedClinical.RootElement.GetProperty("fields").GetArrayLength());
         Assert.Contains(
             "cleared",
-            body.RootElement.GetProperty("assistantMessage").GetString()!,
+            body.RootElement.GetProperty("assistantMessage").GetString(),
             StringComparison.OrdinalIgnoreCase);
     }
 
