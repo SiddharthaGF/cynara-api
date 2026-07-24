@@ -12,6 +12,10 @@ designer-supported yet.
 Common on every field: `id`, `code`, `type`, optional `required`, `readOnly`,
 `description`, `default`.
 
+The top-level `fields` array may be empty: a draft can ship with zero questions
+("clear the form" is a supported action). `group` and `repeater` still require
+≥1 child in their `items[]`.
+
 | Type            | Value                         | Extra clinical constraints                                              |
 | --------------- | ----------------------------- | ----------------------------------------------------------------------- |
 | `text`          | string                        | `minLength`, `maxLength`, `pattern`                                     |

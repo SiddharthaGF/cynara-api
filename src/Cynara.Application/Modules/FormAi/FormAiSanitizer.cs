@@ -149,21 +149,6 @@ internal static partial class FormAiSanitizer
             }
         }
 
-        if (fields.Count == 0)
-        {
-            fields.Add(new JsonObject
-            {
-                [SchemaJsonKeys.Id] = "field-1",
-                [SchemaJsonKeys.Code] = "field.1",
-                [SchemaJsonKeys.Type] = FieldTypeNames.Text,
-            });
-            stolenUi["field-1"] = new JsonObject
-            {
-                [SchemaJsonKeys.Label] = "Field 1",
-                [SchemaJsonKeys.Widget] = WidgetNames.TextInput,
-            };
-        }
-
         return new JsonObject
         {
             [SchemaJsonKeys.SchemaVersion] = schemaVersion,

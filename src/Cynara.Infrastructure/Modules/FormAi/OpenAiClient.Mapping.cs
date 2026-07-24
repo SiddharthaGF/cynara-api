@@ -11,6 +11,7 @@ using OpenAI.Chat;
 
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 using ChatRole = Microsoft.Extensions.AI.ChatRole;
+using MeaiFinishReason = Microsoft.Extensions.AI.ChatFinishReason;
 using MeaiResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
@@ -44,9 +45,14 @@ public sealed partial class OpenAiClient
             promptCacheKey = BuildPromptCacheKey(cacheScope);
         }
 
+        float temperature = config.Temperature ?? 1f;
+        float topP = config.TopP ?? 1f;
+
         return new ChatOptions
         {
-            Temperature = 1f,
+            Temperature = temperature,
+            TopP = topP,
+            MaxOutputTokens = config.MaxOutputTokens,
             ResponseFormat = config.JsonObject
                 ? MeaiResponseFormat.Json
                 : MeaiResponseFormat.Text,
@@ -54,7 +60,8 @@ public sealed partial class OpenAiClient
             {
                 ChatCompletionOptions options = new()
                 {
-                    Temperature = 1f,
+                    Temperature = temperature,
+                    TopP = topP,
                 };
                 options.Patch.Set(jsonPath: "$.reasoning_split"u8, value: true);
                 if (promptCacheKey is not null)
@@ -164,7 +171,10 @@ public sealed partial class OpenAiClient
         string? apiThinking = thoughts.Count == 0
             ? null
             : string.Join("\n\n", thoughts);
-        return SplitContentAndThinking(response.Text ?? string.Empty, apiThinking);
+        return SplitContentAndThinking(
+            response.Text ?? string.Empty,
+            apiThinking,
+            IsLengthFinishReason(response.FinishReason));
     }
 
     private static OpenAiStreamDelta? ToStreamDelta(ChatResponseUpdate update)
@@ -180,9 +190,24 @@ public sealed partial class OpenAiClient
             }
         }
 
-        return content is null && reasoning is null
+        bool isTruncated = IsLengthFinishReason(update.FinishReason);
+        return content is null && reasoning is null && !isTruncated
             ? null
-            : new OpenAiStreamDelta(content, reasoning);
+            : new OpenAiStreamDelta(content, reasoning, isTruncated);
+    }
+
+    private static bool IsLengthFinishReason(MeaiFinishReason? finishReason)
+    {
+        string? value = finishReason?.Value;
+        return string.Equals(
+                value,
+                MeaiFinishReason.Length.Value,
+                StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "max_tokens", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                value,
+                "max_output_tokens",
+                StringComparison.OrdinalIgnoreCase);
     }
 
     private static PromptCacheMode DetectPromptCacheMode(string baseUrl)
@@ -218,7 +243,8 @@ public sealed partial class OpenAiClient
 
     private static OpenAiCompletionResult SplitContentAndThinking(
         string rawContent,
-        string? apiThinking)
+        string? apiThinking,
+        bool isTruncated)
     {
         var thoughts = new List<string>();
         if (!string.IsNullOrWhiteSpace(apiThinking))
@@ -251,8 +277,9 @@ public sealed partial class OpenAiClient
 
         string? thinking = thoughts.Count == 0 ? null : string.Join("\n\n", thoughts);
         return string.IsNullOrWhiteSpace(content)
-            ? throw new ValidationException(
-                "OpenAI-compatible provider returned an empty assistant message.")
-            : new OpenAiCompletionResult(content.Trim(), thinking);
+            ? throw new ValidationException(isTruncated
+                ? "AI provider truncated the response before completing the JSON output."
+                : "OpenAI-compatible provider returned an empty assistant message.")
+            : new OpenAiCompletionResult(content.Trim(), thinking, isTruncated);
     }
 }

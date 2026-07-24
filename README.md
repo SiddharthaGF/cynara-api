@@ -31,11 +31,11 @@ dotnet restore          # also installs git hooks via Husky.Net
 dotnet run --project src/Cynara.Api
 ```
 
-The API listens on `http://localhost:5080` by default.
+The API listens on `http://localhost:5000` by default.
 
 In Development, interactive OpenAPI docs are at
-[`http://localhost:5080/scalar/v1`](http://localhost:5080/scalar/v1)
-(JSON document: [`/swagger/v1/swagger.json`](http://localhost:5080/swagger/v1/swagger.json)).
+[`http://localhost:5000/scalar/v1`](http://localhost:5000/scalar/v1)
+(JSON document: [`/swagger/v1/swagger.json`](http://localhost:5000/swagger/v1/swagger.json)).
 
 The HTTP contract is **JSON:API** (`application/vnd.api+json`) via
 `JsonApiDotNetCore`, with resource routes under `/api` (for example
@@ -67,14 +67,14 @@ cd ~/ailuracode/cynara/cynara-api
 dotnet run --project src/Cynara.Api
 ```
 
-- **From WSL:** `http://localhost:5080/health`
-- **From Windows browser:** `http://localhost:5080/health` (WSL2 forwards localhost by default)
-- **If Windows cannot reach localhost:** use the WSL IP instead, e.g. `http://172.22.252.7:5080/health` (`hostname -I` shows the current IP)
+- **From WSL:** `http://localhost:5000/health`
+- **From Windows browser:** `http://localhost:5000/health` (WSL2 forwards localhost by default)
+- **If Windows cannot reach localhost:** use the WSL IP instead, e.g. `http://172.22.252.7:5000/health` (`hostname -I` shows the current IP)
 
-If you see `address already in use`, another instance is already bound to port 5080:
+If you see `address already in use`, another instance is already bound to port 5000:
 
 ```bash
-fuser -k 5080/tcp
+fuser -k 5000/tcp
 dotnet run --project src/Cynara.Api
 ```
 

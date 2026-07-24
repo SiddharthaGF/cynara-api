@@ -5,12 +5,21 @@ namespace Cynara.Application.Modules.FormAi;
 
 public static class FormAiPromptBuilder
 {
+    private const int SkillMaxInlineChars = 2_000;
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         WriteIndented = true,
     };
 
-    public static string BuildSystemPrompt(string locale, string? skillBody = null)
+    /// <summary>
+    /// Build the system prompt for a chat turn. The header is intentionally
+    /// compact (&lt;800 chars) so it survives long conversations without
+    /// blowing up the request size. The full authoring skill is loaded only on
+    /// the first turn of a conversation; later turns reference it by short
+    /// pointer to keep subsequent prompts small.
+    /// </summary>
+    public static string BuildSystemPrompt(string locale, string? skillBody = null, bool isFirstTurn = true)
     {
         ArgumentNullException.ThrowIfNull(locale);
         string language = LocaleDisplayName(locale);
@@ -23,27 +32,43 @@ public static class FormAiPromptBuilder
             "```",
             "The opening fence must be ```json and the closing fence ```. No prose outside the fence.",
             string.Empty,
-            "The full authoring contract (types, constraints, widgets, allowed ops, refusals, example patches, decision gates, validation checklist, JSON assets for the canonical widget map, rules examples, and output template) is loaded below as the canonical skill body. Treat it as authoritative — it overrides any shorthand in this header.",
+            "Output contract:",
+            "- mode: patch (default) | replace (major rebuild) | unchanged (Q&A or refusal).",
+            "- patch keys: clear, upsertClinicalFields, removeFieldIds, upsertUiFields, layout, upsertRulesFields, removeRulesFieldIds, upsertValidations, removeValidationCodes.",
+            "- replace keys: clinical, ui, rules.",
+            "- Envelope keys: summary, assistantMessage, mode, then patch or clinical/ui/rules.",
+            "- Minimal diffs; never claim edits under mode=unchanged.",
+            string.Empty,
+            $"Write summary, assistantMessage, and user-visible labels in {language}.",
+            $"User interface locale: {locale} ({language}).",
         };
-        if (!string.IsNullOrWhiteSpace(skillBody))
+
+        if (isFirstTurn && !string.IsNullOrWhiteSpace(skillBody))
         {
+            string body = skillBody.Trim();
+            if (body.Length > SkillMaxInlineChars)
+            {
+                // Truncate but keep the most useful tail — types/widgets/rules.
+                body = "...(skill body trimmed; refer to last loaded version)..." +
+                    Environment.NewLine +
+                    body[^SkillMaxInlineChars..];
+            }
+
             lines.Add(string.Empty);
-            lines.Add("--- BEGIN form-schema-authoring skill ---");
-            lines.Add(skillBody.Trim());
+            lines.Add("--- BEGIN form-schema-authoring skill (first turn) ---");
+            lines.Add(body);
             lines.Add("--- END form-schema-authoring skill ---");
         }
+        else if (!isFirstTurn)
+        {
+            lines.Add(string.Empty);
+            lines.Add(
+                "The full authoring skill (types, widgets, constraints, allowed AST ops, "
+                + "refusal rules, validation checklist, example patches) was loaded in the "
+                + "first turn of this conversation. Continue to apply that contract verbatim.");
+        }
 
-        lines.Add(string.Empty);
-        lines.Add("Output contract reminder:");
-        lines.Add("Wrap the entire response JSON in a ```json fence (required).");
-        lines.Add("Prefer mode patch with minimal upserts/removes. Use unchanged for Q&A, refusals, and partial offers without user acceptance. Use replace only for major rebuilds.");
-        lines.Add("Never claim draft changes when mode is unchanged. Authoring requests must use mode patch or replace with real upserts; unchanged is only for Q&A and refusals.");
-        lines.Add("Keys: summary, assistantMessage, mode, then patch (mode=patch) or clinical+ui+rules (mode=replace).");
-        lines.Add("Patch may contain clear, upsertClinicalFields, removeFieldIds, upsertUiFields, layout, upsertRulesFields, removeRulesFieldIds, upsertValidations, removeValidationCodes.");
-        lines.Add($"Write summary, assistantMessage, and user-visible labels in {language}. Keep identifiers in English.");
-        lines.Add("Never expose JSON keys, schema paths, or implementation details in assistantMessage.");
-        lines.Add($"User interface locale: {locale} ({language}).");
-        return string.Join('\n', lines);
+        return string.Join(Environment.NewLine, lines);
     }
 
     public static string BuildUserTurn(FormAiUserTurnRequest request)

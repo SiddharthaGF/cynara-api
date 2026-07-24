@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:5080
+@baseUrl = http://localhost:5000
 @actor = clinician-1
 @jsonApi = application/vnd.api+json
 

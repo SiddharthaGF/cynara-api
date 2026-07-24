@@ -20,7 +20,7 @@ behavior. Do not silently drop unknown fields or weaken contract checks.
 - JSON Schema Draft 2020-12 via `JsonSchema.Net`
 - xUnit + `WebApplicationFactory` integration tests
 
-Default listen URL: `http://localhost:5080`.
+Default listen URL: `http://localhost:5000`.
 
 ## Commands
 

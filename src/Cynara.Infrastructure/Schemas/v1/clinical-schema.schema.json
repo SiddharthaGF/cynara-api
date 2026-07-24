@@ -18,11 +18,10 @@
     },
     "fields": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "$ref": "#/$defs/field"
       },
-      "description": "Top-level clinical fields."
+      "description": "Top-level clinical fields. A form may declare zero fields."
     }
   },
   "$defs": {

@@ -10,6 +10,11 @@ namespace Cynara.Application.Modules.FormAi;
 
 public sealed partial class FormAiService
 {
+    private static readonly string[] LayoutOnly = ["layout"];
+    private static readonly string[] LayoutAndRulesFields = ["layout", "rules.fields"];
+    private static readonly string[] LayoutRulesFieldsAndValidations =
+        ["layout", "rules.fields", "rules.validations"];
+
     private static FormAiChatMessage RequireLatestUser(IReadOnlyList<FormAiChatMessage> messages)
     {
         FormAiChatMessage? latest = messages.LastOrDefault(
@@ -363,10 +368,16 @@ public sealed partial class FormAiService
         DraftContext draft,
         FocusContext focus)
     {
-        string skillBody = skillLoader.GetSkillBody();
+        // Only load the full skill body on the first turn of a conversation.
+        // Subsequent turns reuse the contract that was already loaded — the
+        // header reminder explicitly tells the model to keep applying it.
+        bool isFirstTurn = messages.Count <= 1;
+        string? skillBody = isFirstTurn ? skillLoader.GetSkillBody() : null;
         return
         [
-            new("system", FormAiPromptBuilder.BuildSystemPrompt(locale, skillBody)),
+            new(
+                "system",
+                FormAiPromptBuilder.BuildSystemPrompt(locale, skillBody, isFirstTurn)),
             new(
                 "user",
                 FormAiPromptBuilder.BuildUserTurn(
@@ -385,10 +396,12 @@ public sealed partial class FormAiService
     private FormAiChatResponse PrepareResponse(
         ParsedAiOutput parsed,
         DraftContext draft,
-        string? thinking)
+        string? thinking,
+        out FormAiFallbackReport fallback)
     {
         if (parsed.LimitationOnly)
         {
+            fallback = FormAiFallbackReport.NoFallback;
             return new FormAiChatResponse(
                 parsed.Summary,
                 parsed.AssistantMessage,
@@ -408,21 +421,17 @@ public sealed partial class FormAiService
         try
         {
             schemaValidator.ValidateFormDraft(clinical, ui, rules);
+            fallback = FormAiFallbackReport.NoFallback;
         }
-        catch (ValidationException)
-        {
-            // Soften invalid AI layout/rules without discarding already-valid
-            // cross-field validations from the draft.
-            if (!TryValidateWithFallback(
+        catch (ValidationException) when (TryValidateWithFallback(
                     schemaValidator,
                     clinical,
                     sanitized.Ui,
                     sanitized.Rules,
                     out ui,
-                    out rules))
-            {
-                throw;
-            }
+                    out rules,
+                    out fallback))
+        {
         }
 
         return new FormAiChatResponse(
@@ -440,7 +449,8 @@ public sealed partial class FormAiService
         JsonObject uiObject,
         JsonObject rulesObject,
         out string ui,
-        out string rules)
+        out string rules,
+        out FormAiFallbackReport fallback)
     {
         // 1) Drop layout only — keep field rules and validations.
         var layoutClearedUi = (JsonObject)uiObject.DeepClone();
@@ -453,6 +463,9 @@ public sealed partial class FormAiService
                 out ui,
                 out rules))
         {
+            fallback = new FormAiFallbackReport(
+                FormAiFallbackOutcome.DroppedLayout,
+                LayoutOnly);
             return true;
         }
 
@@ -467,18 +480,27 @@ public sealed partial class FormAiService
                 out ui,
                 out rules))
         {
+            fallback = new FormAiFallbackReport(
+                FormAiFallbackOutcome.DroppedRulesFields,
+                LayoutAndRulesFields);
             return true;
         }
 
         // 3) Last resort: empty rules validations too.
         fieldsClearedRules[SchemaJsonKeys.Validations] = new JsonArray();
-        return TryValidate(
+        bool ok = TryValidate(
             schemaValidator,
             clinical,
             layoutClearedUi,
             fieldsClearedRules,
             out ui,
             out rules);
+        fallback = ok
+            ? new FormAiFallbackReport(
+                FormAiFallbackOutcome.DroppedValidations,
+                LayoutRulesFieldsAndValidations)
+            : FormAiFallbackReport.NoFallback;
+        return ok;
     }
 
     private static bool TryValidate(
@@ -515,7 +537,9 @@ public sealed partial class FormAiService
         StringBuilder RawContent,
         StringBuilder Thinking,
         int EmittedMessageLength,
-        bool MessagePhaseSent);
+        bool MessagePhaseSent,
+        FormAiFallbackReport? Fallback = null,
+        bool IsTruncated = false);
 
     private sealed record ParsedAiOutput(
         string Summary,

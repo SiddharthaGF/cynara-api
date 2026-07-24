@@ -87,8 +87,13 @@ public sealed partial class FormAiService(
             config,
             formCode,
             cancellationToken).ConfigureAwait(false);
+        EnsureCompleteProviderOutput(completion.IsTruncated);
         ParsedAiOutput parsed = ParseModelOutput(completion.Content, draft, locale);
-        FormAiChatResponse result = PrepareResponse(parsed, draft, completion.Thinking);
+        FormAiChatResponse result = PrepareResponse(
+            parsed,
+            draft,
+            completion.Thinking,
+            out FormAiFallbackReport fallback);
         return FormAiDraftConsistency.EnsureConsistent(
             result,
             draft.ClinicalSchemaJson,
@@ -96,7 +101,8 @@ public sealed partial class FormAiService(
             draft.RulesSchemaJson,
             latestUser.Content,
             locale,
-            parsed.IsRefusal);
+            parsed.IsRefusal,
+            fallback);
     }
 
     public async Task ChatStreamAsync(
@@ -132,12 +138,18 @@ public sealed partial class FormAiService(
                 config,
                 formCode,
                 cancellationToken).ConfigureAwait(false);
+            EnsureCompleteProviderOutput(partialState.IsTruncated);
 
             OpenAiCompletionResult completion = new(
                 partialState.RawContent.ToString(),
-                partialState.Thinking.Length == 0 ? null : partialState.Thinking.ToString());
+                partialState.Thinking.Length == 0 ? null : partialState.Thinking.ToString(),
+                partialState.IsTruncated);
             ParsedAiOutput parsed = ParseModelOutput(completion.Content, draft, locale);
-            FormAiChatResponse result = PrepareResponse(parsed, draft, completion.Thinking);
+            FormAiChatResponse result = PrepareResponse(
+                parsed,
+                draft,
+                completion.Thinking,
+                out FormAiFallbackReport fallback);
             result = FormAiDraftConsistency.EnsureConsistent(
                 result,
                 draft.ClinicalSchemaJson,
@@ -145,17 +157,30 @@ public sealed partial class FormAiService(
                 draft.RulesSchemaJson,
                 latestUser.Content,
                 locale,
-                parsed.IsRefusal);
+                parsed.IsRefusal,
+                fallback);
             await EmitFinalMessageTail(
                 output,
                 result,
                 partialState.EmittedMessageLength,
                 partialState.MessagePhaseSent,
                 cancellationToken).ConfigureAwait(false);
-            await WriteSseAsync(
-                output,
-                new { type = "done", result },
-                cancellationToken).ConfigureAwait(false);
+            object payload = fallback.DiscardedSomething
+                ? new
+                {
+                    type = "done",
+                    result,
+                    notes = new
+                    {
+                        fallback = new
+                        {
+                            outcome = fallback.Outcome.ToString(),
+                            droppedLayers = fallback.DroppedLayers,
+                        },
+                    },
+                }
+                : new { type = "done", result };
+            await WriteSseAsync(output, payload, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -223,6 +248,7 @@ public sealed partial class FormAiService(
         int emittedMessageLength = 0;
         bool messagePhaseSent = false;
         bool schemaPhaseSent = false;
+        bool isTruncated = false;
 
         await foreach (OpenAiStreamDelta delta in openAi.StreamChatCompletionAsync(
                            chatMessages,
@@ -235,6 +261,8 @@ public sealed partial class FormAiService(
             {
                 _ = thinking.Append(delta.Reasoning);
             }
+
+            isTruncated |= delta.IsTruncated;
 
             if (rawContent.Length == 0)
             {
@@ -282,7 +310,17 @@ public sealed partial class FormAiService(
             rawContent,
             thinking,
             emittedMessageLength,
-            messagePhaseSent);
+            messagePhaseSent,
+            IsTruncated: isTruncated);
+    }
+
+    private static void EnsureCompleteProviderOutput(bool isTruncated)
+    {
+        if (isTruncated)
+        {
+            throw new ValidationException(
+                "AI provider truncated the response before completing the JSON output. Increase the output budget or try again.");
+        }
     }
 
     private static async Task EmitFinalMessageTail(

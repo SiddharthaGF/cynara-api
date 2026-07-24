@@ -29,7 +29,9 @@ public sealed class OpenAiChatClientFactory : IOpenAiChatClientFactory
         var options = new OpenAIClientOptions
         {
             Endpoint = CreateEndpoint(config.BaseUrl),
-            NetworkTimeout = TimeSpan.FromMinutes(2),
+            NetworkTimeout = config.NetworkTimeout > TimeSpan.Zero
+                ? config.NetworkTimeout
+                : TimeSpan.FromMinutes(10),
         };
 
         if (config.BaseUrl.Contains("openrouter", StringComparison.OrdinalIgnoreCase))

@@ -16,7 +16,7 @@ TestResults/
 
 ## IDE
 .idea/
-.vscode/
+.vscode/*
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/settings.json
@@ -47,3 +47,6 @@ appsettings.*.local.json
 .scannerwork/
 coverage.xml
 *.coveragexml
+
+# VS Code C# Dev Tools - Auto-generated runners
+.vscodecsdt/Runners/
