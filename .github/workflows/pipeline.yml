@@ -102,6 +102,47 @@ jobs:
           db-connection-string: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
           aspnetcore-environment: Development
 
+      - name: Drop and recreate preview database
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        shell: pwsh
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
+          ADMIN_DB_CONNECTION_STRING: ${{ secrets.PREVIEW_ADMIN_DB_CONNECTION_STRING }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:DB_CONNECTION_STRING -or -not $env:ADMIN_DB_CONNECTION_STRING) {
+            Write-Host "DB_CONNECTION_STRING or ADMIN_DB_CONNECTION_STRING not set; skipping DB reset."
+            exit 0
+          }
+          $builder = New-Object System.Data.Common.DbConnectionStringBuilder
+          $builder.ConnectionString = $env:DB_CONNECTION_STRING
+          $targetDb = $builder['Initial Catalog']
+          if (-not $targetDb) { throw "Initial Catalog missing from DB_CONNECTION_STRING" }
+          $adminBuilder = New-Object System.Data.Common.DbConnectionStringBuilder
+          $adminBuilder.ConnectionString = $env:ADMIN_DB_CONNECTION_STRING
+          if ($adminBuilder['Initial Catalog']) { $adminBuilder['Initial Catalog'] = 'master' }
+          $conn = New-Object System.Data.SqlClient.SqlConnection($adminBuilder.ConnectionString)
+          $conn.Open()
+          try {
+            $cmd = $conn.CreateCommand()
+            $cmd.CommandTimeout = 60
+            $cmd.CommandText = @"
+          IF DB_ID('$targetDb') IS NOT NULL
+          BEGIN
+            ALTER DATABASE [$targetDb] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+            DROP DATABASE [$targetDb];
+          END
+"@
+            $cmd.ExecuteNonQuery() | Out-Null
+            Write-Host "Dropped database '$targetDb' (if it existed)."
+            $cmd.CommandText = "CREATE DATABASE [$targetDb];"
+            $cmd.ExecuteNonQuery() | Out-Null
+            Write-Host "Created empty database '$targetDb'. The API will apply migrations on startup."
+          }
+          finally {
+            $conn.Close()
+          }
+
       - name: Deploy preview via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
         with:

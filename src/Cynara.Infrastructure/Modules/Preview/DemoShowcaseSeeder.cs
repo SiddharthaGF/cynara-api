@@ -73,12 +73,7 @@ public static class DemoShowcaseSeeder
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (hospital is not null)
-        {
-            return hospital;
-        }
-
-        return await HospitalBootstrap.EnsureBootstrapHospitalAsync(
+        return hospital ?? await HospitalBootstrap.EnsureBootstrapHospitalAsync(
                 dbContext,
                 new HospitalBootstrapOptions
                 {

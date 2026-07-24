@@ -15,6 +15,7 @@ using Cynara.Infrastructure.Schemas;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -145,7 +146,31 @@ public static class InfrastructureServiceCollectionExtensions
 
             if (dbContext.Database.IsSqlServer())
             {
-                _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                // EnsureCreated does not migrate an existing database, so any
+                // entity added after the initial deploy (e.g. HospitalId for the
+                // tenant workspace) would silently miss its schema. Try the
+                // migrator first; if the history table is missing the migrator
+                // raises InvalidOperationException, which we treat as a fresh
+                // database and bootstrap via EnsureCreated. After EnsureCreated
+                // we record the current migrations as applied so subsequent
+                // deployments stay on the migrator path.
+                try
+                {
+                    await dbContext.Database.MigrateAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (InvalidOperationException)
+                {
+                    bool ensured = await dbContext.Database
+                        .EnsureCreatedAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    if (ensured)
+                    {
+                        await SeedMigrationHistoryAsync(dbContext, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+
                 return;
             }
 
@@ -256,5 +281,91 @@ public static class InfrastructureServiceCollectionExtensions
         {
             await connection.CloseAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Records all known migrations as applied. Called after
+    /// <see cref="DatabaseFacade.EnsureCreatedAsync" /> on a fresh SQL Server
+    /// database so subsequent deployments can take the migrator path instead
+    /// of trying to recreate tables that already exist.
+    /// </summary>
+    private static async Task SeedMigrationHistoryAsync(
+        CynaraDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        IEnumerable<string> applied = await dbContext.Database
+            .GetAppliedMigrationsAsync(cancellationToken)
+            .ConfigureAwait(false);
+        IEnumerable<string> all = dbContext.Database.GetMigrations();
+        List<string> pending = [.. all.Except(applied, StringComparer.Ordinal)];
+
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        DbConnection connection = dbContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        try
+        {
+            DbCommand command = connection.CreateCommand();
+            await using (command.ConfigureAwait(false))
+            {
+                command.CommandText =
+                    "IF OBJECT_ID(N'__EFMigrationsHistory', N'U') IS NULL "
+                    + "CREATE TABLE [__EFMigrationsHistory] ("
+                    + "    [MigrationId] nvarchar(150) NOT NULL, "
+                    + "    [ProductVersion] nvarchar(32) NOT NULL, "
+                    + "    CONSTRAINT [PK___EFMigrationsHistory] "
+                    + "        PRIMARY KEY ([MigrationId]));";
+                _ = await command.ExecuteNonQueryAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                foreach (string migrationId in pending)
+                {
+                    DbCommand insert = connection.CreateCommand();
+                    await using (insert.ConfigureAwait(false))
+                    {
+                        insert.CommandText =
+                            "INSERT INTO [__EFMigrationsHistory] "
+                            + "([MigrationId], [ProductVersion]) VALUES (@id, @ver)";
+                        _ = insert.Parameters.Add(
+                            BuildMigrationHistoryParameter(
+                                "@id",
+                                System.Data.SqlDbType.NVarChar,
+                                size: 150,
+                                value: migrationId));
+                        _ = insert.Parameters.Add(
+                            BuildMigrationHistoryParameter(
+                                "@ver",
+                                System.Data.SqlDbType.NVarChar,
+                                size: 32,
+                                value: "10.0.10"));
+                        _ = await insert.ExecuteNonQueryAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            await connection.CloseAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static Microsoft.Data.SqlClient.SqlParameter BuildMigrationHistoryParameter(
+        string name,
+        System.Data.SqlDbType sqlType,
+        int size,
+        object value)
+    {
+        return new Microsoft.Data.SqlClient.SqlParameter(name, sqlType, size)
+        {
+            Value = value,
+        };
     }
 }
