@@ -4,6 +4,7 @@ using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.FormResponses.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Forms;
 
@@ -14,6 +15,7 @@ public sealed class FormResponseLifecycleService(
     IUnitOfWork unitOfWork,
     IFormResponseValidator responseValidator,
     IAuditWriter auditWriter,
+    IHospitalContext hospitalContext,
     TimeProvider timeProvider) : IFormResponseLifecycleService
 {
     public async Task<FormResponseDto> CreateAsync(
@@ -27,9 +29,11 @@ public sealed class FormResponseLifecycleService(
         ArgumentNullException.ThrowIfNull(version);
         ArgumentNullException.ThrowIfNull(request);
         SemverRules.EnsureValid(version);
+        hospitalContext.RequireResolved();
         FormVersion formVersion = await responses.FindPublishedVersionAsync(
                 code,
                 version,
+                hospitalContext.HospitalId,
                 cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(
                 $"Published form '{code}' version '{version}' was not found.");
@@ -50,6 +54,7 @@ public sealed class FormResponseLifecycleService(
         var response = new FormResponse
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             FormVersionId = formVersion.Id,
             Status = FormResponseStatus.Draft,
             AnswersJson = answersJson,
@@ -86,8 +91,9 @@ public sealed class FormResponseLifecycleService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         FormResponseWorkflowHelpers.EnsureConcurrency(
             response,
@@ -129,8 +135,9 @@ public sealed class FormResponseLifecycleService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         FormResponseWorkflowHelpers.EnsureConcurrency(
             response,
@@ -173,8 +180,9 @@ public sealed class FormResponseLifecycleService(
         string? actorId,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         FormResponse response = await FormResponseWorkflowHelpers
-            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, cancellationToken).ConfigureAwait(false);
+            .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
         DateTimeOffset now = timeProvider.GetUtcNow();
         response.DeletedAt = now;

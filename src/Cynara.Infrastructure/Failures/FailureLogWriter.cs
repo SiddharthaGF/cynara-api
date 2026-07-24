@@ -11,7 +11,6 @@ namespace Cynara.Infrastructure.Failures;
 
 public sealed partial class FailureLogWriter(
     IServiceScopeFactory scopeFactory,
-    TimeProvider timeProvider,
     ILogger<FailureLogWriter> logger) : IFailureLogWriter
 {
     private const int MessageMaxLength = 2048;
@@ -35,7 +34,8 @@ public sealed partial class FailureLogWriter(
         ArgumentNullException.ThrowIfNull(exception);
         ArgumentNullException.ThrowIfNull(context);
 
-        FailureLog entry = BuildEntry(exception, context, statusCode);
+        Guid? hospitalId = context.HospitalId;
+        FailureLog entry = BuildEntry(exception, context, statusCode, hospitalId);
 
         try
         {
@@ -67,14 +67,19 @@ public sealed partial class FailureLogWriter(
         Guid failureId,
         string exceptionType);
 
-    private FailureLog BuildEntry(Exception exception, FailureRequestContext context, int statusCode)
+    private static FailureLog BuildEntry(
+        Exception exception,
+        FailureRequestContext context,
+        int statusCode,
+        Guid? hospitalId)
     {
-        DateTimeOffset occurredAt = timeProvider.GetUtcNow();
+        DateTimeOffset occurredAt = DateTimeOffset.UtcNow;
         string? metadata = SerializeMetadata(occurredAt, context.TraceId);
 
         return new FailureLog
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalId,
             OccurredAt = occurredAt,
             ExceptionType = Truncate(exception.GetType().FullName ?? exception.GetType().Name, 256),
             Message = Truncate(exception.Message, MessageMaxLength),

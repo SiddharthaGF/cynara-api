@@ -3,6 +3,7 @@ using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
+using Cynara.Application.Modules.Hospitals;
 
 using FluentValidation;
 
@@ -15,6 +16,7 @@ public static class ApplicationServiceCollectionExtensions
     public static IServiceCollection AddCynaraApplication(
         this IServiceCollection services)
     {
+        _ = services.AddHospitalsModule();
         _ = services.AddAuditModule();
         _ = services.AddComponentsModule();
         _ = services.AddFormsModule();

@@ -14,13 +14,16 @@ public sealed class AuditRepository(CynaraDbContext dbContext) : IAuditRepositor
     }
 
     public async Task<IReadOnlyList<AuditEvent>> ListAsync(
+        Guid hospitalId,
         string? resourceType,
         Guid? resourceId,
         string? actorId,
         int limit,
         CancellationToken cancellationToken)
     {
-        IQueryable<AuditEvent> query = dbContext.AuditEvents.AsNoTracking();
+        IQueryable<AuditEvent> query = dbContext.AuditEvents
+            .AsNoTracking()
+            .Where(item => item.HospitalId == hospitalId);
 
         if (!string.IsNullOrWhiteSpace(resourceType))
         {

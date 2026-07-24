@@ -1,6 +1,7 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Components;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Components;
 using Cynara.Infrastructure.Persistence;
 
@@ -28,6 +29,7 @@ public sealed class ComponentVersionResourceService(
     IResourceChangeTracker<ComponentVersion> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IComponentLifecycleService lifecycle,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<ComponentVersion, Guid>(
@@ -49,12 +51,36 @@ public sealed class ComponentVersionResourceService(
             + "/api/componentDefinitions/{id}/create-draft.");
     }
 
+    public override async Task<ComponentVersion> GetAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+
+        var ownership = await dbContext.ComponentVersions
+            .AsNoTracking()
+            .Select(item => new { item.Id, item.HospitalId })
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (ownership is null || ownership.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Component version '{id}' was not found.");
+        }
+
+        ComponentVersion? version = await base.GetAsync(id, cancellationToken)
+            .ConfigureAwait(false);
+        return version!;
+    }
+
     public override async Task<ComponentVersion?> UpdateAsync(
         Guid id,
         ComponentVersion resource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
 
         ComponentVersion existing = await dbContext.ComponentVersions
             .Include(item => item.ComponentDefinition)
@@ -62,6 +88,13 @@ public sealed class ComponentVersionResourceService(
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Component version '{id}' was not found.");
+
+        if (existing.HospitalId != hospitalContext.HospitalId
+            || existing.ComponentDefinition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Component version '{id}' was not found.");
+        }
 
         if (existing.Status != ComponentVersionStatus.Draft)
         {

@@ -3,10 +3,13 @@ using System.Text.Json.Nodes;
 
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Components.Persistence;
+using Cynara.Application.Modules.Hospitals;
 
 namespace Cynara.Application.Forms;
 
-public sealed partial class FormCompiler(IComponentRepository components) : IFormCompiler
+public sealed partial class FormCompiler(
+    IComponentRepository components,
+    IHospitalContext hospitalContext) : IFormCompiler
 {
     public async Task<FormCompilationResult> CompileAsync(
         string clinicalSchemaJson,
@@ -14,11 +17,12 @@ public sealed partial class FormCompiler(IComponentRepository components) : IFor
         string? rulesSchemaJson,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
         JsonObject? uiRoot = uiSchemaJson is null ? null : ParseObject(uiSchemaJson, "UI schema");
         JsonObject? rulesRoot = rulesSchemaJson is null ? null : ParseObject(rulesSchemaJson, "rules schema");
 
-        var context = new CompilationContext(components, cancellationToken);
+        var context = new CompilationContext(components, hospitalContext.HospitalId, cancellationToken);
         JsonArray compiledFields = await CompileFieldArrayAsync(
             RequireArray(clinicalRoot[SchemaJsonKeys.Fields], "/fields"),
             "/fields",

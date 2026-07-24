@@ -7,6 +7,9 @@ public sealed class FailureLog
 {
     public Guid Id { get; set; }
 
+    /// <summary>Resolved hospital workspace when the failure context provided one.</summary>
+    public Guid? HospitalId { get; set; }
+
     public DateTimeOffset OccurredAt { get; set; }
 
     public required string ExceptionType { get; set; }

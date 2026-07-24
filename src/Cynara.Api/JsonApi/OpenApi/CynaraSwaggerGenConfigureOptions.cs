@@ -41,5 +41,8 @@ internal sealed class CynaraSwaggerGenConfigureOptions
         });
 
         options.OperationFilter<ActorIdOperationFilter>();
+        options.OperationFilter<HospitalCodeOperationFilter>();
+        options.OperationFilter<WorkspaceOperationFilter>();
+        options.SchemaFilter<WorkspaceSchemaFilter>();
     }
 }

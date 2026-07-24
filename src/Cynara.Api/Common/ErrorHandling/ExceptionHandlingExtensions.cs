@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application;
 using Cynara.Application.Failures;
+using Cynara.Application.Modules.Hospitals;
 
 using Microsoft.AspNetCore.Diagnostics;
 
@@ -33,9 +34,11 @@ internal static class ExceptionHandlingExtensions
                 {
                     IFailureLogWriter writer = context.RequestServices
                         .GetRequiredService<IFailureLogWriter>();
+                    IHospitalContext hospitalContext = context.RequestServices
+                        .GetRequiredService<IHospitalContext>();
                     await writer.RecordAsync(
                         error,
-                        BuildFailureRequestContext(context),
+                        BuildFailureRequestContext(context, hospitalContext),
                         StatusCodes.Status500InternalServerError,
                         context.RequestAborted).ConfigureAwait(false);
                 }
@@ -54,7 +57,8 @@ internal static class ExceptionHandlingExtensions
     }
 
     private static FailureRequestContext BuildFailureRequestContext(
-        HttpContext context)
+        HttpContext context,
+        IHospitalContext hospitalContext)
     {
         HttpRequest request = context.Request;
         return new FailureRequestContext(
@@ -62,6 +66,7 @@ internal static class ExceptionHandlingExtensions
             Path: request.Path.HasValue ? request.Path.Value : null,
             Query: request.QueryString.HasValue ? request.QueryString.Value : null,
             ActorId: context.GetActorId(),
-            TraceId: Activity.Current?.TraceId.ToString());
+            TraceId: Activity.Current?.TraceId.ToString(),
+            HospitalId: hospitalContext.IsResolved ? hospitalContext.HospitalId : null);
     }
 }

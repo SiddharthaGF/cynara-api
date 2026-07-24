@@ -10,6 +10,9 @@ public sealed class OpenApiContractTests : IDisposable
     public OpenApiContractTests()
     {
         Client = Factory.CreateClient();
+        Client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            Factory.BootstrapOptions.BootstrapCode ?? "default");
     }
 
     public void Dispose()

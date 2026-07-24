@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 
 using JsonApiDotNetCore.Configuration;
@@ -21,6 +22,7 @@ public sealed class FormDefinitionsController(
     ILoggerFactory loggerFactory,
     IResourceService<FormDefinition, Guid> resourceService,
     IFormService formService,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor) : JsonApiController<FormDefinition, Guid>(options, resourceGraph, loggerFactory, resourceService)
 {
     private readonly IResourceService<FormDefinition, Guid> resourceService =
@@ -50,6 +52,12 @@ public sealed class FormDefinitionsController(
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Form definition '{id}' was not found.");
+
+        if (definition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form definition '{id}' was not found.");
+        }
 
         await formService.SoftDeleteDraftAsync(
             definition.Code,
@@ -82,6 +90,12 @@ public sealed class FormDefinitionsController(
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Form definition '{id}' was not found.");
+
+        if (definition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form definition '{id}' was not found.");
+        }
 
         FormVersionDto draft = await formService.CreateDraftFromLatestAsync(
             definition.Code,

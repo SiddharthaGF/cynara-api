@@ -14,6 +14,7 @@ public sealed partial class FormLifecycleE2ETests : IDisposable
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "stage1-e2e");
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
         Workflow = new JsonApiWorkflow(Api, Client);
     }
 

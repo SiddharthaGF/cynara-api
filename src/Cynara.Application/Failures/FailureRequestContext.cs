@@ -5,4 +5,5 @@ public sealed record FailureRequestContext(
     string? Path,
     string? Query,
     string? ActorId,
-    string? TraceId);
+    string? TraceId,
+    Guid? HospitalId = null);

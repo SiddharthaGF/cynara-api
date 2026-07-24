@@ -35,6 +35,10 @@ internal static class ProblemDetailsMapping
                 StatusCodes.Status409Conflict,
                 "Invalid state",
                 exception.Message),
+            TenantContextException => JsonApiError(
+                StatusCodes.Status403Forbidden,
+                "Tenant context required",
+                exception.Message),
             FormResponseValidationException validationException =>
                 FormResponseErrors(validationException),
             _ => JsonApiError(

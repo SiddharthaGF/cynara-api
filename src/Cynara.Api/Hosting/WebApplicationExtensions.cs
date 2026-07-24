@@ -1,6 +1,8 @@
 using Cynara.Api.Common.ErrorHandling;
 using Cynara.Api.Modules.Health;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
+using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Preview;
 
 using JsonApiDotNetCore.Configuration;
@@ -26,9 +28,15 @@ internal static class WebApplicationExtensions
         _ = app.UseCynaraExceptionHandling();
         _ = app.UseRouting();
         _ = app.UseCors();
+        _ = app.UseHospitalContext();
         app.UseJsonApi();
 
         await app.Services.InitializeDatabaseAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        HospitalBootstrapOptions hospitalOptions = ResolveHospitalOptions(app);
+        await app.Services
+            .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
             .ConfigureAwait(false);
 
         if (InfrastructureServiceCollectionExtensions.IsPreviewStorage(
@@ -54,5 +62,15 @@ internal static class WebApplicationExtensions
         _ = app.MapControllers();
 
         return app;
+    }
+
+    private static HospitalBootstrapOptions ResolveHospitalOptions(
+        WebApplication app)
+    {
+        HospitalBootstrapOptions options = new();
+        app.Configuration
+            .GetSection(HospitalBootstrapOptions.SectionName)
+            .Bind(options);
+        return options;
     }
 }

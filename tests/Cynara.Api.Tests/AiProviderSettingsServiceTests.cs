@@ -1,5 +1,6 @@
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormAi.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.FormAi;
 
@@ -10,6 +11,9 @@ public sealed class AiProviderSettingsServiceTests
     [Fact]
     public async Task ResolveActiveConfig_UsesEnvironmentRuntimeKnobsForDatabaseSettings()
     {
+        var hospitalContext = new HospitalContext();
+        hospitalContext.SetWorkspace(Guid.NewGuid(), "default", "Default workspace");
+
         var environment = new StubEnvironmentConfiguration
         {
             Config = new OpenAiConfig(
@@ -29,6 +33,7 @@ public sealed class AiProviderSettingsServiceTests
             Settings = new AiProviderSettings
             {
                 Id = AiProviderSettings.DefaultId,
+                HospitalId = hospitalContext.HospitalId,
                 ApiKey = "db-key",
                 BaseUrl = "https://db.example/v1",
                 Model = "db-model",
@@ -39,6 +44,7 @@ public sealed class AiProviderSettingsServiceTests
             repository,
             environment,
             new StubUnitOfWork(),
+            hospitalContext,
             TimeProvider.System);
 
         OpenAiConfig config = await service.ResolveActiveConfigAsync(CancellationToken.None);
@@ -68,7 +74,9 @@ public sealed class AiProviderSettingsServiceTests
     {
         public AiProviderSettings? Settings { get; init; }
 
-        public Task<AiProviderSettings?> GetAsync(CancellationToken cancellationToken)
+        public Task<AiProviderSettings?> GetAsync(
+            Guid hospitalId,
+            CancellationToken cancellationToken)
         {
             return Task.FromResult(Settings);
         }

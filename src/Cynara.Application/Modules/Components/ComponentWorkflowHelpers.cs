@@ -9,10 +9,11 @@ internal static class ComponentWorkflowHelpers
         IComponentRepository components,
         string code,
         bool track,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         ComponentDefinition? definition = await components
-            .FindDefinitionByCodeAsync(code, track, cancellationToken).ConfigureAwait(false);
+            .FindDefinitionByCodeAsync(code, hospitalId, track, cancellationToken).ConfigureAwait(false);
         return definition ?? throw new NotFoundException(
             $"Component '{code}' was not found.");
     }

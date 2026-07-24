@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -27,6 +28,7 @@ public sealed class FormVersionResourceService(
     IResourceChangeTracker<FormVersion> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IFormService formService,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<FormVersion, Guid>(
@@ -48,12 +50,36 @@ public sealed class FormVersionResourceService(
             + "or by creating a form definition.");
     }
 
+    public override async Task<FormVersion> GetAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+
+        var ownership = await dbContext.FormVersions
+            .AsNoTracking()
+            .Select(item => new { item.Id, item.HospitalId })
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (ownership is null || ownership.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form version '{id}' was not found.");
+        }
+
+        FormVersion? version = await base.GetAsync(id, cancellationToken)
+            .ConfigureAwait(false);
+        return version!;
+    }
+
     public override async Task<FormVersion?> UpdateAsync(
         Guid id,
         FormVersion resource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
 
         FormVersion existing = await dbContext.FormVersions
             .Include(item => item.FormDefinition)
@@ -61,6 +87,13 @@ public sealed class FormVersionResourceService(
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Form version '{id}' was not found.");
+
+        if (existing.HospitalId != hospitalContext.HospitalId
+            || existing.FormDefinition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Form version '{id}' was not found.");
+        }
 
         if (existing.Status != FormVersionStatus.Draft)
         {

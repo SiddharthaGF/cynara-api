@@ -19,6 +19,7 @@ public sealed class ComponentLifecycleTests : IDisposable
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
         Workflow = new JsonApiWorkflow(Api, Client);
     }
 
