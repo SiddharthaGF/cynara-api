@@ -148,26 +148,50 @@ public static class InfrastructureServiceCollectionExtensions
             {
                 // EnsureCreated does not migrate an existing database, so any
                 // entity added after the initial deploy (e.g. HospitalId for the
-                // tenant workspace) would silently miss its schema. Try the
-                // migrator first; if the history table is missing the migrator
-                // raises InvalidOperationException, which we treat as a fresh
-                // database and bootstrap via EnsureCreated. After EnsureCreated
-                // we record the current migrations as applied so subsequent
-                // deployments stay on the migrator path.
+                // tenant workspace) would silently miss its schema. To keep
+                // development databases self-healing on every deploy we follow
+                // three steps:
+                //   1. Try the migrator first; on a previously migrated DB this
+                //      applies only the pending migrations.
+                //   2. If the migrator fails (history table missing) we just
+                //      created the database via EnsureCreated and seed the
+                //      history so subsequent deploys stay on the migrator path.
+                //   3. If the database already existed without the migrator
+                //      (legacy schema) and is missing required tables we drop
+                //      and recreate it; the runtime can rebuild the schema from
+                //      the latest model without an admin connection string.
+                bool migratorHandled = false;
                 try
                 {
                     await dbContext.Database.MigrateAsync(cancellationToken)
                         .ConfigureAwait(false);
+                    migratorHandled = true;
                 }
                 catch (InvalidOperationException)
                 {
-                    bool ensured = await dbContext.Database
-                        .EnsureCreatedAsync(cancellationToken)
-                        .ConfigureAwait(false);
-                    if (ensured)
+                    // Fall through to the EnsureCreated path.
+                }
+
+                if (!migratorHandled)
+                {
+                    if (await AllRequiredTablesExistAsync(dbContext, cancellationToken)
+                        .ConfigureAwait(false))
                     {
                         await SeedMigrationHistoryAsync(dbContext, cancellationToken)
                             .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        _ = await dbContext.Database.EnsureDeletedAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                        bool ensured = await dbContext.Database
+                            .EnsureCreatedAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                        if (ensured)
+                        {
+                            await SeedMigrationHistoryAsync(dbContext, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
                     }
                 }
 
@@ -261,7 +285,9 @@ public static class InfrastructureServiceCollectionExtensions
             DbCommand command = connection.CreateCommand();
             await using (command.ConfigureAwait(false))
             {
-                command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
+                command.CommandText = dbContext.Database.IsSqlServer()
+                    ? "SELECT name FROM sys.tables"
+                    : "SELECT name FROM sqlite_master WHERE type = 'table'";
                 var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 DbDataReader reader = await command
                     .ExecuteReaderAsync(cancellationToken)
