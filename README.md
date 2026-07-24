@@ -24,7 +24,8 @@ Use the fixture suite in [`cynara/tests/fixtures/`](https://github.com/ailuracod
 
 ## Getting started
 
-Prerequisites: [.NET SDK 9](https://dotnet.microsoft.com/download)
+Prerequisites: [.NET SDK 10](https://dotnet.microsoft.com/download)
+(`global.json` pins `10.0.302` with `rollForward: latestFeature`).
 
 ```bash
 dotnet restore          # also installs git hooks via Husky.Net
@@ -36,12 +37,18 @@ The API listens on `http://localhost:5000` by default.
 In Development, interactive OpenAPI docs are at
 [`http://localhost:5000/scalar/v1`](http://localhost:5000/scalar/v1)
 (JSON document: [`/swagger/v1/swagger.json`](http://localhost:5000/swagger/v1/swagger.json)).
+Health and readiness live at [`/health`](http://localhost:5000/health).
 
 The HTTP contract is **JSON:API** (`application/vnd.api+json`) via
 `JsonApiDotNetCore`, with resource routes under `/api` (for example
 `/api/formDefinitions`, `/api/formVersions`). Workflow actions such as
 publish/review/complete remain custom routes on those resources. Sample
 requests live in [`http/cynara.http`](http/cynara.http).
+
+For the full first-time-from-clean-checkout walkthrough — database
+setup, configuration overrides, CORS for local `cynara-web`, Form AI
+env vars, and failure diagnostics — see
+[`docs/local-development.md`](docs/local-development.md).
 
 ### Notable libraries
 
@@ -60,30 +67,10 @@ requests live in [`http/cynara.http`](http/cynara.http).
 
 ### WSL (Windows Subsystem for Linux)
 
-Run everything **inside the WSL terminal**, not PowerShell or CMD.
-
-```bash
-cd ~/ailuracode/cynara/cynara-api
-dotnet run --project src/Cynara.Api
-```
-
-- **From WSL:** `http://localhost:5000/health`
-- **From Windows browser:** `http://localhost:5000/health` (WSL2 forwards localhost by default)
-- **If Windows cannot reach localhost:** use the WSL IP instead, e.g. `http://172.22.252.7:5000/health` (`hostname -I` shows the current IP)
-
-If you see `address already in use`, another instance is already bound to port 5000:
-
-```bash
-fuser -k 5000/tcp
-dotnet run --project src/Cynara.Api
-```
-
-For interactive shells, ensure the .NET SDK is on your PATH (add to `~/.bashrc` if needed):
-
-```bash
-export DOTNET_ROOT="$HOME/.dotnet"
-export PATH="$DOTNET_ROOT:$PATH"
-```
+Run everything **inside the WSL terminal**, not PowerShell or CMD. The
+full WSL setup (port forwarding, browser URLs, `fuser -k 5000/tcp`,
+`DOTNET_ROOT` setup) is documented in
+[`docs/local-development.md`](docs/local-development.md#wsl-windows-subsystem-for-linux).
 
 Git hooks load `.husky/env.sh` automatically so commits from the IDE work even when your shell profile is not sourced.
 
@@ -230,6 +217,7 @@ src/Cynara.Infrastructure/      EF Core, repositories, schemas, SeedData
 tests/Cynara.Api.Tests/         Integration and workflow tests
 tools/Cynara.Seed/              In-process demo showcase seeder CLI
 scripts/                        Local SonarQube bootstrap/scan helpers
+docs/                           Workflow and contributor docs
 ```
 
 ## License
