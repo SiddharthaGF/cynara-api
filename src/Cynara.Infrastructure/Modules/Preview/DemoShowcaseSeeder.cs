@@ -4,7 +4,12 @@ using Cynara.Application;
 using Cynara.Application.Components;
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.Components;
+using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Hospitals;
+using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Persistence;
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Infrastructure.Modules.Preview;
@@ -23,6 +28,16 @@ public static class DemoShowcaseSeeder
         AsyncServiceScope scope = services.CreateAsyncScope();
         try
         {
+            CynaraDbContext dbContext = scope.ServiceProvider
+                .GetRequiredService<CynaraDbContext>();
+            Hospital hospital = await ResolveHospitalAsync(
+                    dbContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            HospitalContext hospitalContext = scope.ServiceProvider
+                .GetRequiredService<HospitalContext>();
+            hospitalContext.SetWorkspace(hospital.Id, hospital.Code, hospital.Name);
+
             IComponentQueryService componentQueries = scope.ServiceProvider
                 .GetRequiredService<IComponentQueryService>();
             IComponentLifecycleService componentLifecycle = scope.ServiceProvider
@@ -48,6 +63,32 @@ public static class DemoShowcaseSeeder
         CancellationToken cancellationToken = default)
     {
         return services.SeedDemoShowcaseAsync(cancellationToken);
+    }
+
+    private static async Task<Hospital> ResolveHospitalAsync(
+        CynaraDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        Hospital? hospital = await dbContext.Hospitals
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (hospital is not null)
+        {
+            return hospital;
+        }
+
+        return await HospitalBootstrap.EnsureBootstrapHospitalAsync(
+                dbContext,
+                new HospitalBootstrapOptions
+                {
+                    BootstrapCode = HospitalBootstrap.DefaultBootstrapCode,
+                    BootstrapName = HospitalBootstrap.DefaultBootstrapName,
+                    HeaderName = HospitalBootstrapOptions.DefaultHeaderName,
+                    AllowAutoBootstrap = true,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static async Task EnsureComponentAsync(

@@ -14,6 +14,9 @@ namespace Cynara.Domain.Components;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class ComponentDefinition : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace. Stamped by application workflows.</summary>
+    public Guid HospitalId { get; set; }
+
     [Attr(PublicName = "code")]
     public required string Code { get; set; }
 

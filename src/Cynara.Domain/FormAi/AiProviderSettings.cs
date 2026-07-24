@@ -8,18 +8,23 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.FormAi;
 
 /// <summary>
-/// Singleton AI provider configuration (id = <see cref="DefaultId"/>).
-/// The API key is write-only; clients see <see cref="HasApiKey"/> and
-/// <see cref="ApiKeyMasked"/> instead of the secret.
-/// Rich view attrs (source, suggestions, configured) are projected by the
-/// resource service from the active DB or environment fallback.
+/// Per-hospital AI provider configuration. The composite key
+/// (<c>HospitalId</c>, <c>Id</c>) keeps landlord AI config isolated by
+/// tenant. The API key is write-only; clients see <see cref="HasApiKey"/>
+/// and <see cref="ApiKeyMasked"/> instead of the secret. Rich view attrs
+/// (source, suggestions, configured) are projected
+/// by the resource service from the active DB or environment fallback.
 /// </summary>
 [Resource(
     PublicName = "aiProviderSettings",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class AiProviderSettings : Identifiable<string>
 {
+    /// <summary>Canonical identifier for the per-hospital singleton row.</summary>
     public const string DefaultId = "default";
+
+    /// <summary>Owning hospital workspace; part of the composite key.</summary>
+    public Guid HospitalId { get; set; }
 
     /// <summary>Raw API key storage; never exposed as a readable attribute.</summary>
     public string? ApiKey { get; set; }

@@ -2,11 +2,14 @@ using System.Text.Json;
 
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Audit.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Audit;
 
 namespace Cynara.Application.Audit;
 
-public sealed class AuditWriter(IAuditRepository audit) : IAuditWriter
+public sealed class AuditWriter(
+    IAuditRepository audit,
+    IHospitalContext hospitalContext) : IAuditWriter
 {
     public void Append(
         string resourceType,
@@ -16,9 +19,11 @@ public sealed class AuditWriter(IAuditRepository audit) : IAuditWriter
         DateTimeOffset occurredAt,
         object metadata)
     {
+        hospitalContext.RequireResolved();
         audit.Add(new AuditEvent
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             ResourceType = resourceType,
             ResourceId = resourceId,
             Action = action,

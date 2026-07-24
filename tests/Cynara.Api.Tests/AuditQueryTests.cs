@@ -13,6 +13,7 @@ public sealed class AuditQueryTests : IDisposable
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "auditor-1");
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
         Workflow = new JsonApiWorkflow(Api, Client);
     }
 

@@ -70,10 +70,6 @@ public sealed class FailureLogWriterTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(entry.MetadataJson));
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Design",
-        "CA1031:Do not catch general exception types",
-        Justification = "Test helper captures any thrown exception to assert stack trace population.")]
     private static Exception CaptureException(Action action)
     {
         try
@@ -117,7 +113,6 @@ public sealed class FailureLogWriterTests : IDisposable
 
         var writer = new FailureLogWriter(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            TimeProvider.System,
             NullLogger<FailureLogWriter>.Instance);
 
         var request = new FailureRequestContext("GET", "/x", Query: null, ActorId: null, TraceId: null);
@@ -143,10 +138,8 @@ public sealed class FailureLogWriterTests : IDisposable
 
     private FailureLogWriter CreateWriter()
     {
-        var time = new FixedTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         return new FailureLogWriter(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
-            time,
             NullLogger<FailureLogWriter>.Instance);
     }
 
@@ -158,13 +151,5 @@ public sealed class FailureLogWriterTests : IDisposable
             .ServiceProvider
             .GetRequiredService<CynaraDbContext>();
         return [.. dbContext.FailureLogs.AsNoTracking().ToList()];
-    }
-}
-
-internal sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
-{
-    public override DateTimeOffset GetUtcNow()
-    {
-        return now;
     }
 }

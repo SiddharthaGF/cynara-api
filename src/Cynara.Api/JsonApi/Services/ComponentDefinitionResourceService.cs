@@ -1,6 +1,7 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Components;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Components;
 using Cynara.Infrastructure.Persistence;
 
@@ -28,6 +29,7 @@ public sealed class ComponentDefinitionResourceService(
     IResourceChangeTracker<ComponentDefinition> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IComponentLifecycleService lifecycle,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<ComponentDefinition, Guid>(
@@ -45,6 +47,7 @@ public sealed class ComponentDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
 
         string clinical = string.IsNullOrWhiteSpace(
             resource.InitialClinicalSchemaJson)
@@ -63,7 +66,8 @@ public sealed class ComponentDefinitionResourceService(
         ComponentDefinition definition = await dbContext.ComponentDefinitions
             .AsNoTracking()
             .SingleAsync(
-                item => item.Code == created.Code,
+                item => item.Code == created.Code
+                    && item.HospitalId == hospitalContext.HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -77,5 +81,29 @@ public sealed class ComponentDefinitionResourceService(
     {
         throw new Application.InvalidStateException(
             "Component definitions cannot be hard-deleted via JSON:API.");
+    }
+
+    public override async Task<ComponentDefinition> GetAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+
+        var ownership = await dbContext.ComponentDefinitions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (ownership is null
+            || ownership.HospitalId != hospitalContext.HospitalId
+            || ownership.DeletedAt is not null)
+        {
+            throw new Application.NotFoundException(
+                $"Component definition '{id}' was not found.");
+        }
+
+        return await base.GetAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

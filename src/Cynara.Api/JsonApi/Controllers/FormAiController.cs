@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Cynara.Application.Modules.FormAi;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -23,6 +24,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Form AI")]
 public sealed class FormAiController(
     IFormAiService formAiService,
+    IHospitalContext hospitalContext,
     CynaraDbContext dbContext) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -118,14 +120,20 @@ public sealed class FormAiController(
         Guid formDefinitionId,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         FormDefinition? definition = await dbContext.FormDefinitions
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 item => item.Id == formDefinitionId,
                 cancellationToken)
             .ConfigureAwait(false);
-        return definition?.Code
-            ?? throw new Application.NotFoundException(
+        if (definition is null
+            || definition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
                 $"Form definition '{formDefinitionId}' was not found.");
+        }
+
+        return definition.Code;
     }
 }

@@ -15,6 +15,9 @@ namespace Cynara.Domain.Forms;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class FormDefinition : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace. Stamped by application workflows.</summary>
+    public Guid HospitalId { get; set; }
+
     /// <summary>Stable business code used by clients and URLs historically.</summary>
     [Attr(PublicName = "code")]
     public required string Code { get; set; }

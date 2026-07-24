@@ -60,6 +60,7 @@ internal sealed class CynaraJsonApiExceptionHandler(
             ValidationException => HttpStatusCode.BadRequest,
             ConcurrencyException => HttpStatusCode.Conflict,
             InvalidStateException => HttpStatusCode.Conflict,
+            TenantContextException => HttpStatusCode.Forbidden,
             _ => HttpStatusCode.InternalServerError,
         };
     }
@@ -73,6 +74,7 @@ internal sealed class CynaraJsonApiExceptionHandler(
             ValidationException => "Validation failed",
             ConcurrencyException => "Concurrency conflict",
             InvalidStateException => "Invalid state",
+            TenantContextException => "Tenant context required",
             _ => "Unexpected error",
         };
     }

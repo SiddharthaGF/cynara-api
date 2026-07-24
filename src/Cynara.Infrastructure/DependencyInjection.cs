@@ -9,6 +9,7 @@ using Cynara.Infrastructure.Modules.Components;
 using Cynara.Infrastructure.Modules.FormAi;
 using Cynara.Infrastructure.Modules.FormResponses;
 using Cynara.Infrastructure.Modules.Forms;
+using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Persistence;
 using Cynara.Infrastructure.Schemas;
 
@@ -26,6 +27,7 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static readonly string[] RequiredTables =
     [
+        "hospitals",
         "audit_events",
         "component_definitions",
         "component_versions",
@@ -120,6 +122,7 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddCynaraPersistence(
         this IServiceCollection services)
     {
+        _ = services.AddHospitalsPersistenceModule();
         _ = services.AddAuditPersistenceModule();
         _ = services.AddComponentsPersistenceModule();
         _ = services.AddFormsPersistenceModule();

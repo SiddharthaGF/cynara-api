@@ -1,6 +1,7 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Forms.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Domain.Forms;
@@ -12,6 +13,7 @@ public sealed class FormService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     ISchemaValidator schemaValidator,
+    IHospitalContext hospitalContext,
     TimeProvider timeProvider) : IFormService
 {
     private const string DefaultClinicalSchema =
@@ -32,6 +34,7 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(request);
         FormCodeRules.EnsureValid(request.Code);
+        hospitalContext.RequireResolved();
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -40,7 +43,7 @@ public sealed class FormService(
 
         schemaValidator.ValidateFormDraft(request.ClinicalSchemaJson, request.UiSchemaJson, request.RulesSchemaJson);
 
-        if (await forms.CodeExistsAsync(request.Code, cancellationToken).ConfigureAwait(false))
+        if (await forms.CodeExistsAsync(request.Code, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false))
         {
             throw new ConflictException($"Form '{request.Code}' already exists.");
         }
@@ -49,6 +52,7 @@ public sealed class FormService(
         var definition = new FormDefinition
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             Code = request.Code,
             Name = request.Name.Trim(),
             CreatedAt = now,
@@ -58,6 +62,7 @@ public sealed class FormService(
         var draft = new FormVersion
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             FormDefinitionId = definition.Id,
             Status = FormVersionStatus.Draft,
             ClinicalSchemaJson = request.ClinicalSchemaJson,
@@ -79,17 +84,22 @@ public sealed class FormService(
 
     public async Task<IReadOnlyList<FormSummaryDto>> ListAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<FormDefinition> items = await forms.ListDefinitionsAsync(cancellationToken).ConfigureAwait(false);
+        hospitalContext.RequireResolved();
+        IReadOnlyList<FormDefinition> items = await forms
+            .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
+            .ConfigureAwait(false);
         return [.. items.Select(FormMappers.ToSummary)];
     }
 
     public async Task<FormSummaryDto> GetSummaryAsync(string code, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: false,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         return FormMappers.ToSummary(definition);
     }
@@ -97,10 +107,12 @@ public sealed class FormService(
     public async Task<FormVersionDto> GetEditableVersionAsync(string code, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: false,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormVersion editable = FormWorkflowHelpers.RequireEditableVersion(definition);
         return FormMappers.ToVersionDto(definition, editable);
@@ -110,11 +122,13 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
+        hospitalContext.RequireResolved();
         SemverRules.EnsureValid(version);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: false,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormVersion? published = definition.Versions.SingleOrDefault(
             item => string.Equals(item.Version, version, StringComparison.Ordinal) && item.Status != FormVersionStatus.Draft && item.Status != FormVersionStatus.Review)
@@ -130,12 +144,14 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         schemaValidator.ValidateFormDraft(request.ClinicalSchemaJson, request.UiSchemaJson, request.RulesSchemaJson);
 
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormVersion draft = FormWorkflowHelpers.RequireDraft(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(draft, request.RowVersion);
@@ -159,10 +175,12 @@ public sealed class FormService(
     public async Task<FormVersionDto> CreateDraftFromLatestAsync(string code, string? actorId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
 
         if (definition.Versions.Any(item => item.Status is FormVersionStatus.Draft or FormVersionStatus.Review))
@@ -179,6 +197,7 @@ public sealed class FormService(
         var draft = new FormVersion
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             FormDefinitionId = definition.Id,
             Status = FormVersionStatus.Draft,
             ClinicalSchemaJson = source?.ClinicalSchemaJson ?? DefaultClinicalSchema,
@@ -206,12 +225,14 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
+        hospitalContext.RequireResolved();
         SemverRules.EnsureValid(version);
 
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormVersion published = definition.Versions.SingleOrDefault(
             item => string.Equals(item.Version, version, StringComparison.Ordinal) && item.Status == FormVersionStatus.Published)
@@ -241,10 +262,12 @@ public sealed class FormService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
             track: true,
+            hospitalContext.HospitalId,
             cancellationToken).ConfigureAwait(false);
         FormVersion editable = FormWorkflowHelpers.RequireEditableVersion(definition);
 

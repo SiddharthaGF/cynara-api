@@ -2,6 +2,7 @@ using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Components.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Domain.Components;
@@ -13,6 +14,7 @@ public sealed class ComponentLifecycleService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     ISchemaValidator schemaValidator,
+    IHospitalContext hospitalContext,
     TimeProvider timeProvider) : IComponentLifecycleService
 {
     private const string DefaultClinicalSchema =
@@ -35,6 +37,7 @@ public sealed class ComponentLifecycleService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         ComponentCodeRules.EnsureValid(request.Code);
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -44,7 +47,8 @@ public sealed class ComponentLifecycleService(
         schemaValidator.ValidateComponentDraft(
             request.ClinicalSchemaJson,
             request.UiSchemaJson);
-        if (await components.CodeExistsAsync(request.Code, cancellationToken).ConfigureAwait(false))
+        if (await components.CodeExistsAsync(
+                request.Code, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false))
         {
             throw new ConflictException(
                 $"Component '{request.Code}' already exists.");
@@ -54,6 +58,7 @@ public sealed class ComponentLifecycleService(
         var definition = new ComponentDefinition
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             Code = request.Code,
             Name = request.Name.Trim(),
             CreatedAt = now,
@@ -62,6 +67,7 @@ public sealed class ComponentLifecycleService(
         var draft = new ComponentVersion
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             ComponentDefinitionId = definition.Id,
             Status = ComponentVersionStatus.Draft,
             ClinicalSchemaJson = request.ClinicalSchemaJson,
@@ -94,11 +100,12 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         schemaValidator.ValidateComponentDraft(
             request.ClinicalSchemaJson,
             request.UiSchemaJson);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         ComponentWorkflowHelpers.EnsureDraftConcurrency(
             draft,
@@ -133,8 +140,9 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         ComponentWorkflowHelpers.EnsureDraftConcurrency(
             draft,
@@ -183,8 +191,9 @@ public sealed class ComponentLifecycleService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         if (definition.Versions.Any(
                 item => item.Status == ComponentVersionStatus.Draft))
         {
@@ -201,6 +210,7 @@ public sealed class ComponentLifecycleService(
         var draft = new ComponentVersion
         {
             Id = Guid.NewGuid(),
+            HospitalId = hospitalContext.HospitalId,
             ComponentDefinitionId = definition.Id,
             Status = ComponentVersionStatus.Draft,
             ClinicalSchemaJson = source?.ClinicalSchemaJson
@@ -234,9 +244,10 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
+        hospitalContext.RequireResolved();
         SemverRules.EnsureValid(version);
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion published = definition.Versions.SingleOrDefault(
                 item => string.Equals(item.Version, version, StringComparison.Ordinal)
                     && item.Status == ComponentVersionStatus.Published)
@@ -271,8 +282,9 @@ public sealed class ComponentLifecycleService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(code);
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: true, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         if (definition.Versions.Any(
                 item => item.Status == ComponentVersionStatus.Published))

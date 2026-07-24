@@ -15,6 +15,24 @@ internal sealed class JsonApiClient(HttpClient httpClient)
 {
     public HttpClient Http { get; } = httpClient;
 
+    public void UseHospitalContext(string? hospitalCode)
+    {
+        if (string.IsNullOrWhiteSpace(hospitalCode))
+        {
+            Http.DefaultRequestHeaders.Remove("X-Hospital-Code");
+            return;
+        }
+
+        if (Http.DefaultRequestHeaders.Contains("X-Hospital-Code"))
+        {
+            _ = Http.DefaultRequestHeaders.Remove("X-Hospital-Code");
+        }
+
+        _ = Http.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            hospitalCode);
+    }
+
     public async Task<JsonDocument> PostResourceAsync(
         string resourceType,
         object attributes,

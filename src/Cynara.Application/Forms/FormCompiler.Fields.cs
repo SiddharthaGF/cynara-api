@@ -96,6 +96,7 @@ public sealed partial class FormCompiler
 
     private sealed class CompilationContext(
         IComponentRepository components,
+        Guid hospitalId,
         CancellationToken cancellationToken)
     {
         public Stack<string> ResolutionStack { get; } = new();
@@ -117,6 +118,7 @@ public sealed partial class FormCompiler
 
             ComponentVersion version = await components.FindPublishedVersionAsync(
                 componentCode,
+                hospitalId,
                 componentVersion,
                 cancellationToken).ConfigureAwait(false)
                 ?? throw new ValidationException(

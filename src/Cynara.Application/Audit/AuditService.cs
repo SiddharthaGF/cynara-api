@@ -1,15 +1,19 @@
 using Cynara.Application.Modules.Audit.Persistence;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Audit;
 
 namespace Cynara.Application.Audit;
 
-public sealed class AuditService(IAuditRepository audit) : IAuditService
+public sealed class AuditService(
+    IAuditRepository audit,
+    IHospitalContext hospitalContext) : IAuditService
 {
     private const int MaxLimit = 200;
 
     public async Task<IReadOnlyList<AuditEventDto>> ListAsync(AuditQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
+        hospitalContext.RequireResolved();
 
         if (query.ResourceId is null
             && string.IsNullOrWhiteSpace(query.ResourceType)
@@ -20,6 +24,7 @@ public sealed class AuditService(IAuditRepository audit) : IAuditService
 
         int limit = query.Limit <= 0 ? 50 : Math.Min(query.Limit, MaxLimit);
         IReadOnlyList<AuditEvent> events = await audit.ListAsync(
+            hospitalContext.HospitalId,
             query.ResourceType,
             query.ResourceId,
             query.ActorId,

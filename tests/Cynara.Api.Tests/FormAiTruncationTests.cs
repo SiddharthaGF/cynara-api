@@ -28,6 +28,9 @@ public sealed class FormAiTruncationTests : IDisposable
     public FormAiTruncationTests()
     {
         client = factory.CreateClient();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
     }
 
     public void Dispose()

@@ -19,6 +19,7 @@ public sealed class FormReviewWorkflowTests : IDisposable
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "reviewer-1");
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
         Workflow = new JsonApiWorkflow(Api, Client);
     }
 

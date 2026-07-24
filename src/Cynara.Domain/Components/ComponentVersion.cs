@@ -12,6 +12,9 @@ namespace Cynara.Domain.Components;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class ComponentVersion : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace (denormalized from the definition).</summary>
+    public Guid HospitalId { get; set; }
+
     public Guid ComponentDefinitionId { get; set; }
 
     [HasOne(PublicName = "componentDefinition")]

@@ -40,6 +40,9 @@ public sealed class FormAiRuleOperatorGuardTests : IDisposable
 
         HttpClient client = factory.WithRegexValidationResponse().CreateClient();
         client.AcceptJsonApi();
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code",
+            factory.BootstrapOptions.BootstrapCode ?? "default");
         string formId = await CreateFormDefinitionAsync(client, "ai-regex-guard")
             .ConfigureAwait(false);
         using HttpResponseMessage response = await client.PostAsJsonAsync(

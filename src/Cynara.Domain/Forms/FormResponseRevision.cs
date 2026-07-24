@@ -13,6 +13,9 @@ namespace Cynara.Domain.Forms;
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
 public sealed class FormResponseRevision : Identifiable<Guid>
 {
+    /// <summary>Owning hospital workspace (denormalized from the parent response).</summary>
+    public Guid HospitalId { get; set; }
+
     /// <summary>FK to parent response (infrastructure; use relationship).</summary>
     public Guid FormResponseId { get; set; }
 

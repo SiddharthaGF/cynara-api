@@ -20,6 +20,8 @@ public sealed class FailureLogTests : IDisposable
         Factory = new FailureLogWebApplicationFactory();
         Client = Factory.CreateClient();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "failure-actor");
+        Client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code", "default");
     }
 
     public void Dispose()

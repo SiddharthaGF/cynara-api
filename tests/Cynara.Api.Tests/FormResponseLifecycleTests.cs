@@ -18,6 +18,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "test-clinician");
         Api = new JsonApiClient(Client);
+        Api.UseHospitalContext(Factory.BootstrapOptions.BootstrapCode);
         Workflow = new JsonApiWorkflow(Api, Client);
     }
 
