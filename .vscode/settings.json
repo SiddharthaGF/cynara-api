@@ -1,7 +1,7 @@
 {
   "forwardPorts": [5000],
   "csharp-dev-tools.build.configuration": "Debug",
-  "csharp-dev-tools.build.targetFramework": "net9.0",
+  "csharp-dev-tools.build.targetFramework": "net10.0",
   "csharp-dev-tools.debug.enableWatch": false,
   "csharp-dev-tools.debug.skipBuild": false,
   "csharp-dev-tools.debug.launchConsole": "integratedTerminal",

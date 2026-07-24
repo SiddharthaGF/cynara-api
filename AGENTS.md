@@ -13,7 +13,7 @@ behavior. Do not silently drop unknown fields or weaken contract checks.
 
 ## Stack
 
-- .NET 9 / ASP.NET Core minimal APIs
+- .NET 10 / ASP.NET Core minimal APIs
 - Modular layered solution: Api modules → Application modules → Domain;
   Infrastructure modules provide persistence and schema validation
 - EF Core + SQLite (default local DB)
