@@ -127,13 +127,12 @@ public sealed class WorkspaceController(
     private async Task<UpdateHospitalWorkspaceRequest?> ReadBodyAsync(
         CancellationToken cancellationToken)
     {
-        UpdateHospitalWorkspaceRequest? value = await JsonSerializer
+        return await JsonSerializer
             .DeserializeAsync<UpdateHospitalWorkspaceRequest>(
                 Request.Body,
                 JsonOptions,
                 cancellationToken)
             .ConfigureAwait(false);
-        return value;
     }
 
     private static ProblemDetails TenantValidationError(string detail)

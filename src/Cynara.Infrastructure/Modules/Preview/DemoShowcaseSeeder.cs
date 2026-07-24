@@ -78,7 +78,7 @@ public static class DemoShowcaseSeeder
             return hospital;
         }
 
-        hospital = await HospitalBootstrap.EnsureBootstrapHospitalAsync(
+        return await HospitalBootstrap.EnsureBootstrapHospitalAsync(
                 dbContext,
                 new HospitalBootstrapOptions
                 {
@@ -89,7 +89,6 @@ public static class DemoShowcaseSeeder
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        return hospital;
     }
 
     private static async Task EnsureComponentAsync(

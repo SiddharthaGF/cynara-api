@@ -22,60 +22,48 @@ public interface IHospitalWorkspaceService
 /// Public read shape exposed by the workspace endpoint. Bound to the
 /// X-Hospital-Code header from the request context; clients cannot select
 /// a different tenant.
+/// <para>
+/// Field reference:
+/// <list type="bullet">
+/// <item><c>Id</c> – surrogate Guid; immutable.</item>
+/// <item><c>Code</c> – stable business code (pattern
+/// <c>^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$</c>); immutable.</item>
+/// <item><c>Name</c> – human-readable workspace name; mutable.</item>
+/// <item><c>Status</c> – one of <c>active</c>, <c>inactive</c>,
+/// <c>suspended</c>.</item>
+/// <item><c>MetadataJson</c> – optional free-form JSON document; mutable.</item>
+/// <item><c>RowVersion</c> – optimistic concurrency token; send the latest
+/// value back on PATCH, mismatch returns 409.</item>
+/// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
+/// <item><c>UpdatedAt</c> – UTC timestamp of the last metadata change.</item>
+/// </list>
+/// </para>
 /// </summary>
 public sealed record HospitalWorkspaceDto(
-    /// <summary>Surrogate Guid that identifies the hospital across the platform.</summary>
-    /// <remarks>Immutable; clients cannot override it.</remarks>
     Guid Id,
-
-    /// <summary>Stable business code used by clients and URLs.</summary>
-    /// <remarks>
-    /// Pattern: ^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$. Immutable.
-    /// </remarks>
     string Code,
-
-    /// <summary>Human-readable workspace name shown in administrative UIs.</summary>
-    /// <remarks>Mutable via PATCH /api/workspace.</remarks>
     string Name,
-
-    /// <summary>Lifecycle status of the workspace.</summary>
-    /// <remarks>One of: active, inactive, suspended.</remarks>
     string Status,
-
-    /// <summary>Optional metadata payload stored as a JSON document.</summary>
-    /// <remarks>Mutable via PATCH /api/workspace.</remarks>
     string? MetadataJson,
-
-    /// <summary>Optimistic concurrency token; required for PATCH updates.</summary>
-    /// <remarks>Send the latest value back on PATCH; mismatch returns 409.</remarks>
     uint RowVersion,
-
-    /// <summary>UTC timestamp when the workspace was created.</summary>
-    /// <remarks>Immutable.</remarks>
     DateTimeOffset CreatedAt,
-
-    /// <summary>UTC timestamp of the last workspace metadata change.</summary>
-    /// <remarks>Updated by PATCH /api/workspace.</remarks>
     DateTimeOffset UpdatedAt);
 
 /// <summary>
 /// Update contract for the current workspace. Only mutable display fields
 /// and a concurrency token are accepted. Hospital identifier, code, and
 /// creation timestamp are immutable and rejected with 400 if supplied.
+/// <para>
+/// Field reference:
+/// <list type="bullet">
+/// <item><c>Name</c> – 1-256 characters; replaces the current Name.</item>
+/// <item><c>MetadataJson</c> – replacement payload, or null to clear it.</item>
+/// <item><c>RowVersion</c> – concurrency token from the last GET; mismatch
+/// returns 409.</item>
+/// </list>
+/// </para>
 /// </summary>
 public sealed record UpdateHospitalWorkspaceRequest(
-    /// <summary>New human-readable workspace name.</summary>
-    /// <remarks>1-256 characters; replaces the current Name.</remarks>
     string Name,
-
-    /// <summary>Replacement metadata payload, or null to clear it.</summary>
-    /// <remarks>
-    /// A free-form JSON document. Send null to clear the existing payload.
-    /// </remarks>
     string? MetadataJson,
-
-    /// <summary>
-    /// Concurrency token from the last GET /api/workspace response.
-    /// </summary>
-    /// <remarks>Mismatched values return 409 Conflict.</remarks>
     uint RowVersion);

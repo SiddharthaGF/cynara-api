@@ -9,10 +9,10 @@ namespace Cynara.Domain.FormAi;
 
 /// <summary>
 /// Per-hospital AI provider configuration. The composite key
-/// (<see cref="HospitalId"/>, <see cref="Id"/>) keeps landlord AI config
-/// isolated by tenant. The API key is write-only; clients see
-/// <see cref="HasApiKey"/> and <see cref="ApiKeyMasked"/> instead of the
-/// secret. Rich view attrs (source, suggestions, configured) are projected
+/// (<c>HospitalId</c>, <c>Id</c>) keeps landlord AI config isolated by
+/// tenant. The API key is write-only; clients see <see cref="HasApiKey"/>
+/// and <see cref="ApiKeyMasked"/> instead of the secret. Rich view attrs
+/// (source, suggestions, configured) are projected
 /// by the resource service from the active DB or environment fallback.
 /// </summary>
 [Resource(

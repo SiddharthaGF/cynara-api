@@ -9,7 +9,7 @@ namespace Cynara.Domain.Hospitals;
 /// <summary>
 /// Tenant aggregate representing the hospital workspace that owns every
 /// Stage 2 configuration and clinical record. Codes are stable business
-/// identifiers; the surrogate <see cref="Id"/> is used for foreign keys.
+/// identifiers; the surrogate <c>Id</c> is used for foreign keys.
 /// </summary>
 [Resource(
     PublicName = "hospitals",

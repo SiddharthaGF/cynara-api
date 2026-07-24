@@ -121,8 +121,8 @@ internal sealed class HospitalContextMiddleware
         await context.Response.WriteAsJsonAsync(
             document,
             options: null,
-            contentType: "application/vnd.api+json")
-            .ConfigureAwait(false);
+            contentType: "application/vnd.api+json",
+            cancellationToken: context.RequestAborted).ConfigureAwait(false);
     }
 
     private static bool IsExemptPath(PathString path)
