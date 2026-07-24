@@ -39,7 +39,7 @@ public sealed class AiProviderSettingsService(
     {
         AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
         return IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model)
-            ? Resolve(
+            ? MergeWithEnvironment(
                 row!.ApiKey,
                 row.BaseUrl,
                 row.Model,
@@ -53,7 +53,7 @@ public sealed class AiProviderSettingsService(
         AiProviderSettings? row = await repository.GetAsync(cancellationToken).ConfigureAwait(false);
         if (IsComplete(row?.ApiKey, row?.BaseUrl, row?.Model))
         {
-            OpenAiConfig config = Resolve(
+            OpenAiConfig config = MergeWithEnvironment(
                 row!.ApiKey,
                 row.BaseUrl,
                 row.Model,
@@ -163,7 +163,34 @@ public sealed class AiProviderSettingsService(
             normalizedBaseUrl,
             normalizedModel,
             !string.IsNullOrWhiteSpace(normalizedKey),
-            jsonObject);
+            jsonObject,
+            NetworkTimeout: TimeSpan.FromMinutes(10),
+            MaxOutputTokens: 8192,
+            Temperature: 0.2f,
+            TopP: 0.9f,
+            FirstChunkTimeout: TimeSpan.FromSeconds(90));
+    }
+
+    /// <summary>
+    /// Resolves a config from a stored row and applies environment runtime
+    /// knobs without persisting them per form.
+    /// </summary>
+    private OpenAiConfig MergeWithEnvironment(
+        string? apiKey,
+        string? baseUrl,
+        string? model,
+        bool jsonObject)
+    {
+        OpenAiConfig env = environmentConfiguration.LoadEnvironment();
+        OpenAiConfig row = Resolve(apiKey, baseUrl, model, jsonObject);
+        return row with
+        {
+            NetworkTimeout = env.NetworkTimeout,
+            MaxOutputTokens = env.MaxOutputTokens ?? row.MaxOutputTokens,
+            Temperature = env.Temperature ?? row.Temperature,
+            TopP = env.TopP ?? row.TopP,
+            FirstChunkTimeout = env.FirstChunkTimeout,
+        };
     }
 
     private static FormAiSettingsResponse ToSettingsResponse(

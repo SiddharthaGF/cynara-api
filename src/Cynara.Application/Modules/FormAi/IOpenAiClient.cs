@@ -17,6 +17,12 @@ public interface IOpenAiClient
 
 public sealed record OpenAiMessage(string Role, string Content);
 
-public sealed record OpenAiCompletionResult(string Content, string? Thinking);
+public sealed record OpenAiCompletionResult(
+    string Content,
+    string? Thinking,
+    bool IsTruncated = false);
 
-public sealed record OpenAiStreamDelta(string? Content, string? Reasoning);
+public sealed record OpenAiStreamDelta(
+    string? Content,
+    string? Reasoning,
+    bool IsTruncated = false);

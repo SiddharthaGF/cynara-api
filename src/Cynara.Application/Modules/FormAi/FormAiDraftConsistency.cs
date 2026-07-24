@@ -4,10 +4,37 @@ using System.Text.RegularExpressions;
 namespace Cynara.Application.Modules.FormAi;
 
 /// <summary>
+/// Outcome of the schema-validator fallback chain. The fallback drops layers
+/// of the AI draft in a fixed order until the validator is happy again;
+/// the enum value records the deepest layer that had to be sacrificed.
+/// </summary>
+public enum FormAiFallbackOutcome
+{
+    None = 0,
+    DroppedLayout = 1,
+    DroppedRulesFields = 2,
+    DroppedValidations = 3,
+}
+
+public sealed record FormAiFallbackReport(
+    FormAiFallbackOutcome Outcome,
+    IReadOnlyList<string> DroppedLayers)
+{
+    public static readonly FormAiFallbackReport NoFallback =
+        new(FormAiFallbackOutcome.None, []);
+
+    public bool DiscardedSomething => Outcome != FormAiFallbackOutcome.None;
+}
+
+/// <summary>
 /// Guards against AI turns that claim (or are expected to produce) draft edits
 /// while returning schemas identical to the open draft. Those turns previously
 /// streamed a confident assistantMessage and a successful <c>done</c> with no
 /// canvas update on the designer.
+/// Also enforces honesty when the validator fallback silently strips layers
+/// (layout, rule fields, validations) — those turns used to keep a confident
+/// assistant claim like "I added the Vitals section" while dropping the
+/// corresponding rules/validations behind the scenes.
 /// </summary>
 internal static partial class FormAiDraftConsistency
 {
@@ -44,9 +71,27 @@ internal static partial class FormAiDraftConsistency
         string? draftRules,
         string latestUserContent,
         string locale,
-        bool isRefusal)
+        bool isRefusal,
+        FormAiFallbackReport fallback = null!)
     {
         ArgumentNullException.ThrowIfNull(result);
+        fallback ??= FormAiFallbackReport.NoFallback;
+
+        // The fallback is the most interesting honesty bug: schemas may differ
+        // from the draft (so the unchanged check passes), but layers were
+        // dropped to satisfy the validator — and the assistant message still
+        // claims the work happened.
+        if (fallback.DiscardedSomething
+            && !isRefusal
+            && LooksLikeMutationRequest(latestUserContent)
+            && ClaimsDraftApplied(result.AssistantMessage))
+        {
+            return result with
+            {
+                AssistantMessage = HonestPartialMessage(locale, fallback),
+                Summary = HonestPartialSummary(locale, fallback),
+            };
+        }
 
         bool unchanged = SchemasEqual(
             draftClinical,
@@ -123,6 +168,37 @@ internal static partial class FormAiDraftConsistency
         return locale.StartsWith("es", StringComparison.OrdinalIgnoreCase)
             ? "Sin cambios en el borrador."
             : "Draft left unchanged.";
+    }
+
+    private static string HonestPartialMessage(string locale, FormAiFallbackReport report)
+    {
+        string layers = string.Join(
+            ", ",
+            report.DroppedLayers.Select(HumanLayer));
+        return locale.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+            ? $"Apliqué cambios parciales, pero el motor descartó: {layers}. Pídeme aplicar lo omitido en un turno aparte o simplifica el borrador."
+            : $"I applied partial changes, but the engine dropped: {layers}. Ask me to apply the missing parts in a follow-up or simplify the draft.";
+    }
+
+    private static string HonestPartialSummary(string locale, FormAiFallbackReport report)
+    {
+        string layers = string.Join(
+            ", ",
+            report.DroppedLayers.Select(HumanLayer));
+        return locale.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+            ? $"Cambios parciales (descartado: {layers})."
+            : $"Partial changes (dropped: {layers}).";
+    }
+
+    private static string HumanLayer(string layer)
+    {
+        return layer switch
+        {
+            "layout" => "layout",
+            "rules.fields" => "field rules",
+            "rules.validations" => "validations",
+            _ => layer,
+        };
     }
 
     private static JsonObject ParseObjectOrEmpty(string? json)

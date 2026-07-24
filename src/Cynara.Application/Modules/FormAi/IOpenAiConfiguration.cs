@@ -10,4 +10,9 @@ public sealed record OpenAiConfig(
     string BaseUrl,
     string Model,
     bool Configured,
-    bool JsonObject);
+    bool JsonObject,
+    TimeSpan NetworkTimeout,
+    int? MaxOutputTokens,
+    float? Temperature,
+    float? TopP,
+    TimeSpan FirstChunkTimeout);

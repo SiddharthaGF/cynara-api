@@ -5,13 +5,9 @@ using Cynara.Infrastructure.Schemas;
 
 namespace Cynara.Api.Tests;
 
-/// <summary>
-/// Reproduces the live MiniMax turn where a visibleWhen patch claimed success
-/// but the returned rules were emptied (fields + validations wiped).
-/// </summary>
 public sealed class FormAiVisibleWhenRegressionTests
 {
-    private static readonly string Clinical = /*lang=json,strict*/ """
+    private const string Clinical = /*lang=json,strict*/ """
         {
           "schemaVersion": "1.0.0",
           "fields": [
@@ -59,7 +55,7 @@ public sealed class FormAiVisibleWhenRegressionTests
         }
         """;
 
-    private static readonly string Ui = /*lang=json,strict*/ """
+    private const string Ui = /*lang=json,strict*/ """
         {
           "schemaVersion": "1.0.0",
           "clinicalSchemaVersion": "1.0.0",
@@ -106,7 +102,7 @@ public sealed class FormAiVisibleWhenRegressionTests
         }
         """;
 
-    private static readonly string RulesWithBpValidation = /*lang=json,strict*/ """
+    private const string RulesWithBpValidation = /*lang=json,strict*/ """
         {
           "schemaVersion": "1.0.0",
           "clinicalSchemaVersion": "1.0.0",
@@ -150,7 +146,7 @@ public sealed class FormAiVisibleWhenRegressionTests
         }
         """;
 
-    private static readonly string VisibleWhenPatch = /*lang=json,strict*/ """
+    private const string VisibleWhenPatch = /*lang=json,strict*/ """
         {
           "upsertRulesFields": {
             "oxygen-saturation": {
@@ -199,8 +195,6 @@ public sealed class FormAiVisibleWhenRegressionTests
     [Fact]
     public void TruncatedMiniMaxContent_BarePatch_StillAppliesVisibleWhen()
     {
-        // Live MiniMax truncated the envelope prefix; content started mid-string
-        // but still contained a complete patch object.
         const string truncated = """
             ":"La saturación de oxígeno ahora solo aparece.","assistantMessage":"Listo.","mode":"patch","patch":{"upsertRulesFields":{"oxygen-saturation":{"visibleWhen":{"op":"gte","args":[{"ref":"vital.heart.rate"},{"lit":100}]}}}}
             """;
@@ -332,16 +326,12 @@ public sealed class FormAiVisibleWhenRegressionTests
 
     private static JsonObject? InvokeExtractJsonObject(string raw)
     {
-        // ExtractJsonObject is private on FormAiService; exercise via the same
-        // recovery path FormAiDraftPatch + envelope wrap uses in production by
-        // reimplementing the bare-patch wrap contract here for the truncated
-        // payload assertion above. Prefer reflection to lock the real helper.
         System.Reflection.MethodInfo? method = typeof(FormAiService)
             .GetMethod(
                 "ExtractJsonObject",
                 System.Reflection.BindingFlags.NonPublic
                 | System.Reflection.BindingFlags.Static);
         Assert.NotNull(method);
-        return method!.Invoke(null, [raw]) as JsonObject;
+        return method.Invoke(null, [raw]) as JsonObject;
     }
 }

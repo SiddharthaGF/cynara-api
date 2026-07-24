@@ -281,14 +281,19 @@ internal static partial class FormAiSanitizer
             SanitizeLayout(source[SchemaJsonKeys.Children], fields);
         string title =
             source["title"]?.GetValue<string>()?.Trim() ?? "Section";
-        return children.Count == 0
-            ? null
-            : new JsonObject
-            {
-                [SchemaJsonKeys.Type] = "section",
-                ["title"] = title[..Math.Min(title.Length, 256)],
-                [SchemaJsonKeys.Children] = children,
-            };
+        if (children.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new JsonObject
+        {
+            [SchemaJsonKeys.Type] = "section",
+            ["title"] = title[..Math.Min(title.Length, 256)],
+            [SchemaJsonKeys.Children] = children,
+        };
+        CopyLayoutText(source, result, "description", 1000);
+        return result;
     }
 
     private static JsonObject? TrySanitizeGroupOrRepeaterLayout(
@@ -323,9 +328,23 @@ internal static partial class FormAiSanitizer
         else
         {
             result["itemTemplate"] = children;
+            CopyLayoutText(source, result, "addButtonLabel", 128);
+            CopyLayoutText(source, result, "removeButtonLabel", 128);
         }
 
         return result;
+    }
+
+    private static void CopyLayoutText(
+        JsonObject source,
+        JsonObject result,
+        string key,
+        int maxLength)
+    {
+        if (source[key]?.GetValue<string>() is string value)
+        {
+            result[key] = value[..Math.Min(value.Length, maxLength)];
+        }
     }
 
     private static bool ExpressionReferencesKnown(
