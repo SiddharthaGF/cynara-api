@@ -1,0 +1,15 @@
+using Cynara.Application.Modules.Components.Persistence;
+
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Cynara.Infrastructure.Modules.Components;
+
+public static class ComponentsPersistenceModule
+{
+    public static IServiceCollection AddComponentsPersistenceModule(
+        this IServiceCollection services)
+    {
+        _ = services.AddScoped<IComponentRepository, ComponentRepository>();
+        return services;
+    }
+}

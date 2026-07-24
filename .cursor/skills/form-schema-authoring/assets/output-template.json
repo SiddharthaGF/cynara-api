@@ -1,0 +1,44 @@
+{
+  "clinical": {
+    "$schema": "https://cynara.dev/schemas/v1/clinical-schema.schema.json",
+    "schemaVersion": "1.0.0",
+    "fields": [
+      {
+        "id": "heart-rate",
+        "code": "vital.heart-rate",
+        "type": "integer",
+        "required": true,
+        "minimum": 20,
+        "maximum": 300,
+        "description": "Heart rate in beats per minute"
+      }
+    ]
+  },
+  "ui": {
+    "$schema": "https://cynara.dev/schemas/v1/ui-schema.schema.json",
+    "schemaVersion": "1.0.0",
+    "clinicalSchemaVersion": "1.0.0",
+    "fields": {
+      "heart-rate": {
+        "label": "Heart rate (bpm)",
+        "widget": "integer-input",
+        "width": "half"
+      }
+    },
+    "layout": [
+      {
+        "type": "section",
+        "id": "vitals",
+        "title": "Vital Signs",
+        "children": [{ "type": "field", "fieldId": "heart-rate" }]
+      }
+    ]
+  },
+  "rules": {
+    "$schema": "https://cynara.dev/schemas/v1/rules-schema.schema.json",
+    "schemaVersion": "1.0.0",
+    "clinicalSchemaVersion": "1.0.0",
+    "fields": {},
+    "validations": []
+  }
+}

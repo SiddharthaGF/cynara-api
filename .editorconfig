@@ -26,16 +26,13 @@ csharp_new_line_before_open_brace = all
 csharp_new_line_before_else = true
 csharp_new_line_before_catch = true
 csharp_new_line_before_finally = true
-
 csharp_indent_case_contents = true
 csharp_indent_switch_labels = true
-
 csharp_space_after_cast = false
 csharp_space_after_keywords_in_control_flow_statements = true
 
 csharp_prefer_braces = true:error
 csharp_prefer_simple_using_statement = true:suggestion
-
 dotnet_style_require_accessibility_modifiers = always:error
 
 dotnet_sort_system_directives_first = true
@@ -61,18 +58,46 @@ csharp_style_prefer_pattern_matching = true:suggestion
 csharp_style_prefer_not_pattern = true:suggestion
 
 dotnet_diagnostic.IDE0055.severity = warning
-dotnet_diagnostic.IDE0005.severity = none
-
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0079.severity = warning
 dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.CA1848.severity = suggestion
-
 dotnet_diagnostic.CA1505.severity = suggestion
+
+# Prefer primary constructors in new code, but do not flag types that need a
+# classic ctor body (FluentValidation RuleFor, Lazy init, exception hierarchy).
+csharp_style_prefer_primary_constructors = true:silent
+dotnet_diagnostic.IDE0290.severity = none
+
+# Opt into Roslynator so default-disabled rules emit as warnings.
+dotnet_analyzer_diagnostic.Roslynator_CSharp.Analyzers.severity = warning
+
+# Domain validators / AI workflows exceed Meziantou default (60 lines).
+MA0051.maximum_lines_per_method = 130
+MA0051.maximum_statements_per_method = 80
+
+# Prefer ≤400 LOC/file (Sonar S104 via make sonar-bootstrap).
+
+# Top-level Program must stay non-static for WebApplicationFactory<Program>.
+[src/Cynara.Api/Program.cs]
+dotnet_diagnostic.MA0036.severity = none
+dotnet_diagnostic.CA1052.severity = none
 
 [tests/**/*.cs]
 dotnet_style_require_accessibility_modifiers = omit_if_default:silent
 dotnet_diagnostic.IDE0008.severity = none
 dotnet_diagnostic.IDE0040.severity = none
 dotnet_diagnostic.IDE0058.severity = none
-dotnet_diagnostic.IDE0290.severity = none
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.xUnit1000.severity = none
+dotnet_diagnostic.MA0004.severity = none
+dotnet_diagnostic.SA1201.severity = none
+dotnet_diagnostic.SA1202.severity = none
+dotnet_diagnostic.SA1300.severity = none
+dotnet_diagnostic.SA1001.severity = none
+dotnet_diagnostic.SA1110.severity = none
+dotnet_diagnostic.SA1113.severity = none
+dotnet_diagnostic.SA1114.severity = none
+dotnet_diagnostic.SA1117.severity = none
+dotnet_diagnostic.SA1118.severity = none
+dotnet_diagnostic.SA1137.severity = none

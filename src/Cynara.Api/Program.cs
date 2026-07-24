@@ -1,21 +1,15 @@
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+using Cynara.Api.Hosting;
 
-builder.Services.AddOpenApi();
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCynaraApi(builder.Configuration);
 
 WebApplication app = builder.Build();
+await app.UseCynaraApiAsync().ConfigureAwait(false);
+await app.RunAsync().ConfigureAwait(false);
 
-if (app.Environment.IsDevelopment())
+internal sealed partial class Program
 {
-    _ = app.MapOpenApi();
+    private Program()
+    {
+    }
 }
-
-app.MapGet("/health", () => Results.Ok(new
-{
-    service = "cynara-api",
-    status = "ok",
-    contract = "https://github.com/ailuracode/cynara",
-}));
-
-app.Run();
-
-public partial class Program;

@@ -1,23 +1,31 @@
-using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net;
 
-using Xunit;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Cynara.Api.Tests;
 
-public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthEndpointTests : IDisposable
 {
-    private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> factory = new();
+    private readonly HttpClient client;
 
-    public HealthEndpointTests(WebApplicationFactory<Program> factory)
+    public HealthEndpointTests()
     {
-        _client = factory.CreateClient();
+        client = factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        client.Dispose();
+        factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
     public async Task Health_ReturnsOk()
     {
-        using var response = await _client.GetAsync("/health");
+        using var response = await client.GetAsync(new Uri("/health", UriKind.Relative)).ConfigureAwait(false);
 
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

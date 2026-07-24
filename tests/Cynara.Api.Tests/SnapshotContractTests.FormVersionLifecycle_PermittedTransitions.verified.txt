@@ -1,0 +1,7 @@
+﻿[
+  Draft --SubmitForReview--> Review,
+  Review --WithdrawFromReview--> Draft,
+  Review --RejectReview--> Draft,
+  Review --Publish--> Published,
+  Published --Retire--> Retired
+]

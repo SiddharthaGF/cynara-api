@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "clinicalSchemaVersion": "1.0.0",
+  "fields": {
+    "patient-name": {
+      "label": "Nombre completo",
+      "widget": "text-input",
+      "width": "full",
+      "placeholder": "Apellidos, nombre"
+    },
+    "patient-dob": {
+      "label": "Fecha de nacimiento",
+      "widget": "date-picker",
+      "width": "half"
+    },
+    "patient-sex": {
+      "label": "Sexo registrado",
+      "widget": "radio-group",
+      "width": "half"
+    }
+  }
+}

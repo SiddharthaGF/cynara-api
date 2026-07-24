@@ -1,0 +1,104 @@
+@baseUrl = http://localhost:5000
+@actor = clinician-1
+@jsonApi = application/vnd.api+json
+
+### Health
+GET {{baseUrl}}/health
+
+### OpenAPI + Scalar
+GET {{baseUrl}}/swagger/v1/swagger.json
+GET {{baseUrl}}/scalar/v1
+
+### Create form definition (seeds draft)
+# @name createForm
+POST {{baseUrl}}/api/formDefinitions
+Content-Type: {{jsonApi}}
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+{
+  "data": {
+    "type": "formDefinitions",
+    "attributes": {
+      "code": "intake-assessment",
+      "name": "Intake assessment",
+      "initialClinicalSchemaJson": "{\"schemaVersion\":\"1.0.0\",\"fields\":[{\"id\":\"patient-name\",\"code\":\"patient.name\",\"type\":\"text\",\"maxLength\":500}]}",
+      "initialUiSchemaJson": "{\"schemaVersion\":\"1.0.0\",\"clinicalSchemaVersion\":\"1.0.0\",\"fields\":{\"patient-name\":{\"label\":\"Name\",\"widget\":\"text-input\"}}}"
+    }
+  }
+}
+
+### List + include versions
+@definitionId = {{createForm.response.body.data.id}}
+GET {{baseUrl}}/api/formDefinitions/{{definitionId}}?include=versions&fields[formDefinitions]=code,name,createdAt
+Accept: {{jsonApi}}
+
+### Submit draft for review (rowVersion query)
+@draftId = REPLACE_WITH_DRAFT_ID
+POST {{baseUrl}}/api/formVersions/{{draftId}}/submit-review?rowVersion=0
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+### Publish
+POST {{baseUrl}}/api/formVersions/{{draftId}}/publish?rowVersion=1
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+### Create response against published version
+@publishedVersionId = REPLACE_WITH_PUBLISHED_VERSION_ID
+# @name createResponse
+POST {{baseUrl}}/api/formResponses
+Content-Type: {{jsonApi}}
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+{
+  "data": {
+    "type": "formResponses",
+    "attributes": {
+      "answersJson": "{}"
+    },
+    "relationships": {
+      "formVersion": {
+        "data": { "type": "formVersions", "id": "{{publishedVersionId}}" }
+      }
+    }
+  }
+}
+
+### Complete response
+@responseId = {{createResponse.response.body.data.id}}
+POST {{baseUrl}}/api/formResponses/{{responseId}}/complete?rowVersion=0
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+### Form AI status (application/json, intentional non-resource)
+GET {{baseUrl}}/api/ai/status
+Accept: application/json
+
+### AI provider settings (JSON:API singleton)
+GET {{baseUrl}}/api/aiProviderSettings/default
+Accept: {{jsonApi}}
+
+### Upsert AI provider settings
+PATCH {{baseUrl}}/api/aiProviderSettings/default
+Content-Type: {{jsonApi}}
+Accept: {{jsonApi}}
+X-Actor-Id: {{actor}}
+
+{
+  "data": {
+    "type": "aiProviderSettings",
+    "id": "default",
+    "attributes": {
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "jsonObject": true,
+      "apiKey": "sk-replace-me"
+    }
+  }
+}
+
+### Audit events
+GET {{baseUrl}}/api/auditEvents?sort=-occurredAt&page[size]=20
+Accept: {{jsonApi}}

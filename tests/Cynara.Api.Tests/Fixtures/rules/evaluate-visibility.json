@@ -1,0 +1,45 @@
+{
+  "description": "Conditional visibility based on choice field",
+  "clinical": {
+    "schemaVersion": "1.0.0",
+    "fields": [
+      {
+        "id": "consciousness",
+        "code": "assessment.consciousness",
+        "type": "choice",
+        "options": [
+          { "value": "alert", "label": "Alert" },
+          { "value": "pain", "label": "Pain" }
+        ]
+      },
+      {
+        "id": "pain-details",
+        "code": "assessment.pain-details",
+        "type": "text"
+      }
+    ]
+  },
+  "rules": {
+    "schemaVersion": "1.0.0",
+    "clinicalSchemaVersion": "1.0.0",
+    "fields": {
+      "pain-details": {
+        "visibleWhen": {
+          "op": "eq",
+          "args": [
+            { "ref": "assessment.consciousness" },
+            { "lit": "pain" }
+          ]
+        }
+      }
+    }
+  },
+  "values": {
+    "assessment.consciousness": "alert"
+  },
+  "expected": {
+    "visibility": {
+      "pain-details": false
+    }
+  }
+}

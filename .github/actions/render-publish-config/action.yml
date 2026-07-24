@@ -1,0 +1,107 @@
+name: Render IIS publish config
+description: |
+  Write appsettings.{Environment}.json and web.config environment
+  variables for the published Cynara API (SqlServer connection).
+
+inputs:
+  db-connection-string:
+    description: SQL Server connection string for ConnectionStrings:Default.
+    required: true
+  aspnetcore-environment:
+    description: Value for ASPNETCORE_ENVIRONMENT in web.config.
+    required: false
+    default: "Production"
+  publish-dir:
+    description: Directory that contains the publish output.
+    required: false
+    default: "./publish"
+
+runs:
+  using: composite
+  steps:
+    - name: Render appsettings and web.config
+      shell: bash
+      env:
+        DB_CONNECTION_STRING: ${{ inputs.db-connection-string }}
+        ASPNETCORE_ENVIRONMENT_VALUE: ${{ inputs.aspnetcore-environment }}
+        PUBLISH_DIR: ${{ inputs.publish-dir }}
+      run: |
+        mkdir -p "$PUBLISH_DIR"
+        python - <<'PY'
+        import json, os, pathlib
+        from xml.etree import ElementTree as ET
+
+        publish = pathlib.Path(os.environ["PUBLISH_DIR"])
+        cs = os.environ["DB_CONNECTION_STRING"]
+        aspnet_env = os.environ["ASPNETCORE_ENVIRONMENT_VALUE"]
+
+        cfg = {
+          "Database": {"Provider": "SqlServer"},
+          "ConnectionStrings": {"Default": cs},
+        }
+        settings_name = f"appsettings.{aspnet_env}.json"
+        (publish / settings_name).write_text(
+          json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"Wrote {settings_name} ({len(json.dumps(cfg))} bytes)")
+
+        webconfig = publish / "web.config"
+        if webconfig.exists():
+          xml_text = webconfig.read_text(encoding="utf-8")
+        else:
+          xml_text = (
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            "<configuration>\n"
+            "  <location path=\".\" "
+            "inheritInChildApplications=\"false\">\n"
+            "    <system.webServer>\n"
+            "      <handlers>\n"
+            "        <add name=\"aspNetCore\" path=\"*\" verb=\"*\" "
+            "modules=\"AspNetCoreModuleV2\" "
+            "resourceType=\"Unspecified\" />\n"
+            "      </handlers>\n"
+            "      <aspNetCore processPath=\".\\Cynara.Api.exe\" "
+            "arguments=\"\" stdoutLogEnabled=\"true\" "
+            "stdoutLogFile=\".\\Logs\\stdout\" "
+            "hostingModel=\"InProcess\" />\n"
+            "    </system.webServer>\n"
+            "  </location>\n"
+            "</configuration>\n"
+          )
+
+        ET.register_namespace("", "")
+        root = ET.fromstring(xml_text)
+        aspnetcore = root.find(".//{*}aspNetCore")
+        if aspnetcore is None:
+          raise SystemExit("aspNetCore element not found in web.config")
+
+        for child in list(aspnetcore):
+          if (
+            child.tag.endswith("}environmentVariables")
+            or child.tag == "environmentVariables"
+          ):
+            aspnetcore.remove(child)
+            break
+
+        env_vars = ET.SubElement(aspnetcore, "environmentVariables")
+        ET.SubElement(env_vars, "environmentVariable", {
+          "name": "ASPNETCORE_ENVIRONMENT", "value": aspnet_env,
+        })
+        ET.SubElement(env_vars, "environmentVariable", {
+          "name": "ConnectionStrings__Default", "value": cs,
+        })
+        ET.SubElement(env_vars, "environmentVariable", {
+          "name": "Database__Provider", "value": "SqlServer",
+        })
+
+        out_path = publish / "web.config"
+        ET.indent(root, space="  ")
+        out_path.write_bytes(
+          b'<?xml version="1.0" encoding="utf-8"?>\n'
+          + ET.tostring(root, encoding="utf-8", xml_declaration=False)
+        )
+        print(
+          f"Wrote web.config ({out_path.stat().st_size} bytes) "
+          f"ASPNETCORE_ENVIRONMENT={aspnet_env}"
+        )
+        PY

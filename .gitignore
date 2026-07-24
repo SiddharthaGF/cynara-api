@@ -26,6 +26,27 @@ TestResults/
 .DS_Store
 Thumbs.db
 
-## Local config
-appsettings.Development.json
+## Local config overrides (keep shared appsettings.*.json)
 *.local.json
+appsettings.*.local.json
+
+## Local databases
+*.db
+*.db-shm
+*.db-wal
+
+## Local tooling caches
+.atl/
+
+## Test snapshots
+*.received.*
+
+## SonarQube local analysis
+.sonar/
+.sonarqube/
+.scannerwork/
+coverage.xml
+*.coveragexml
+
+# VS Code C# Dev Tools - Auto-generated runners
+.vscodecsdt/Runners/

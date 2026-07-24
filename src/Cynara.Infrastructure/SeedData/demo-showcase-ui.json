@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0.0",
+  "clinicalSchemaVersion": "1.0.0",
+  "fields": {
+    "patient-block": {
+      "label": "Datos demográficos",
+      "helpText": "Bloque reutilizable compilado al publicar",
+      "width": "full"
+    },
+    "chief-complaint": {
+      "label": "Motivo de consulta",
+      "widget": "text-input",
+      "width": "full",
+      "placeholder": "Describa el motivo principal"
+    },
+    "clinical-notes": {
+      "label": "Notas clínicas",
+      "widget": "textarea",
+      "width": "full",
+      "placeholder": "Antecedentes, exploración, impresión..."
+    },
+    "onset-date": {
+      "label": "Inicio de síntomas",
+      "widget": "date-picker",
+      "width": "half"
+    },
+    "recorded-at": {
+      "label": "Registrado el",
+      "widget": "datetime-picker",
+      "width": "full",
+      "timePresets": ["now"]
+    },
+    "callback-time": {
+      "label": "Hora preferida de contacto",
+      "widget": "time-picker",
+      "width": "half",
+      "timePresets": ["now"]
+    },
+    "systolic": {
+      "label": "Sistólica (mmHg)",
+      "widget": "integer-input",
+      "width": "half",
+      "placeholder": "120"
+    },
+    "diastolic": {
+      "label": "Diastólica (mmHg)",
+      "widget": "integer-input",
+      "width": "half",
+      "placeholder": "80"
+    },
+    "heart-rate": {
+      "label": "Frecuencia cardíaca (lpm)",
+      "widget": "integer-input",
+      "width": "half"
+    },
+    "temperature": {
+      "label": "Temperatura (°C)",
+      "widget": "number-input",
+      "width": "half"
+    },
+    "weight-kg": {
+      "label": "Peso (kg)",
+      "widget": "number-input",
+      "width": "half"
+    },
+    "height-m": {
+      "label": "Estatura (m)",
+      "widget": "number-input",
+      "width": "half"
+    },
+    "bmi": {
+      "label": "IMC",
+      "widget": "number-input",
+      "width": "half",
+      "helpText": "Se calcula a partir de peso y estatura"
+    },
+    "consciousness": {
+      "label": "Nivel de consciencia",
+      "widget": "radio-group",
+      "width": "full"
+    },
+    "pain-details": {
+      "label": "Detalle del dolor",
+      "widget": "textarea",
+      "width": "full"
+    },
+    "pain-score": {
+      "label": "Escala de dolor (0–10)",
+      "widget": "integer-input",
+      "width": "half"
+    },
+    "pregnancy-weeks": {
+      "label": "Semanas de gestación",
+      "widget": "integer-input",
+      "width": "half"
+    },
+    "smoker": {
+      "label": "Fumador activo",
+      "widget": "checkbox"
+    },
+    "sex-at-intake": {
+      "label": "Sexo para reglas clínicas",
+      "widget": "radio-group",
+      "width": "full",
+      "helpText": "Usado para visibilidad condicional en este showcase"
+    },
+    "allergies": {
+      "label": "Alergias conocidas",
+      "widget": "checkbox-group",
+      "width": "full"
+    },
+    "medication-name": {
+      "label": "Medicamento",
+      "widget": "text-input"
+    },
+    "medication-dose": {
+      "label": "Dosis",
+      "widget": "text-input",
+      "placeholder": "p. ej. 500 mg cada 8 h"
+    },
+    "medication-route": {
+      "label": "Vía",
+      "widget": "radio-group"
+    }
+  },
+  "layout": [
+    {
+      "type": "section",
+      "title": "Identificación",
+      "children": [
+        { "type": "field", "fieldId": "patient-block" },
+        { "type": "field", "fieldId": "chief-complaint" },
+        { "type": "field", "fieldId": "clinical-notes" },
+        { "type": "field", "fieldId": "onset-date" },
+        { "type": "field", "fieldId": "recorded-at" },
+        { "type": "field", "fieldId": "callback-time" }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Constantes vitales",
+      "children": [
+        {
+          "type": "group",
+          "fieldId": "blood-pressure",
+          "children": [
+            { "type": "field", "fieldId": "systolic" },
+            { "type": "field", "fieldId": "diastolic" }
+          ]
+        },
+        { "type": "field", "fieldId": "heart-rate" },
+        { "type": "field", "fieldId": "temperature" },
+        { "type": "field", "fieldId": "weight-kg" },
+        { "type": "field", "fieldId": "height-m" },
+        { "type": "field", "fieldId": "bmi" }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Evaluación clínica",
+      "children": [
+        { "type": "field", "fieldId": "consciousness" },
+        { "type": "field", "fieldId": "pain-details" },
+        { "type": "field", "fieldId": "pain-score" },
+        { "type": "field", "fieldId": "pregnancy-weeks" },
+        { "type": "field", "fieldId": "smoker" },
+        { "type": "field", "fieldId": "sex-at-intake" },
+        { "type": "field", "fieldId": "allergies" }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Medicación actual",
+      "children": [
+        {
+          "type": "repeater",
+          "fieldId": "medications",
+          "itemTemplate": [
+            { "type": "field", "fieldId": "medication-name" },
+            { "type": "field", "fieldId": "medication-dose" },
+            { "type": "field", "fieldId": "medication-route" }
+          ]
+        }
+      ]
+    }
+  ]
+}

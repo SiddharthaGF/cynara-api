@@ -1,0 +1,42 @@
+{
+  "clinical": {
+    "schemaVersion": "1.0.0",
+    "fields": [
+      {
+        "id": "field-a",
+        "code": "calc.a",
+        "type": "number",
+        "readOnly": true
+      },
+      {
+        "id": "field-b",
+        "code": "calc.b",
+        "type": "number",
+        "readOnly": true
+      }
+    ]
+  },
+  "rules": {
+    "schemaVersion": "1.0.0",
+    "clinicalSchemaVersion": "1.0.0",
+    "fields": {
+      "field-a": {
+        "calculate": {
+          "op": "add",
+          "args": [{ "ref": "calc.b" }, { "lit": 1 }]
+        }
+      },
+      "field-b": {
+        "calculate": {
+          "op": "add",
+          "args": [{ "ref": "calc.a" }, { "lit": 1 }]
+        }
+      }
+    }
+  },
+  "expectedErrors": [
+    {
+      "code": "RULE_CYCLIC_DEPENDENCY"
+    }
+  ]
+}

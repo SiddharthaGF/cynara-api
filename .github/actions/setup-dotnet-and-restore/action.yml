@@ -1,0 +1,41 @@
+name: Setup .NET and restore
+description: Set up .NET (with NuGet cache) and restore the Cynara API solution. Callers must run actions/checkout first so the workspace is populated.
+
+inputs:
+  dotnet-version:
+    description: .NET SDK version to install.
+    required: false
+    default: "10.0.x"
+  solution:
+    description: Path to the solution file to restore.
+    required: false
+    default: "Cynara.Api.sln"
+  runtime:
+    description: Optional RuntimeIdentifier for restore (e.g. win-x86).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET ${{ inputs.dotnet-version }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
+    - name: Restore ${{ inputs.solution }}
+      shell: bash
+      run: |
+        args=(dotnet restore "${{ inputs.solution }}")
+        if [ -n "${{ inputs.runtime }}" ]; then
+          args+=(--runtime "${{ inputs.runtime }}")
+        fi
+        "${args[@]}"
