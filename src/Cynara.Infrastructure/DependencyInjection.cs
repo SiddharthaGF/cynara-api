@@ -31,7 +31,7 @@ public static class InfrastructureServiceCollectionExtensions
             ?? throw new InvalidOperationException(
                 "ConnectionStrings:Default is required for the PostgreSQL provider.");
 
-        ValidateNpgsqlConnectionString(connectionString);
+        connectionString = NormalizeConnectionString(connectionString);
 
         return services.AddCynaraInfrastructure(
             connectionString,
@@ -112,7 +112,13 @@ public static class InfrastructureServiceCollectionExtensions
         }
     }
 
-    private static void ValidateNpgsqlConnectionString(string connectionString)
+    /// <summary>
+    /// Validates a raw connection string and, when given a
+    /// <c>postgresql://</c> URI, converts it to the Npgsql key=value form so
+    /// the rest of the stack can consume it. Throws with a clear remediation
+    /// message when the value cannot be made valid.
+    /// </summary>
+    private static string NormalizeConnectionString(string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -120,7 +126,8 @@ public static class InfrastructureServiceCollectionExtensions
                 "ConnectionStrings:Default is empty. Set the "
                 + "ConnectionStrings__Default environment variable with a "
                 + "valid Npgsql connection string (e.g. "
-                + "'Host=db;Port=5432;Database=cynara;Username=cynara;Password=...').");
+                + "'Host=db;Port=5432;Database=cynara;Username=cynara;Password=...') "
+                + "or a postgresql:// URI.");
         }
 
         char firstChar = connectionString[0];
@@ -149,19 +156,30 @@ public static class InfrastructureServiceCollectionExtensions
 
         if (startsWithUri)
         {
+            // Npgsql 10 does not parse postgresql:// URIs natively; convert
+            // to the key=value form so the rest of the stack works.
             try
             {
-                _ = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
-                return;
+                string converted = ConvertPostgresUriToKeyValue(connectionString);
+                _ = new Npgsql.NpgsqlConnectionStringBuilder(converted);
+                return converted;
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidOperationException(
+                    "ConnectionStrings:Default is a postgresql:// URI but "
+                    + "could not be converted to an Npgsql key=value "
+                    + "connection string. Make sure the host is the full "
+                    + "Render domain (e.g. dpg-xxx-a.oregon-postgres.render."
+                    + "internal:5432) and that the URI includes the database "
+                    + "name. Conversion error: " + ex.Message,
+                    ex);
             }
             catch (ArgumentException ex)
             {
                 throw new InvalidOperationException(
-                    "ConnectionStrings:Default is a postgresql:// URI but "
-                    + "Npgsql could not parse it. The URI host may be missing "
-                    + "its full Render domain (try the .render.internal or "
-                    + ".render.com form). Original parser error: "
-                    + ex.Message,
+                    "ConnectionStrings:Default URI parsed but produced an "
+                    + "invalid Npgsql key=value string: " + ex.Message,
                     ex);
             }
         }
@@ -190,6 +208,65 @@ public static class InfrastructureServiceCollectionExtensions
                 + "parser error was: " + ex.Message,
                 ex);
         }
+
+        return connectionString;
+    }
+
+    private static string ConvertPostgresUriToKeyValue(string uri)
+    {
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out Uri? parsed))
+        {
+            throw new FormatException(
+                "Not a valid absolute URI. Use the form "
+                + "'postgresql://user:password@host:port/database?...'.");
+        }
+
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder();
+
+        if (!string.IsNullOrEmpty(parsed.Host))
+        {
+            builder.Host = parsed.Host;
+        }
+
+        if (parsed.Port > 0)
+        {
+            builder.Port = parsed.Port;
+        }
+
+        string[] pathSegments = parsed.AbsolutePath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (pathSegments.Length > 0)
+        {
+            builder.Database = Uri.UnescapeDataString(pathSegments[0]);
+        }
+
+        if (!string.IsNullOrEmpty(parsed.UserInfo))
+        {
+            string[] userInfo = parsed.UserInfo.Split(':', 2);
+            builder.Username = Uri.UnescapeDataString(userInfo[0]);
+            if (userInfo.Length == 2)
+            {
+                builder.Password = Uri.UnescapeDataString(userInfo[1]);
+            }
+        }
+
+        if (!string.IsNullOrEmpty(parsed.Query))
+        {
+            string query = parsed.Query.StartsWith('?')
+                ? parsed.Query[1..]
+                : parsed.Query;
+            foreach (string pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] kv = pair.Split('=', 2);
+                string key = Uri.UnescapeDataString(kv[0]);
+                string value = kv.Length == 2
+                    ? Uri.UnescapeDataString(kv[1])
+                    : string.Empty;
+                builder[key] = value;
+            }
+        }
+
+        return builder.ConnectionString;
     }
 
     private static string DescribeChar(char c)
