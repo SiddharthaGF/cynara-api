@@ -2,14 +2,16 @@ name: Pipeline
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
 
 concurrency:
   group: pipeline-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action != 'closed' }}
 
 permissions:
   contents: read
   checks: read
+  pull-requests: write
 
 env:
   DOTNET_CONFIGURATION: Release
@@ -21,6 +23,7 @@ jobs:
   check:
     name: Format, lint, and test
     runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
     steps:
       - uses: actions/checkout@v4
 
@@ -41,3 +44,200 @@ jobs:
           --verbosity normal
           --logger "console;verbosity=normal"
           --filter "Category!=E2E"
+
+  neon-upsert:
+    name: Provision Neon branch and Render preview
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - name: Compute Neon branch name
+        id: name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
+          sanitised="$(printf '%s' "${source_ref}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/_' '-' \
+            | cut -c1-40)"
+          name="pr-${PR_NUMBER}-${sanitised}"
+          echo "name=${name}" >> "${GITHUB_OUTPUT}"
+          echo "Computed Neon branch name: ${name}"
+
+      - name: Create Neon branch
+        id: create
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ${{ steps.name.outputs.name }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Add render-preview label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['render-preview'],
+            });
+
+      - name: Wait for Render preview service
+        id: preview
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_BASE: cynara-api
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          base="https://api.render.com/v1"
+          auth_header="Authorization: Bearer ${RENDER_API_KEY}"
+          preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
+
+          deadline=$(( $(date +%s) + 900 ))
+          service_id=""
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            response=$(curl -sS -G -w "\n%{http_code}" \
+              -H "$auth_header" \
+              -H "Accept: application/json" \
+              --data-urlencode "name=${preview_name}" \
+              --data "limit=20" \
+              --data "includePreviews=true" \
+              "${base}/services")
+            code=$(printf '%s' "$response" | tail -n1)
+            body=$(printf '%s' "$response" | sed '$d')
+            if [ "$code" != "200" ]; then
+              echo "Render API returned ${code}, retrying in 10s..."
+              sleep 10
+              continue
+            fi
+            service_id=$(printf '%s' "$body" \
+              | jq -r --arg n "${preview_name}" \
+                  '.[] | select(.service.name == $n) | .service.id' \
+              | head -n1)
+            if [ -n "$service_id" ] && [ "$service_id" != "null" ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [ -z "$service_id" ] || [ "$service_id" = "null" ]; then
+            echo "::error::Could not find Render preview service '${preview_name}' after 15 minutes."
+            echo "::error::If previews are configured with manual generation in the Render dashboard, this usually means Render did not pick up the render-preview label."
+            exit 1
+          fi
+
+          echo "service_id=${service_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Write Neon connection string into Render preview
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ steps.preview.outputs.service_id }}
+          DB_URL: ${{ steps.create.outputs.db_url_with_pooler }}
+        run: |
+          set -euo pipefail
+          base="https://api.render.com/v1"
+          auth_header="Authorization: Bearer ${RENDER_API_KEY}"
+
+          # Render splits env var values on the first `=` when injecting them
+          # into the container, so a `postgresql://...?sslmode=require` URI is
+          # silently truncated to `postgresql://...?sslmode`. Rewrite the URI
+          # into Npgsql's `Host=...;Username=...;Password=...;Database=...;SslMode=...;ChannelBinding=...`
+          # form before forwarding it; the value then contains no `=` outside
+          # of the explicit key/value pairs Render is already expecting.
+          CS=$(DB_URL="${DB_URL}" python3 - <<'PY'
+          import os, sys, urllib.parse as u
+          raw = os.environ["DB_URL"]
+          p = u.urlparse(raw)
+          qs = dict(u.parse_qsl(p.query, keep_blank_values=True))
+          def grab(*keys):
+              for k in keys:
+                  if k in qs and qs[k] != "":
+                      return qs[k]
+              return None
+          sslmode = (grab("sslmode", "ssl") or "require").lower()
+          if sslmode not in ("disable", "prefer", "require", "verify-ca", "verify-full"):
+              # Npgsql only accepts the three legacy values; neon uses `require`.
+              sslmode = "require"
+          channel = (grab("channel_binding") or "require").lower()
+          if channel not in ("disable", "prefer", "require"):
+              channel = "require"
+          password = u.unquote(p.password or "")
+          username = u.unquote(p.username or "")
+          database = (p.path or "").lstrip("/") or ""
+          host = p.hostname or ""
+          port = p.port or 5432
+          def q(v):
+              return "'" + str(v).replace("'", "''") + "'"
+          parts = [
+              f"Host={q(host)}",
+              f"Port={port}",
+              f"Database={q(database)}",
+              f"Username={q(username)}",
+              f"Password={q(password)}",
+              f"SSL Mode={sslmode}",
+              f"Channel Binding={channel}",
+              "Trust Server Certificate=true",
+          ]
+          sys.stdout.write("; ".join(parts))
+          PY
+          )
+
+          curl -fsS -X PUT \
+            -H "$auth_header" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n --arg v "${CS}" '{value: $v}')" \
+            "${base}/services/${RENDER_SERVICE_ID}/env-vars/ConnectionStrings__Default"
+
+      - name: Trigger deploy of Render preview
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ steps.preview.outputs.service_id }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys"
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: neon-preview
+          message: Neon branch ready.
+
+  neon-delete:
+    name: Delete Neon branch
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Compute Neon branch name
+        id: name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
+          sanitised="$(printf '%s' "${source_ref}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/_' '-' \
+            | cut -c1-40)"
+          name="pr-${PR_NUMBER}-${sanitised}"
+          echo "name=${name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Delete Neon branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.name.outputs.name }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Delete sticky PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: neon-preview
+          delete: true
