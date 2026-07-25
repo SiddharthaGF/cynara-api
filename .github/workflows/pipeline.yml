@@ -52,19 +52,10 @@ jobs:
     steps:
       - name: Compute Neon branch name
         id: name
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          set -euo pipefail
-          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
-          sanitised="$(printf '%s' "${source_ref}" \
-            | tr '[:upper:]' '[:lower:]' \
-            | tr '/_' '-' \
-            | cut -c1-40)"
-          name="pr-${PR_NUMBER}-${sanitised}"
-          echo "name=${name}" >> "${GITHUB_OUTPUT}"
-          echo "Computed Neon branch name: ${name}"
+        uses: ./.github/actions/compute-neon-branch-name
+        with:
+          head_ref: ${{ github.head_ref }}
+          pr_number: ${{ github.event.number }}
 
       - name: Create Neon branch
         id: create
@@ -97,7 +88,9 @@ jobs:
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
           preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
 
-          deadline=$(( $(date +%s) + 900 ))
+          # Render is configured to spawn previews on the `render-preview`
+          # label, so the service typically appears within 60–120 seconds.
+          deadline=$(( $(date +%s) + 300 ))
           service_id=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
             response=$(curl -sS -G -w "\n%{http_code}" \
@@ -125,7 +118,7 @@ jobs:
           done
 
           if [ -z "$service_id" ] || [ "$service_id" = "null" ]; then
-            echo "::error::Could not find Render preview service '${preview_name}' after 15 minutes."
+            echo "::error::Could not find Render preview service '${preview_name}' after 5 minutes."
             echo "::error::If previews are configured with manual generation in the Render dashboard, this usually means Render did not pick up the render-preview label."
             exit 1
           fi
@@ -192,17 +185,6 @@ jobs:
             --data "$(jq -n --arg v "${CS}" '{value: $v}')" \
             "${base}/services/${RENDER_SERVICE_ID}/env-vars/ConnectionStrings__Default"
 
-      - name: Trigger deploy of Render preview
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ steps.preview.outputs.service_id }}
-        run: |
-          set -euo pipefail
-          curl -fsS -X POST \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Accept: application/json" \
-            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys"
-
       - name: Comment on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
@@ -216,18 +198,10 @@ jobs:
     steps:
       - name: Compute Neon branch name
         id: name
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          set -euo pipefail
-          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
-          sanitised="$(printf '%s' "${source_ref}" \
-            | tr '[:upper:]' '[:lower:]' \
-            | tr '/_' '-' \
-            | cut -c1-40)"
-          name="pr-${PR_NUMBER}-${sanitised}"
-          echo "name=${name}" >> "${GITHUB_OUTPUT}"
+        uses: ./.github/actions/compute-neon-branch-name
+        with:
+          head_ref: ${{ github.head_ref }}
+          pr_number: ${{ github.event.number }}
 
       - name: Delete Neon branch
         uses: neondatabase/delete-branch-action@v3

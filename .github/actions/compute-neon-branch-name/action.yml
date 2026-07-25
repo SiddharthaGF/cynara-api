@@ -1,0 +1,43 @@
+name: Compute Neon branch name
+description: |
+  Derive a stable Neon branch name from the PR context. The branch is
+  named `pr-<number>-<sanitised head ref>` so creators and deleters agree
+  on the same identifier across runs.
+
+inputs:
+  head_ref:
+    description: The PR head ref (`github.head_ref`).
+    required: true
+  pr_number:
+    description: The PR number (`github.event.number`).
+    required: true
+  ref_name:
+    description: Fallback ref name when `head_ref` is empty (push-style events).
+    required: false
+    default: ""
+
+outputs:
+  name:
+    description: The computed Neon branch name.
+    value: ${{ steps.compute.outputs.name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute
+      id: compute
+      shell: bash
+      env:
+        HEAD_REF: ${{ inputs.head_ref }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REF_NAME: ${{ inputs.ref_name }}
+      run: |
+        set -euo pipefail
+        source_ref="${HEAD_REF:-${REF_NAME:-pr-${PR_NUMBER}}}"
+        sanitised="$(printf '%s' "${source_ref}" \
+          | tr '[:upper:]' '[:lower:]' \
+          | tr '/_' '-' \
+          | cut -c1-40)"
+        name="pr-${PR_NUMBER}-${sanitised}"
+        echo "name=${name}" >> "${GITHUB_OUTPUT}"
+        echo "Computed Neon branch name: ${name}"
