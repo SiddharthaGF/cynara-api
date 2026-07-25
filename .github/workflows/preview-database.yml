@@ -12,6 +12,14 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  # Neon branch name = "pr-<number>-<sanitised head ref>". The head ref is
+  # sanitised because Neon branch names must be lowercase, must not contain
+  # "/" or other punctuation, and are capped at 60 characters. We cap the
+  # head-ref portion at 40 chars to leave room for the "pr-<N>-" prefix
+  # under that limit.
+  NEON_BRANCH_NAME: pr-${{ github.event.number }}-${{ github.head_ref | lower | replace('/', '-') | replace('_', '-') | trunc(40, '') }}
+
 jobs:
   upsert:
     name: Create or update Neon branch for PR
@@ -23,7 +31,7 @@ jobs:
         uses: neondatabase/create-branch-action@v5
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: pr-${{ github.event.number }}
+          branch_name: ${{ env.NEON_BRANCH_NAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Wait for Render preview service
@@ -108,7 +116,7 @@ jobs:
         with:
           header: neon-preview
           message: |
-            Neon branch `pr-${{ github.event.number }}` ready.
+            Neon branch `${{ env.NEON_BRANCH_NAME }}` ready.
 
             - Pooled connection string written into Render preview instance.
             - Schema inherited from the parent branch; no migrations run.
@@ -123,7 +131,7 @@ jobs:
         uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: pr-${{ github.event.number }}
+          branch: ${{ env.NEON_BRANCH_NAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Delete sticky PR comment
