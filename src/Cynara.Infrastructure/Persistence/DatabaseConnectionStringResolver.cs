@@ -10,7 +10,9 @@ namespace Cynara.Infrastructure.Persistence;
 /// both inject the same setting from the host (Render injects the Neon
 /// connection string into <c>ConnectionStrings__Default</c> in both the
 /// main service and the preview instances). Env vars take precedence over
-/// <c>appsettings.json</c>.
+/// <c>appsettings.json</c>. URI-formatted strings are converted to the
+/// Npgsql key/value form so that special characters in the password do not
+/// depend on the transport chain between the Neon API and the running app.
 /// </summary>
 public sealed class DatabaseConnectionStringResolver(IConfiguration configuration)
 {
