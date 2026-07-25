@@ -25,9 +25,6 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
         run: |
           set -euo pipefail
-          # Sanitise the head ref so the name fits Neon's rules: lowercase,
-          # no '/' or '_', capped at 40 chars. On a plain `push` event
-          # `github.head_ref` is null, so fall back to `github.ref_name`.
           source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
           sanitised="$(printf '%s' "${source_ref}" \
             | tr '[:upper:]' '[:lower:]' \
@@ -45,12 +42,6 @@ jobs:
           branch_name: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      # Tell Render to create the preview instance. Render is configured with
-      # `previews.generation: manual` (in the Render dashboard), so it only
-      # creates a preview when the PR has the `render-preview` label. We add
-      # the label here, after the Neon branch is ready, so the preview service
-      # is created deterministically and the connection string we write next
-      # is not lost on the first boot.
       - name: Add render-preview label
         uses: actions/github-script@v7
         with:
@@ -72,9 +63,6 @@ jobs:
           set -euo pipefail
           base="https://api.render.com/v1"
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
-          # Render names preview instances "<base> PR #<N>" (with spaces and
-          # a literal hash). The hostname slug is "-pr-<n>" but that is not
-          # the service name, so query by the real name.
           preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
 
           deadline=$(( $(date +%s) + 900 ))
