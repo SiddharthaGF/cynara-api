@@ -50,6 +50,11 @@ setup, configuration overrides, CORS for local `cynara-web`, Form AI
 env vars, and failure diagnostics — see
 [`docs/local-development.md`](docs/local-development.md).
 
+> Committed `appsettings*.json` files do **not** carry the SQL Server
+> password. Provide it via the `ConnectionStrings__Default` env var or a
+> gitignored `appsettings.*.local.json` file (see
+> [`docs/local-development.md`](docs/local-development.md#first-time-setup)).
+
 ### Notable libraries
 
 | Library | Role |

@@ -26,9 +26,10 @@ TestResults/
 .DS_Store
 Thumbs.db
 
-## Local config overrides (none — appsettings.json is committed and stable)
-# *.local.json
-# appsettings.*.local.json
+## Local config overrides — committed appsettings carry the public shape only;
+## per-developer secrets live in `appsettings.*.local.json` (gitignored).
+*.local.json
+appsettings.*.local.json
 
 ## Local tooling caches
 .atl/

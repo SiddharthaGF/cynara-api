@@ -63,15 +63,35 @@ dotnet tool restore
 dotnet husky install
 ```
 
-The API ships with `ConnectionStrings:Default` pointing at the local MSSQL
-container in `appsettings.json` and `appsettings.Development.json`. Override
-via environment variables when needed (preferred for secrets):
+Committed `appsettings.json` / `appsettings.Development.json` /
+`appsettings.Production.json` (and the equivalent files for the
+`Cynara.Seed` tool) contain the connection string **without the password**
+— the SA password is a secret and must not live in source control. Pick
+**one** of the following to provide the real connection string at runtime:
 
-```bash
-export ConnectionStrings__Default='Server=localhost,1433;Database=cynara;User Id=sa;Password=...;Encrypt=False;TrustServerCertificate=True;'
-```
+1. **Environment variable** (preferred for CI and any non-developer shell):
+   ```bash
+   export ConnectionStrings__Default='Server=localhost,1433;Database=cynara;User Id=sa;Password=...;Encrypt=False;TrustServerCertificate=True;'
+   ```
+   `__` is the standard .NET configuration section separator. The variable
+   value overrides the entire `ConnectionStrings:Default` entry — it does
+   not concatenate. For the seed tool, you can also use
+   `SEED_CONNECTION_STRING` (see `tools/Cynara.Seed/Program.cs`).
 
-`__` is the standard .NET configuration section separator.
+2. **Local override file** (only on developer workstations; gitignored):
+   ```bash
+   cp src/Cynara.Api/appsettings.Development.local.example.json \
+      src/Cynara.Api/appsettings.Development.local.json
+   cp tools/Cynara.Seed/appsettings.local.example.json \
+      tools/Cynara.Seed/appsettings.local.json
+   ```
+   Then edit each `.local.json` and paste the real connection string. The
+   `*.local.json` pattern is in `.gitignore`, so the real password never
+   reaches the repo.
+
+The dev MSSQL container (`make mssql-up`) ships with the dev-only SA
+password `CynaraSqlDev!2026` — only use that locally. Production
+credentials come from your secret store / CI variables.
 
 ### Why EF Core In-Memory for tests?
 
