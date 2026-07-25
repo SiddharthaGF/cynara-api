@@ -145,6 +145,7 @@ public static class InfrastructureServiceCollectionExtensions
         }
         catch (ArgumentException ex)
         {
+            Console.WriteLine(connectionString);
             throw new InvalidOperationException(
                 "ConnectionStrings:Default is not a valid Npgsql connection "
                 + "string. Check the environment variable value; the original "
