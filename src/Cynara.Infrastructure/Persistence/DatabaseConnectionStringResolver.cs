@@ -3,26 +3,47 @@ using Microsoft.Extensions.Configuration;
 namespace Cynara.Infrastructure.Persistence;
 
 /// <summary>
-/// Resolves the active PostgreSQL connection string based on the host
-/// environment. <c>ASPNETCORE_ENVIRONMENT=Production</c> selects
-/// <c>ConnectionStrings:Prod</c>; any other value selects
-/// <c>ConnectionStrings:Default</c>. Env vars
-/// (<c>ConnectionStrings__Prod</c>, <c>ConnectionStrings__Default</c>) take
-/// precedence over the values defined in <c>appsettings.json</c>.
+/// Resolves the active PostgreSQL connection string. Resolution order:
+/// <list type="number">
+///   <item><c>ConnectionStrings:ActiveName</c> — explicit named connection
+///     (used by Neon PR previews to pick a per-PR branch without touching
+///     <c>ASPNETCORE_ENVIRONMENT</c>).</item>
+///   <item><c>ASPNETCORE_ENVIRONMENT=Development</c> →
+///     <c>ConnectionStrings:Default</c>; any other value →
+///     <c>ConnectionStrings:Prod</c>.</item>
+/// </list>
+/// Env vars (<c>ConnectionStrings__Prod</c>, <c>ConnectionStrings__Default</c>,
+/// <c>ConnectionStrings__ActiveName</c>) take precedence over
+/// <c>appsettings.json</c>.
 /// </summary>
 public sealed class DatabaseConnectionStringResolver(IConfiguration configuration)
 {
+    public const string ActiveNameSetting = "ConnectionStrings:ActiveName";
+    public const string DefaultConnectionName = "Default";
+    public const string ProductionConnectionName = "Prod";
+
     public string Resolve()
     {
-        string activeConnection = string.Equals(
-            configuration["ASPNETCORE_ENVIRONMENT"],
-            "Development",
-            StringComparison.Ordinal)
-            ? "Development"
-            : "Default";
+        string activeConnection = ResolveActiveConnectionName();
 
         return configuration.GetConnectionString(activeConnection)
             ?? throw new InvalidOperationException(
                 $"ConnectionStrings:{activeConnection} is required for the PostgreSQL provider.");
+    }
+
+    private string ResolveActiveConnectionName()
+    {
+        string? explicitName = configuration[ActiveNameSetting];
+        if (!string.IsNullOrWhiteSpace(explicitName))
+        {
+            return explicitName;
+        }
+
+        return string.Equals(
+            configuration["ASPNETCORE_ENVIRONMENT"],
+            "Development",
+            StringComparison.Ordinal)
+            ? DefaultConnectionName
+            : ProductionConnectionName;
     }
 }

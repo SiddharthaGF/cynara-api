@@ -93,6 +93,16 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceProvider services,
         CancellationToken cancellationToken = default)
     {
+        IConfiguration configuration = services.GetRequiredService<IConfiguration>();
+        if (IsPreviewStorage(configuration))
+        {
+            // Neon PR preview branches inherit the schema from the parent
+            // branch; EnsureCreatedAsync would be a noisy no-op on every
+            // restart and may also interact badly with concurrent boot
+            // attempts while Render is still warming the container.
+            return;
+        }
+
         AsyncServiceScope scope = services.CreateAsyncScope();
         try
         {
