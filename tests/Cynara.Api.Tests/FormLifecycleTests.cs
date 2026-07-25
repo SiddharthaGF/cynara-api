@@ -287,11 +287,9 @@ public sealed class FormLifecycleTests : IDisposable
     }
 }
 
-internal sealed class FormWebApplicationFactory(TestDatabaseSettings database)
-    : CynaraWebApplicationFactory(database)
+internal sealed class FormWebApplicationFactory : CynaraWebApplicationFactory
 {
     public FormWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
     {
     }
 }

@@ -12,7 +12,7 @@ internal sealed class CynaraTenantWebApplicationFactory : CynaraWebApplicationFa
     public const string OtherCode = "secondary";
 
     public CynaraTenantWebApplicationFactory()
-        : base(TestDatabaseSettings.SqliteInMemory)
+        : base()
     {
         BootstrapOptions.BootstrapCode = PrimaryCode;
         BootstrapOptions.BootstrapName = "primary workspace";

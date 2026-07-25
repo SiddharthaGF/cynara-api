@@ -12,7 +12,7 @@ using Cynara.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cynara.Infrastructure.Modules.Preview;
+namespace Cynara.Infrastructure.Modules.Seed;
 
 public static class DemoShowcaseSeeder
 {
@@ -56,13 +56,6 @@ public static class DemoShowcaseSeeder
         {
             await scope.DisposeAsync().ConfigureAwait(false);
         }
-    }
-
-    public static Task SeedPreviewDemoAsync(
-        this IServiceProvider services,
-        CancellationToken cancellationToken = default)
-    {
-        return services.SeedDemoShowcaseAsync(cancellationToken);
     }
 
     private static async Task<Hospital> ResolveHospitalAsync(

@@ -2,8 +2,8 @@ name: Apply EF Core migrations
 description: |
   Apply pending EF Core migrations against a SQL Server database using
   `dotnet ef database update`. The startup project is bootstrapped with
-  ASPNETCORE_ENVIRONMENT so it loads the SqlServer provider. Callers must
-  run actions/checkout first so the workspace is populated.
+  ASPNETCORE_ENVIRONMENT so it loads the right appsettings.{Environment}.json.
+  Callers must run actions/checkout first so the workspace is populated.
 
 inputs:
   db-connection-string:
@@ -12,7 +12,7 @@ inputs:
   aspnetcore-environment:
     description: |
       ASPNETCORE_ENVIRONMENT value passed to the startup project so it picks
-      the right appsettings.{Environment}.json (which sets Database:Provider).
+      the right appsettings.{Environment}.json.
     required: false
     default: "Production"
   project:

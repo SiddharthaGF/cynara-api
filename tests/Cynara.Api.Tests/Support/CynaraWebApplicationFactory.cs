@@ -2,27 +2,37 @@ using Cynara.Api.Common.ActorContext;
 using Cynara.Api.Hosting;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Cynara.Api.Tests.Support;
 
-internal class CynaraWebApplicationFactory(
-    TestDatabaseSettings database,
-    HospitalBootstrapOptions? bootstrapOptions = null)
-    : WebApplicationFactory<Program>
+internal class CynaraWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public CynaraWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
+    public CynaraWebApplicationFactory(
+        HospitalBootstrapOptions? bootstrapOptions = null)
     {
+        BootstrapOptions = bootstrapOptions ?? BuildDefaultOptions();
+        Database = InMemoryTestDatabaseFactory.Create();
     }
 
-    public HospitalBootstrapOptions BootstrapOptions { get; } =
-        bootstrapOptions ?? BuildDefaultOptions();
+    public HospitalBootstrapOptions BootstrapOptions { get; }
+
+    public InMemoryTestDatabaseFactory Database { get; }
+
+    public CynaraDbContext CreateDbContext()
+    {
+        return Database.CreateDbContext();
+    }
 
     private static HospitalBootstrapOptions BuildDefaultOptions()
     {
@@ -37,8 +47,30 @@ internal class CynaraWebApplicationFactory(
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+
         _ = builder.UseEnvironment("Development");
-        _ = builder.UseCynaraTestDatabase(database);
+
+        _ = builder.ConfigureTestServices(services =>
+        {
+            // Replace the SqlServer-backed DbContext registration produced by
+            // AddCynaraInfrastructure with an EF Core In-Memory store bound
+            // to this factory's database name.
+            _ = services.RemoveAll<DbContextOptions<CynaraDbContext>>();
+            _ = services.RemoveAll<CynaraDbContext>();
+            _ = services.AddSingleton(Database.ContextOptions);
+            _ = services.AddDbContext<CynaraDbContext>((provider, options) =>
+                _ = options.UseInMemoryDatabase(Database.DatabaseName)
+                    .UseApplicationServiceProvider(provider)
+                    .ConfigureWarnings(warnings =>
+                        _ = warnings.Ignore(
+                            InMemoryEventId.TransactionIgnoredWarning)));
+            _ = services.PostConfigure<HospitalContextOptions>(options =>
+            {
+                options.HeaderName = BootstrapOptions.HeaderName
+                    ?? HttpContextHospitalExtensions.DefaultHeaderName;
+            });
+        });
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
@@ -50,8 +82,6 @@ internal class CynaraWebApplicationFactory(
             configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
-                    ["Database:Provider"] = database.Provider,
-                    ["ConnectionStrings:Default"] = database.ConnectionString,
                     ["Hospitals:BootstrapCode"] = BootstrapOptions.BootstrapCode
                         ?? HospitalBootstrap.DefaultBootstrapCode,
                     ["Hospitals:BootstrapName"] = BootstrapOptions.BootstrapName
@@ -62,15 +92,6 @@ internal class CynaraWebApplicationFactory(
                         ? "true"
                         : "false",
                 });
-        });
-
-        _ = builder.ConfigureServices(services =>
-        {
-            _ = services.PostConfigure<HospitalContextOptions>(options =>
-            {
-                options.HeaderName = BootstrapOptions.HeaderName
-                    ?? HttpContextHospitalExtensions.DefaultHeaderName;
-            });
         });
 
         return base.CreateHost(builder);

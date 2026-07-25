@@ -142,7 +142,6 @@ internal sealed class GuardFactory : CynaraWebApplicationFactory
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
 (StringComparer.Ordinal)
             {
-                ["CYNARA_ENV"] = "preview",
                 ["OPENAI_API_KEY"] = "test-api-key",
                 ["OPENAI_BASE_URL"] = "https://example.test/v1",
                 ["OPENAI_MODEL"] = "test-model",

@@ -3,7 +3,6 @@ using Cynara.Api.Modules.Health;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Hospitals;
-using Cynara.Infrastructure.Modules.Preview;
 
 using JsonApiDotNetCore.Configuration;
 
@@ -38,13 +37,6 @@ internal static class WebApplicationExtensions
         await app.Services
             .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
             .ConfigureAwait(false);
-
-        if (InfrastructureServiceCollectionExtensions.IsPreviewStorage(
-                app.Configuration))
-        {
-            await app.Services.SeedPreviewDemoAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
 
         if (app.Environment.IsDevelopment())
         {

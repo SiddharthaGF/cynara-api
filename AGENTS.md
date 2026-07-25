@@ -15,10 +15,12 @@ behavior. Do not silently drop unknown fields or weaken contract checks.
 
 - .NET 10 / ASP.NET Core minimal APIs
 - Modular layered solution: Api modules → Application modules → Domain;
-  Infrastructure modules provide persistence and schema validation
-- EF Core + SQLite (default local DB)
+ Infrastructure modules provide persistence and schema validation
+- EF Core + SQL Server (single provider, hardcoded)
 - JSON Schema Draft 2020-12 via `JsonSchema.Net`
-- xUnit + `WebApplicationFactory` integration tests
+- xUnit + `WebApplicationFactory` integration tests against EF Core
+ In-Memory (one isolated store per factory; no Docker required to run
+ the suite)
 
 Default listen URL: `http://localhost:5000`.
 

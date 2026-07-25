@@ -1,9 +1,11 @@
 SOLUTION := Cynara.Api.sln
 CONFIGURATION := Debug
 SONAR_COMPOSE := docker/sonarqube/docker-compose.yml
+MSSQL_COMPOSE := docker/mssql/docker-compose.yml
 SEED_ARGS ?=
 
-.PHONY: restore fmt fmt\:check lint lint\:fix test test-mssql check fix seed \
+.PHONY: restore fmt fmt\:check lint lint\:fix test check fix seed \
+	mssql-up mssql-down mssql-logs \
 	sonar-up sonar-down sonar-bootstrap sonar-scan sonar
 
 restore:
@@ -24,11 +26,7 @@ lint\:fix: restore
 
 test: restore
 	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity normal \
-		--logger "console;verbosity=normal" --filter "Category!=MsSql"
-
-test-mssql: restore
-	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity normal \
-		--logger "console;verbosity=normal" --filter "Category=MsSql"
+		--logger "console;verbosity=normal"
 
 check: restore fmt\:check lint test
 
@@ -36,8 +34,17 @@ fix: restore fmt
 	dotnet format $(SOLUTION) style --severity info
 	dotnet format $(SOLUTION) analyzers --severity info
 
-seed:
+seed: mssql-up
 	dotnet run --project tools/Cynara.Seed -c $(CONFIGURATION) -- $(SEED_ARGS)
+
+mssql-up:
+	docker compose -f $(MSSQL_COMPOSE) up -d
+
+mssql-down:
+	docker compose -f $(MSSQL_COMPOSE) down
+
+mssql-logs:
+	docker compose -f $(MSSQL_COMPOSE) logs -f mssql
 
 sonar-up:
 	docker compose -f $(SONAR_COMPOSE) up -d

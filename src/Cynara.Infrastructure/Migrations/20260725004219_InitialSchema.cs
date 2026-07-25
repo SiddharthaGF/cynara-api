@@ -15,13 +15,13 @@ namespace Cynara.Infrastructure.Migrations
                 name: "ai_provider_settings",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ApiKey = table.Column<string>(type: "TEXT", maxLength: 2048, nullable: true),
-                    BaseUrl = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
-                    Model = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    JsonObject = table.Column<bool>(type: "INTEGER", nullable: true),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ApiKey = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    BaseUrl = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: true),
+                    Model = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    JsonObject = table.Column<bool>(type: "bit", nullable: true),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -32,14 +32,14 @@ namespace Cynara.Infrastructure.Migrations
                 name: "audit_events",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ResourceType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    ResourceId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Action = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    ActorId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    OccurredAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ResourceType = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    ResourceId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Action = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    ActorId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    OccurredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    MetadataJson = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -50,13 +50,13 @@ namespace Cynara.Infrastructure.Migrations
                 name: "component_definitions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    DeletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    DeletedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -67,19 +67,19 @@ namespace Cynara.Infrastructure.Migrations
                 name: "failure_logs",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    OccurredAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    ExceptionType = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Message = table.Column<string>(type: "TEXT", nullable: false),
-                    StackTrace = table.Column<string>(type: "TEXT", nullable: true),
-                    RequestMethod = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
-                    RequestPath = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    RequestQuery = table.Column<string>(type: "TEXT", nullable: true),
-                    StatusCode = table.Column<int>(type: "INTEGER", nullable: false),
-                    TraceId = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    ActorId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OccurredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    ExceptionType = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StackTrace = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    RequestMethod = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: true),
+                    RequestPath = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: true),
+                    RequestQuery = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    StatusCode = table.Column<int>(type: "int", nullable: false),
+                    TraceId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    ActorId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    MetadataJson = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -90,13 +90,13 @@ namespace Cynara.Infrastructure.Migrations
                 name: "form_definitions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    DeletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    DeletedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -107,14 +107,14 @@ namespace Cynara.Infrastructure.Migrations
                 name: "hospitals",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    RowVersion = table.Column<uint>(type: "INTEGER", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
+                    MetadataJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    RowVersion = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -125,18 +125,18 @@ namespace Cynara.Infrastructure.Migrations
                 name: "component_versions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ComponentDefinitionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Version = table.Column<string>(type: "TEXT", maxLength: 32, nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ClinicalSchemaJson = table.Column<string>(type: "TEXT", nullable: false),
-                    UiSchemaJson = table.Column<string>(type: "TEXT", nullable: true),
-                    ContentHash = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    RowVersion = table.Column<uint>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    PublishedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    RetiredAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ComponentDefinitionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Version = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ClinicalSchemaJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UiSchemaJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ContentHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    RowVersion = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    PublishedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    RetiredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -153,25 +153,25 @@ namespace Cynara.Infrastructure.Migrations
                 name: "form_versions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    FormDefinitionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Version = table.Column<string>(type: "TEXT", maxLength: 32, nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ClinicalSchemaJson = table.Column<string>(type: "TEXT", nullable: false),
-                    UiSchemaJson = table.Column<string>(type: "TEXT", nullable: true),
-                    RulesSchemaJson = table.Column<string>(type: "TEXT", nullable: true),
-                    ContentHash = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    DependencyMetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    RowVersion = table.Column<uint>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    SubmittedForReviewAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    PublishedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    RetiredAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    PublishedSchemaVersion = table.Column<string>(type: "TEXT", maxLength: 32, nullable: true),
-                    LastReviewComment = table.Column<string>(type: "TEXT", nullable: true),
-                    LastReviewDecision = table.Column<string>(type: "TEXT", maxLength: 32, nullable: true),
-                    LastReviewedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FormDefinitionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Version = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ClinicalSchemaJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UiSchemaJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    RulesSchemaJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ContentHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    DependencyMetadataJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    RowVersion = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    SubmittedForReviewAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    PublishedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    RetiredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    PublishedSchemaVersion = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: true),
+                    LastReviewComment = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    LastReviewDecision = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: true),
+                    LastReviewedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -188,17 +188,17 @@ namespace Cynara.Infrastructure.Migrations
                 name: "form_responses",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    FormVersionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    AnswersJson = table.Column<string>(type: "TEXT", nullable: false),
-                    RevisionNumber = table.Column<uint>(type: "INTEGER", nullable: false),
-                    RowVersion = table.Column<uint>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    CompletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    DeletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FormVersionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    AnswersJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    RevisionNumber = table.Column<long>(type: "bigint", nullable: false),
+                    RowVersion = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    CompletedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    DeletedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -215,14 +215,14 @@ namespace Cynara.Infrastructure.Migrations
                 name: "form_response_revisions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    HospitalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    FormResponseId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RevisionNumber = table.Column<uint>(type: "INTEGER", nullable: false),
-                    AnswersJson = table.Column<string>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ActorId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HospitalId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FormResponseId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RevisionNumber = table.Column<long>(type: "bigint", nullable: false),
+                    AnswersJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ActorId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -280,7 +280,8 @@ namespace Cynara.Infrastructure.Migrations
                 name: "IX_component_versions_HospitalId_ComponentDefinitionId_Version",
                 table: "component_versions",
                 columns: new[] { "HospitalId", "ComponentDefinitionId", "Version" },
-                unique: true);
+                unique: true,
+                filter: "[Version] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_failure_logs_ExceptionType",
@@ -348,7 +349,8 @@ namespace Cynara.Infrastructure.Migrations
                 name: "IX_form_versions_HospitalId_FormDefinitionId_Version",
                 table: "form_versions",
                 columns: new[] { "HospitalId", "FormDefinitionId", "Version" },
-                unique: true);
+                unique: true,
+                filter: "[Version] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_hospitals_Code",

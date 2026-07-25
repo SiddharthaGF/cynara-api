@@ -1,7 +1,7 @@
 name: Render IIS publish config
 description: |
   Write appsettings.{Environment}.json and web.config environment
-  variables for the published Cynara API (SqlServer connection).
+  variables for the published Cynara API (SQL Server connection).
 
 inputs:
   db-connection-string:
@@ -36,7 +36,6 @@ runs:
         aspnet_env = os.environ["ASPNETCORE_ENVIRONMENT_VALUE"]
 
         cfg = {
-          "Database": {"Provider": "SqlServer"},
           "ConnectionStrings": {"Default": cs},
         }
         settings_name = f"appsettings.{aspnet_env}.json"
@@ -89,9 +88,6 @@ runs:
         })
         ET.SubElement(env_vars, "environmentVariable", {
           "name": "ConnectionStrings__Default", "value": cs,
-        })
-        ET.SubElement(env_vars, "environmentVariable", {
-          "name": "Database__Provider", "value": "SqlServer",
         })
 
         out_path = publish / "web.config"

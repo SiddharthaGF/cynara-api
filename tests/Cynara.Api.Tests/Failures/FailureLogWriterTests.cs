@@ -1,10 +1,11 @@
+using Cynara.Api.Tests.Support;
 using Cynara.Application.Failures;
 using Cynara.Domain.Failures;
 using Cynara.Infrastructure.Failures;
 using Cynara.Infrastructure.Persistence;
 
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,32 +13,21 @@ namespace Cynara.Api.Tests.Failures;
 
 public sealed class FailureLogWriterTests : IDisposable
 {
-    private readonly SqliteConnection connection = new("Data Source=:memory:");
+    private readonly InMemoryTestDatabaseFactory database =
+        InMemoryTestDatabaseFactory.Create();
+
     private readonly ServiceProvider serviceProvider;
 
     public FailureLogWriterTests()
     {
-        connection.Open();
-
-        DbContextOptions<CynaraDbContext> options =
-            new DbContextOptionsBuilder<CynaraDbContext>()
-                .UseSqlite(connection)
-                .Options;
-
-        using (CynaraDbContext dbContext = new(options))
-        {
-            _ = dbContext.Database.EnsureCreated();
-        }
-
         ServiceCollection services = new();
-        _ = services.AddScoped(_ => new CynaraDbContext(options));
+        _ = services.AddScoped(_ => database.CreateDbContext());
         serviceProvider = services.BuildServiceProvider();
     }
 
     public void Dispose()
     {
         serviceProvider.Dispose();
-        connection.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -104,11 +94,18 @@ public sealed class FailureLogWriterTests : IDisposable
     {
         DbContextOptions<CynaraDbContext> badOptions =
             new DbContextOptionsBuilder<CynaraDbContext>()
-                .UseSqlite("Data Source=/nonexistent/path/db.sqlite")
+                .UseInMemoryDatabase("cynara_failure_test_unreachable")
+                .ConfigureWarnings(warnings =>
+                    _ = warnings.Ignore(
+                        InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
+        // Wrap the broken options in a service that throws when the writer
+        // resolves a scope, to simulate the production "persistence failed"
+        // path without depending on a real database.
         ServiceCollection services = new();
-        _ = services.AddScoped(_ => new CynaraDbContext(badOptions));
+        _ = services.AddScoped<CynaraDbContext>(_ => throw new InvalidOperationException("simulated persistence failure"));
+        _ = services.AddSingleton(badOptions);
         await using ServiceProvider provider = services.BuildServiceProvider();
 
         var writer = new FailureLogWriter(

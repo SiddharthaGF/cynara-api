@@ -2,7 +2,7 @@
 
 Reproducible setup for `cynara-api` on a clean checkout. Targets .NET 10
 (`global.json` pins `10.0.302` with `rollForward: latestFeature`), ASP.NET
-Core minimal APIs, EF Core + SQLite (default), and JSON:API over
+Core minimal APIs, EF Core + SQL Server, and JSON:API over
 `application/vnd.api+json`.
 
 ## Prerequisites
@@ -10,9 +10,9 @@ Core minimal APIs, EF Core + SQLite (default), and JSON:API over
 | Tool | Version | Notes |
 |------|---------|-------|
 | .NET SDK | `10.0.302` (or any `10.0.x` with `latestFeature`) | Pin via [`global.json`](../global.json); install via [dotnet.microsoft.com](https://dotnet.microsoft.com/download) or your package manager. |
+| Docker Desktop | optional | Only required for `make mssql-up` (running the API locally or seeding the demo showcase) and `make sonar*`. Not needed to run `make test`. |
 | Git | recent | Required by Husky.Net and `git config` actions. |
 | Bash | POSIX | Used by `Makefile`, Husky hooks, and SonarQube scripts. |
-| Docker Desktop | optional | Only required for `make sonar*` and `make test-mssql` (Testcontainers pulls a SQL Server image). |
 | curl or HTTPie | optional | For hitting [`http/cynara.http`](../http/cynara.http) sample requests. |
 
 ### Platform notes
@@ -50,6 +50,7 @@ IDE-launched commits work even when the shell profile is not sourced.
 git clone https://github.com/ailuracode/cynara-api.git
 cd cynara-api
 dotnet restore          # also installs Husky.Net pre-commit hooks
+make mssql-up           # start the local MSSQL container
 ```
 
 `dotnet restore` triggers [`Directory.Build.targets`](../Directory.Build.targets)
@@ -62,118 +63,126 @@ dotnet tool restore
 dotnet husky install
 ```
 
-### Configure local settings (optional)
-
-The committed `appsettings.json` and `appsettings.Development.json` ship
-with safe defaults (SQLite, `cynara.db` next to the binary). To override
-locally without editing the committed files:
+The API ships with `ConnectionStrings:Default` pointing at the local MSSQL
+container in `appsettings.json` and `appsettings.Development.json`. Override
+via environment variables when needed (preferred for secrets):
 
 ```bash
-cp src/Cynara.Api/appsettings.Local.json.example \
-   src/Cynara.Api/appsettings.Local.json
-$EDITOR src/Cynara.Api/appsettings.Local.json
-```
-
-`appsettings.Local.json` is matched by the
-`appsettings.*.local.json` pattern in [`.gitignore`](../.gitignore) and
-will not be committed. ASP.NET Core loads `appsettings.{Environment}.json`
-after the base file, so `appsettings.Local.json` is layered on top in
-every environment.
-
-Override individual values via environment variables (preferred for
-secrets):
-
-```bash
-export ConnectionStrings__Default='Data Source=cynara.local.db'
-export Database__Provider='Sqlite'
-export Cors__AllowedOrigins__0='http://localhost:3000'
+export ConnectionStrings__Default='Server=localhost,1433;Database=cynara;User Id=sa;Password=...;Encrypt=False;TrustServerCertificate=True;'
 ```
 
 `__` is the standard .NET configuration section separator.
 
+### Why EF Core In-Memory for tests?
+
+The integration suite runs against `Microsoft.EntityFrameworkCore.InMemory`
+because every concurrency, validation, and tenant-isolation behaviour
+asserted by the tests is verified through the HTTP layer (or via explicit
+`CynaraException` types) — the tests do not depend on the database engine
+rejecting invalid inserts, applying FK cascades, or comparing `rowversion`
+columns. `MigrateAsync` is replaced by `EnsureCreatedAsync` in
+`InitializeDatabaseAsync` when the provider is non-relational.
+
+Trade-offs accepted by this choice:
+
+- **Speed and zero setup** — full suite in ~20 s on a developer laptop,
+  no container, no `docker compose up`.
+- **No relational engine** — FK constraints, identity columns, and
+  filtered unique indexes are not enforced by the test store. Add coverage
+  for any behaviour that depends on engine-rejected DML.
+- **No real concurrency tokens** — `RowVersion` concurrency is checked in
+  the application layer before `SaveChangesAsync`, so HTTP-level tests
+  still observe `409 Conflict` correctly. If you add a test that asserts
+  `DbUpdateConcurrencyException` directly, it will not fire under
+  In-Memory.
+
+## Quick reference
+
+| What | Command |
+|------|---------|
+| Restore + build | `dotnet restore && dotnet build -warnaserror` |
+| Format / format-check | `make format` / `make format-check` |
+| Lint | `make lint` |
+| Run integration tests | `make test` (EF Core In-Memory, no Docker) |
+| Full local CI check | `make check` |
+| Local MSSQL container | `make mssql-up` / `make mssql-down` / `make mssql-logs` |
+| Apply pending migrations | `make migrate` |
+| Seed the demo showcase | `make seed` |
+| Local SonarQube scan | `make sonar` |
+| Watch the API on `:5000` | `dotnet run --project src/Cynara.Api` |
+
 ## Database
 
-`cynara-api` uses EF Core with two providers and no EF migrations —
-schema is created at startup via `EnsureCreatedAsync`
-(`src/Cynara.Infrastructure/DependencyInjection.cs`).
+`cynara-api` uses EF Core against SQL Server exclusively. Schema management
+goes through EF Migrations under `src/Cynara.Infrastructure/Migrations/`.
 
-### SQLite (default)
+> **Integration tests do not need SQL Server.** The test suite runs against
+> EF Core In-Memory — see [Quick reference](#quick-reference). Docker is only
+> required when running the API locally or when seeding the demo showcase.
 
-No setup required. On startup, the API creates `cynara.db` (or whatever
-path `ConnectionStrings:Default` points at) inside `src/Cynara.Api/bin/<config>/net10.0/`
-when run from that working directory, or next to the current working
-directory when run with `dotnet run --project src/Cynara.Api`.
-
-Common paths:
-
-| Run command | Resolved DB path |
-|-------------|------------------|
-| `dotnet run --project src/Cynara.Api` | `src/Cynara.Api/cynara.db` |
-| `dotnet run --project src/Cynara.Api/Cynara.Api.csproj` | `src/Cynara.Api/cynara.db` |
-| `cd src/Cynara.Api && dotnet run` | `src/Cynara.Api/bin/<Config>/net10.0/cynara.db` |
-
-Delete the file to reset; the next startup recreates the schema.
-
-### SQL Server (optional)
+### Local MSSQL container
 
 ```bash
-export Database__Provider='SqlServer'
-export ConnectionStrings__Default='Server=localhost;Database=cynara;Trusted_Connection=True;TrustServerCertificate=True;'
-dotnet run --project src/Cynara.Api
+make mssql-up           # docker compose -f docker/mssql/docker-compose.yml up -d
+make mssql-down         # stops the container (keeps the volume)
+make mssql-logs         # tail the SQL Server logs
 ```
 
-`EnsureCreatedAsync` creates the schema on a fresh database. If the DB
-already has unrelated tables, point `ConnectionStrings:Default` at an
-empty database.
+Defaults baked into `docker/mssql/docker-compose.yml`:
 
-`make test-mssql` uses Testcontainers to start a disposable SQL Server
-container and runs only `Category=MsSql` tests against the same API path.
+| Item | Value |
+|------|-------|
+| Image | `mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04` |
+| Port | `localhost:1433` |
+| SA password | `CynaraSqlDev!2026` |
+| Database (created by EF Migrations) | `cynara` |
+| Volume | `mssql_mssql_data` (persistent) |
+
+The container comes with an empty `master` database. EF Migrations creates the
+`cynara` database and the schema on first API start. To reset, drop the
+database (`docker exec cynara-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost
+-U sa -P 'CynaraSqlDev!2026' -C -No -Q "DROP DATABASE cynara;"`) and restart
+the API; `MigrateAsync` will recreate everything from scratch.
 
 ### Schema initialization
 
 `InitializeDatabaseAsync` is invoked from
 [`WebApplicationExtensions.UseCynaraApiAsync`](../src/Cynara.Api/Hosting/WebApplicationExtensions.cs)
-on every startup. For SQLite it calls `EnsureCreatedAsync` and, if the
-database file exists without the required tables, deletes and recreates
-it (a recovery path for partial upgrades — there are no migrations to
-lose). The required-table list is hard-coded in `DependencyInjection.cs`
-(`audit_events`, `component_definitions`, `component_versions`,
-`form_definitions`, `form_versions`, `form_responses`,
-`form_response_revisions`, `ai_provider_settings`, `failure_logs`).
+on every startup. For relational providers it calls `MigrateAsync`; for
+non-relational stores (e.g. the EF Core In-Memory provider used by the test
+suite) it calls `EnsureCreatedAsync` instead, since `MigrateAsync` requires
+a relational schema history table. Pending migrations are applied in order;
+nothing is dropped. Add new migrations with:
 
-### Preview storage override
-
-The API detects a "preview" deployment when either `CYNARA_ENV=preview`
-or `VERCEL_ENV=preview` is set, and `VERCEL_ENV != production`. Preview
-runs use `Data Source=:memory:` (a single in-memory SQLite database) and
-auto-seed the demo showcase on startup. Use this for ephemeral CI or
-`vercel dev` style sandboxes; never set these for normal local work.
+```bash
+dotnet ef migrations add <Name> \
+  --project src/Cynara.Infrastructure \
+  --startup-project src/Cynara.Api
+```
 
 ## Seed data
 
 The demo showcase form is seeded via
 [`tools/Cynara.Seed`](../tools/Cynara.Seed) using the same
-`AddCynaraInfrastructure(...)` path as the API host. The seeder reads
-the same `appsettings.json` / `appsettings.{Environment}.json` files
-plus environment variables and CLI flags:
+`AddCynaraInfrastructure(...)` path as the API host. The seeder reads the
+same `appsettings.json` / `appsettings.{Environment}.json` files plus
+environment variables and CLI flags:
 
 ```bash
 make seed
-# explicit provider/connection:
-make seed SEED_ARGS='--provider SqlServer --connection "Server=...;Database=cynara;..."'
+# explicit connection:
+make seed SEED_ARGS='--connection "Server=...;Database=cynara;..."'
 # or env vars:
-Database__Provider=SqlServer ConnectionStrings__Default='...' make seed
+ConnectionStrings__Default='Server=...;Database=cynara;...' make seed
 ```
 
 Seeded fixtures live under
 [`src/Cynara.Infrastructure/SeedData/`](../src/Cynara.Infrastructure/SeedData)
-(`demo-showcase-*.json` and `patient-demographics-*.json`). After
-seeding, browse `http://localhost:5000/api/formDefinitions?filter=code:demo-showcase`
+(`demo-showcase-*.json` and `patient-demographics-*.json`). After seeding,
+browse `http://localhost:5000/api/formDefinitions?filter=code:demo-showcase`
 or `http://localhost:5000/api/formVersions?...`.
 
-Preview startup (`CYNARA_ENV=preview` / `VERCEL_ENV=preview`) auto-seeds
-the demo showcase through `SeedPreviewDemoAsync`. Otherwise seeding is
-explicit and idempotent: re-running `make seed` updates the demo
+The seeder is idempotent: re-running `make seed` updates the demo
 component and form rather than duplicating them.
 
 ## API startup
@@ -221,9 +230,9 @@ Tasks in [`.vscode/tasks.json`](../.vscode/tasks.json):
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `Now listening on: http://localhost:5000` missing | Another process owns the port | `fuser -k 5000/tcp` (or pick another port via `ASPNETCORE_URLS=http://localhost:5050`). |
-| `/health` returns 503 with `probes[database].status: fail` | Connection string wrong / DB unreachable | Verify `Database:Provider` matches `ConnectionStrings:Default` (SqlServer + a SQLite path throws `InvalidOperationException`). |
+| `/health` returns 503 with `probes[database].status: fail` | Connection string wrong / DB unreachable | Verify `ConnectionStrings:Default`; ensure `make mssql-up` is running. |
 | `/health` returns 503 with `probes[schemas].status: fail` and `Missing N file(s); first missing: ...` | Build artifacts are missing the JSON Schema files copied from `src/Cynara.Infrastructure/Schemas/v1/` | Run `dotnet build` — `Cynara.Api.csproj` `<Content>` items copy them to `Schemas/v1/*.schema.json`. |
-| `SqliteConnection` "database is locked" | Two `dotnet run` instances against the same file | Kill the duplicate, or move to a per-developer path (`ConnectionStrings__Default=Data Source=cynara-$USER.db`). |
+| `Login failed for user 'sa'` | SA password mismatch | Confirm the password in `ConnectionStrings:Default` matches `MSSQL_SA_PASSWORD` in `docker/mssql/docker-compose.yml`. |
 | Husky pre-commit refuses to run | `dotnet` missing on PATH inside IDE | Husky's `env.sh` adds `$HOME/.dotnet/dotnet`; restart the IDE so it re-sources the shell. |
 | `NU1900` warnings from a stale restore cache | Locked NuGet packages from a prior half-completed restore | `dotnet clean && dotnet restore`. |
 | `dotnet format` rewrote files during pre-commit | Style drift | `git add -u && git commit` to re-stage the reformatted files. |
@@ -234,6 +243,7 @@ From the WSL shell:
 
 ```bash
 cd ~/ailuracode/cynara/cynara-api
+make mssql-up
 dotnet run --project src/Cynara.Api
 ```
 
@@ -268,48 +278,34 @@ Probes:
 
 | Probe | Check | Failure detail hint |
 |-------|-------|---------------------|
-| `database` | `Database.CanConnectAsync()` against the configured provider | Exception type and message (e.g. login failures for SqlServer, locked-file errors for Sqlite). |
+| `database` | `Database.CanConnectAsync()` against SQL Server | Exception type and message (e.g. login failures, network errors). |
 | `schemas` | All three required JSON Schema files exist on disk (`Schemas/v1/clinical-schema.schema.json`, `ui-schema.schema.json`, `rules-schema.schema.json`) | `Missing N file(s); first missing: <path>`. |
 
 The probe set is deliberately small — no external HTTP calls, no AI
-provider check, no migration check (there are no migrations). Add new
-probes inside `src/Cynara.Api/Modules/Health/HealthEndpoints.cs` and
-keep them bounded; `/health` must not become a load test against your
-dependencies.
+provider check, no migration check (migrations are applied by
+`MigrateAsync` at startup, before the probe runs). Add new probes inside
+`src/Cynara.Api/Modules/Health/HealthEndpoints.cs` and keep them bounded;
+`/health` must not become a load test against your dependencies.
 
-Use `/health` for liveness/readiness from Docker, Kubernetes, the
-deploy-preview environment health check, or your local `curl`. There is
-no separate `/ready` route — the same endpoint serves both.
+Use `/health` for liveness/readiness from Docker, Kubernetes, or your
+local `curl`. There is no separate `/ready` route — the same endpoint
+serves both.
 
 ## CORS and frontend integration
 
 `Cors:AllowedOrigins` in `appsettings.json` ships with the production
-worker (`https://cynara-web.livesanty.workers.dev`). For local
-development against [`cynara-web`](https://github.com/ailuracode/cynara-web),
-add the dev server origin. The default Vite port is `5173`; add the
-production preview URL and any extra local origins you actually use.
-The frontend's
+worker (`https://cynara-web.livesanty.workers.dev`). For local development
+against [`cynara-web`](https://github.com/ailuracode/cynara-web), add the dev
+server origin. The default Vite port is `5173`; add the production preview URL
+and any extra local origins you actually use. The frontend's
 [`docs/local-development.md`](https://github.com/ailuracode/cynara-web/blob/main/docs/local-development.md)
 covers the matching `VITE_API_ORIGIN` setup.
 
-`src/Cynara.Api/appsettings.Local.json` (recommended for multi-value
-overrides):
-
-```json
-{
-  "Cors": {
-    "AllowedOrigins": [
-      "http://localhost:5173",
-      "https://cynara-web.livesanty.workers.dev"
-    ]
-  }
-}
-```
-
-Or environment variable (per-value):
+Override individual CORS origins via environment variables:
 
 ```bash
 export Cors__AllowedOrigins__0='http://localhost:5173'
+export Cors__AllowedOrigins__1='https://cynara-web.livesanty.workers.dev'
 ```
 
 CORS defaults:
@@ -346,7 +342,28 @@ Without an API key, Form AI endpoints report a configuration error
 rather than failing silently — see
 `tests/Cynara.Api.Tests/FormAiEndpointTests.cs` for behavior.
 
-## Quick reference
+### Why EF Core In-Memory for tests?
+
+The integration suite runs against `Microsoft.EntityFrameworkCore.InMemory`
+because every concurrency, validation, and tenant-isolation behaviour
+asserted by the tests is verified through the HTTP layer (or via explicit
+`CynaraException` types) — the tests do not depend on the database engine
+rejecting invalid inserts, applying FK cascades, or comparing `rowversion`
+columns. `MigrateAsync` is replaced by `EnsureCreatedAsync` in
+`InitializeDatabaseAsync` when the provider is non-relational.
+
+Trade-offs accepted by this choice:
+
+- **Speed and zero setup** — full suite in ~20 s on a developer laptop,
+  no container, no `docker compose up`.
+- **No relational engine** — FK constraints, identity columns, and
+  filtered unique indexes are not enforced by the test store. Add coverage
+  for any behaviour that depends on engine-rejected DML.
+- **No real concurrency tokens** — `RowVersion` concurrency is checked in
+  the application layer before `SaveChangesAsync`, so HTTP-level tests
+  still observe `409 Conflict` correctly. If you add a test that asserts
+  `DbUpdateConcurrencyException` directly, it will not fire under
+  In-Memory.
 
 | Task | Command |
 |------|---------|
@@ -354,12 +371,13 @@ rather than failing silently — see
 | Format code | `make format` |
 | Format check (CI parity) | `make format-check` |
 | Build with `-warnaserror` | `make lint` |
-| Run all SQLite tests | `make test` |
-| Run SQL Server tests (Docker) | `make test-mssql` |
+| Run integration tests | `make test` (EF Core In-Memory, no Docker) |
 | Format + lint + test | `make check` |
 | Apply safe analyzer fixes | `make fix` |
-| Seed the demo showcase | `make seed` |
+| Seed the demo showcase | `make seed` (boots MSSQL via `make mssql-up`) |
 | Local SonarQube analysis | `make sonar` (or `make sonar-up` / `make sonar-scan`) |
+| Start MSSQL container | `make mssql-up` |
+| Stop MSSQL container | `make mssql-down` |
 | Start API (default port 5000) | `dotnet run --project src/Cynara.Api` |
 | Start API with auto-reload | `dotnet watch run --project src/Cynara.Api` |
 | Hit the health probe | `curl -s http://localhost:5000/health` |

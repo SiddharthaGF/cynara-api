@@ -62,7 +62,6 @@ env vars, and failure diagnostics — see
 | `FluentValidation` | Request DTO validation for retained command models |
 | `Stateless` | Form/component/response status transitions |
 | `Verify.Xunit` | Snapshot tests for stable contracts |
-| `Testcontainers.MsSql` | Optional SQL Server integration tests |
 | `JsonSchema.Net` | Structural schema validation (Draft 2020-12) |
 
 ### WSL (Windows Subsystem for Linux)
@@ -83,25 +82,31 @@ Linting and formatting follow .NET conventions via [NetAnalyzers](https://learn.
 make format        # write formatting changes
 make format-check  # verify only (--verify-no-changes)
 make lint          # dotnet build --no-restore -warnaserror
-make test          # SQLite suite (excludes Category=MsSql)
-make test-mssql    # SQL Server via Testcontainers (needs Docker)
+make test          # integration tests (EF Core In-Memory, no Docker)
 make check         # full local/CI validation
 make fix           # format + apply safe analyzer fixes
 make sonar         # local SonarQube Community Build analysis
 make seed          # seed demo showcase into configured DB (no HTTP)
+make mssql-up      # start local MSSQL on :1433
+make mssql-down    # stop MSSQL (keeps volume)
 ```
 
-Default `make test` keeps the fast in-memory SQLite host. `make test-mssql`
-starts a disposable SQL Server container and runs the `Category=MsSql` smoke
-tests against the same API path (`Database:Provider=SqlServer`).
+`make test` runs the full integration suite against EF Core In-Memory: each
+`WebApplicationFactory` test class owns an isolated in-memory store, no
+database server is required. Concurrency, query filters, and JSON shape
+contracts are exercised through the HTTP layer; tests do not rely on the
+database engine rejecting invalid inserts (FK enforcement, etc.), so the loss
+of relational features does not weaken the suite.
 
-Seed uses the same `Database:Provider` / `ConnectionStrings:Default` resolution as the API
-(`appsettings`, env vars, or CLI). Examples:
+Seed (and the API itself) still target SQL Server. Bring up the local
+container with `make mssql-up` before `make seed`. Seed uses the same
+`ConnectionStrings:Default` resolution as the API (`appsettings`, env vars,
+or CLI):
 
 ```bash
 make seed
-make seed SEED_ARGS='--provider SqlServer --connection "Server=...;Database=cynara;..."'
-Database__Provider=SqlServer ConnectionStrings__Default='...' make seed
+make seed SEED_ARGS='--connection "Server=...;Database=cynara;..."'
+ConnectionStrings__Default='Server=...;Database=cynara;...' make seed
 ```
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.

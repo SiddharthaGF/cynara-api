@@ -2,7 +2,7 @@ using Cynara.Application;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Hospitals;
-using Cynara.Infrastructure.Modules.Preview;
+using Cynara.Infrastructure.Modules.Seed;
 using Cynara.Infrastructure.Schemas;
 
 using Microsoft.Extensions.Configuration;
@@ -17,16 +17,14 @@ internal static class Program
         try
         {
             IConfiguration configuration = BuildConfiguration(args);
-            string provider = ResolveProvider(configuration);
-            string connectionString = ResolveConnectionString(configuration, provider);
+            string connectionString = ResolveConnectionString(configuration);
 
             var services = new ServiceCollection();
             _ = services.AddSingleton(configuration);
             _ = services.AddCynaraApplication();
             _ = services.AddCynaraInfrastructure(
                 connectionString,
-                SchemaFilePaths.FromBaseDirectory(),
-                provider);
+                SchemaFilePaths.FromBaseDirectory());
             _ = services.AddSingleton(TimeProvider.System);
 
             ServiceProvider serviceProvider = services.BuildServiceProvider();
@@ -46,7 +44,6 @@ internal static class Program
                 await serviceProvider.DisposeAsync().ConfigureAwait(false);
             }
 
-            Console.WriteLine($"→ Provider: {provider}");
             Console.WriteLine(
                 $"→ Seeded '{DemoShowcaseSeeder.ComponentCode}' "
                 + $"and '{DemoShowcaseSeeder.FormCode}'.");
@@ -90,7 +87,6 @@ internal static class Program
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["--connection"] = "ConnectionStrings:Default",
-                    ["--provider"] = "Database:Provider",
                     ["--hospital-code"] = "Hospitals:BootstrapCode",
                     ["--hospital-name"] = "Hospitals:BootstrapName",
                 })
@@ -107,46 +103,17 @@ internal static class Program
         return options;
     }
 
-    private static string ResolveProvider(IConfiguration configuration)
-    {
-        string? provider = configuration["Database:Provider"];
-        return string.IsNullOrWhiteSpace(provider)
-            ? InfrastructureServiceCollectionExtensions.SqliteProvider
-            : provider.Trim();
-    }
-
-    private static string ResolveConnectionString(
-        IConfiguration configuration,
-        string provider)
+    private static string ResolveConnectionString(IConfiguration configuration)
     {
         string? configured = configuration.GetConnectionString("Default");
-        bool sqlServer = InfrastructureServiceCollectionExtensions.IsSqlServer(provider);
-
-        if (sqlServer)
+        if (string.IsNullOrWhiteSpace(configured))
         {
-            if (string.IsNullOrWhiteSpace(configured) || LooksLikeSqlite(configured))
-            {
-                throw new InvalidOperationException(
-                    "ConnectionStrings:Default must be a SQL Server connection string when "
-                    + "Database:Provider is SqlServer. Pass --connection or "
-                    + "ConnectionStrings__Default.");
-            }
-
-            return configured;
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is required. Pass --connection or set "
+                + "ConnectionStrings__Default.");
         }
 
-        return string.IsNullOrWhiteSpace(configured)
-            ? "Data Source=cynara.db"
-            : configured;
-    }
-
-    private static bool LooksLikeSqlite(string connectionString)
-    {
-        return connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
-            && !connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase)
-            && !connectionString.Contains(
-                "Initial Catalog=",
-                StringComparison.OrdinalIgnoreCase);
+        return configured;
     }
 
     private static string ResolveEnvironmentName()

@@ -227,11 +227,9 @@ public sealed class ComponentLifecycleTests : IDisposable
     }
 }
 
-internal sealed class ComponentWebApplicationFactory(TestDatabaseSettings database)
-    : CynaraWebApplicationFactory(database)
+internal sealed class ComponentWebApplicationFactory : CynaraWebApplicationFactory
 {
     public ComponentWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
     {
     }
 }

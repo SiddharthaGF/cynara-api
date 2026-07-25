@@ -61,7 +61,6 @@ jobs:
           -c ${{ env.DOTNET_CONFIGURATION }}
           --verbosity normal
           --logger "console;verbosity=normal"
-          --filter "Category!=MsSql"
 
       - name: Publish win-x86
         if: steps.meta.outputs.publish == 'true'
@@ -153,7 +152,6 @@ jobs:
           server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
           source-path: '\publish\'
           target-delete: 'true'
-          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
 
   deploy-production:
     name: Deploy production
@@ -189,4 +187,3 @@ jobs:
           server-password: ${{ secrets.SERVER_PASSWORD }}
           source-path: '\publish\'
           target-delete: 'true'
-          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'

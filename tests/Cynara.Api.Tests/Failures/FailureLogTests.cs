@@ -1,12 +1,14 @@
 using System.Net;
 
+using Cynara.Api.Tests.Support;
 using Cynara.Domain.Failures;
 using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -68,23 +70,22 @@ public sealed class FailureLogTests : IDisposable
 
     private List<FailureLog> LoadFailureLogs()
     {
-        DbContextOptions<CynaraDbContext> options = new DbContextOptionsBuilder<CynaraDbContext>()
-            .UseSqlite(Factory.SharedConnection)
-            .Options;
-
-        using CynaraDbContext dbContext = new(options);
+        using CynaraDbContext dbContext = Factory.Database.CreateDbContext();
         return [.. dbContext.FailureLogs.AsNoTracking().ToList()];
     }
 }
 
 internal sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public SqliteConnection SharedConnection { get; } = new("Data Source=:memory:");
+    public FailureLogWebApplicationFactory()
+    {
+        Database = InMemoryTestDatabaseFactory.Create();
+    }
+
+    public InMemoryTestDatabaseFactory Database { get; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        SharedConnection.Open();
-
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddJsonFile(
@@ -92,29 +93,18 @@ internal sealed class FailureLogWebApplicationFactory : WebApplicationFactory<Pr
                 optional: false,
                 reloadOnChange: false);
         })
-            .ConfigureServices(services =>
+            .ConfigureTestServices(services =>
         {
-            ServiceDescriptor? dbContextDescriptor = services.SingleOrDefault(
-                descriptor => descriptor.ServiceType == typeof(DbContextOptions<CynaraDbContext>));
-            if (dbContextDescriptor is not null)
-            {
-                _ = services.Remove(dbContextDescriptor);
-            }
-
+            _ = services.RemoveAll<DbContextOptions<CynaraDbContext>>();
             _ = services.RemoveAll<CynaraDbContext>();
-
-            _ = services.AddDbContext<CynaraDbContext>(options => options.UseSqlite(SharedConnection));
+            _ = services.AddSingleton(Database.ContextOptions);
+            _ = services.AddDbContext<CynaraDbContext>((provider, options) =>
+                _ = options.UseInMemoryDatabase(Database.DatabaseName)
+                    .UseApplicationServiceProvider(provider)
+                    .ConfigureWarnings(warnings =>
+                        _ = warnings.Ignore(
+                            InMemoryEventId.TransactionIgnoredWarning)));
             _ = services.AddTransient<IStartupFilter, FailureTestEndpointsStartupFilter>();
         });
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            SharedConnection.Dispose();
-        }
-
-        base.Dispose(disposing);
     }
 }
