@@ -110,10 +110,57 @@ jobs:
           base="https://api.render.com/v1"
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
 
+          # Render splits env var values on the first `=` when injecting them
+          # into the container, so a `postgresql://...?sslmode=require` URI is
+          # silently truncated to `postgresql://...?sslmode`. Rewrite the URI
+          # into Npgsql's `Host=...;Username=...;Password=...;Database=...;SslMode=...;ChannelBinding=...`
+          # form before forwarding it; the value then contains no `=` outside
+          # of the explicit key/value pairs Render is already expecting.
+          CS=$(DB_URL="${DB_URL}" python3 - <<'PY'
+          import os, sys, urllib.parse as u
+          raw = os.environ["DB_URL"]
+          p = u.urlparse(raw)
+          qs = dict(u.parse_qsl(p.query, keep_blank_values=True))
+          def grab(*keys):
+              for k in keys:
+                  if k in qs and qs[k] != "":
+                      return qs[k]
+              return None
+          sslmode = (grab("sslmode", "ssl") or "require").lower()
+          if sslmode not in ("disable", "prefer", "require", "verify-ca", "verify-full"):
+              # Npgsql only accepts the three legacy values; neon uses `require`.
+              sslmode = "require"
+          channel = (grab("channel_binding") or "require").lower()
+          if channel not in ("disable", "prefer", "require"):
+              channel = "require"
+          password = u.unquote(p.password or "")
+          username = u.unquote(p.username or "")
+          database = (p.path or "").lstrip("/") or ""
+          host = p.hostname or ""
+          port = p.port or 5432
+          def q(v):
+              return "'" + str(v).replace("'", "''") + "'"
+          parts = [
+              f"Host={q(host)}",
+              f"Port={port}",
+              f"Database={q(database)}",
+              f"Username={q(username)}",
+              f"Password={q(password)}",
+              f"SSL Mode={sslmode}",
+              f"Channel Binding={channel}",
+              "Trust Server Certificate=true",
+          ]
+          sys.stdout.write("; ".join(parts))
+          PY
+          )
+
+          echo "Rewritten connection string:"
+          echo "${CS}"
+
           curl -fsS -X PUT \
             -H "$auth_header" \
             -H "Content-Type: application/json" \
-            --data "$(jq -n --arg v "${DB_URL}" '{value: $v}')" \
+            --data "$(jq -n --arg v "${CS}" '{value: $v}')" \
             "${base}/services/${RENDER_SERVICE_ID}/env-vars/ConnectionStrings__Default"
 
       - name: Trigger deploy of Render preview
@@ -135,7 +182,7 @@ jobs:
             Neon branch `${{ steps.name.outputs.name }}` ready.
 
             - `render-preview` label applied; Render preview instance spawned.
-            - Pooled connection string written into Render preview instance.
+            - Pooled connection string (rewritten to Npgsql key/value form) written into Render preview instance.
             - Schema inherited from the parent branch; no migrations run.
             - If the preview fails to boot, check the deploy logs in Render.
 
