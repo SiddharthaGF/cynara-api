@@ -5,11 +5,13 @@ using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 [Trait("Category", "E2E")]
 public sealed partial class FormLifecycleE2ETests : IDisposable
 {
-    public FormLifecycleE2ETests()
+    public FormLifecycleE2ETests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "stage1-e2e");

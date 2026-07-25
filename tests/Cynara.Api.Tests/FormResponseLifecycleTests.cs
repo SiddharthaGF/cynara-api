@@ -10,10 +10,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormResponseLifecycleTests : IDisposable
 {
-    public FormResponseLifecycleTests()
+    public FormResponseLifecycleTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "test-clinician");
@@ -263,7 +265,7 @@ public sealed class FormResponseLifecycleTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private async Task<JsonDocument> CreatePublishedResponseAsync(string code)
     {

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Cynara.Api.Tests.Failures;
 
-internal sealed class FailureTestEndpointsStartupFilter : IStartupFilter
+public sealed class FailureTestEndpointsStartupFilter : IStartupFilter
 {
     public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
     {

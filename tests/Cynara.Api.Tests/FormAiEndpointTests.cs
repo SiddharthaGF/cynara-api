@@ -12,13 +12,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormAiEndpointTests : IDisposable
 {
-    private readonly FormAiWebApplicationFactory factory = new();
+    private readonly FormAiWebApplicationFactory factory;
     private readonly HttpClient client;
 
-    public FormAiEndpointTests()
+    public FormAiEndpointTests(PostgreSqlDatabaseFixture database)
     {
+        factory = new FormAiWebApplicationFactory(database.Settings);
         client = factory.CreateClient();
         client.AcceptJsonApi();
         client.DefaultRequestHeaders.TryAddWithoutValidation(
@@ -374,7 +376,8 @@ public sealed class FormAiEndpointTests : IDisposable
     }
 }
 
-internal sealed class FormAiWebApplicationFactory : CynaraWebApplicationFactory
+internal sealed class FormAiWebApplicationFactory(TestDatabaseSettings database)
+    : CynaraWebApplicationFactory(database)
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

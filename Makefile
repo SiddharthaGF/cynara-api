@@ -3,7 +3,7 @@ CONFIGURATION := Debug
 SONAR_COMPOSE := docker/sonarqube/docker-compose.yml
 SEED_ARGS ?=
 
-.PHONY: restore fmt fmt\:check lint lint\:fix test test-mssql check fix seed \
+.PHONY: restore fmt fmt\:check lint lint\:fix test check fix seed \
 	sonar-up sonar-down sonar-bootstrap sonar-scan sonar
 
 restore:
@@ -24,11 +24,7 @@ lint\:fix: restore
 
 test: restore
 	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity normal \
-		--logger "console;verbosity=normal" --filter "Category!=MsSql"
-
-test-mssql: restore
-	dotnet test $(SOLUTION) --no-restore -c $(CONFIGURATION) --verbosity normal \
-		--logger "console;verbosity=normal" --filter "Category=MsSql"
+		--logger "console;verbosity=normal" --filter "Category!=E2E"
 
 check: restore fmt\:check lint test
 

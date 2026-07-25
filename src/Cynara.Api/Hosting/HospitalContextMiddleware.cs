@@ -127,7 +127,7 @@ internal sealed class HospitalContextMiddleware
 
     private static bool IsExemptPath(PathString path)
     {
-        if (!path.HasValue)
+        if (!path.HasValue || path == "/")
         {
             return true;
         }

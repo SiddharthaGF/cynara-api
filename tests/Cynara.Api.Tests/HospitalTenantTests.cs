@@ -17,15 +17,16 @@ namespace Cynara.Api.Tests;
 /// contract. Covers the public workspace endpoints, header enforcement,
 /// ownership stamping, isolation, and JSON:API contract guarantees.
 /// </summary>
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class HospitalTenantTests : IDisposable
 {
     private const string PrimaryHospitalCode = "primary";
     private const string OtherHospitalCode = "secondary";
     private const string SuspendedHospitalCode = "paused";
 
-    public HospitalTenantTests()
+    public HospitalTenantTests(PostgreSqlDatabaseFixture database)
     {
-        Factory = new CynaraTenantWebApplicationFactory();
+        Factory = new CynaraTenantWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         OtherClient = Factory.CreateClient();

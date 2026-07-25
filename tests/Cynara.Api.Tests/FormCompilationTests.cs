@@ -5,10 +5,12 @@ using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormCompilationTests : IDisposable
 {
-    public FormCompilationTests()
+    public FormCompilationTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Api = new JsonApiClient(Client);
@@ -296,7 +298,7 @@ public sealed class FormCompilationTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private async Task<string> CreateAndPublishComponentAsync(
         string code,

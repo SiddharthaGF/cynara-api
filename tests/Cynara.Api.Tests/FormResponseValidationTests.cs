@@ -5,10 +5,12 @@ using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormResponseValidationTests : IDisposable
 {
-    public FormResponseValidationTests()
+    public FormResponseValidationTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "test-clinician");
@@ -209,7 +211,7 @@ public sealed class FormResponseValidationTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private async Task<JsonDocument> CreatePublishedBpResponseAsync()
     {

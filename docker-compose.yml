@@ -1,0 +1,72 @@
+name: cynara
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    pull_policy: if_not_present
+    container_name: postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres -d postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin-init:
+    image: dpage/pgadmin4:9.7
+    pull_policy: if_not_present
+    container_name: cynara-pgadmin-init
+    depends_on:
+      pgadmin:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until [ -f /var/lib/pgadmin/pgadmin4.db ]; do sleep 1; done
+        /venv/bin/python3 /pgadmin4/setup.py load-servers \
+          /pgadmin4/servers.json \
+          --user admin@example.com \
+          --replace
+    volumes:
+      - cynara-pgadmin-data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+
+  pgadmin:
+    image: dpage/pgadmin4:9.7
+    pull_policy: if_not_present
+    container_name: cynara-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - cynara-pgadmin-data:/var/lib/pgadmin
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --quiet --tries=1 --spider http://localhost/login || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgresql-data:
+  cynara-pgadmin-data:

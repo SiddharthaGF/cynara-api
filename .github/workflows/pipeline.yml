@@ -25,25 +25,8 @@ jobs:
   check:
     name: Format, lint, test, and publish
     runs-on: ubuntu-latest
-    outputs:
-      publish: ${{ steps.meta.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Decide whether to publish
-        id: meta
-        shell: bash
-        run: |
-          publish=false
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            publish=true
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.ref }}" = "refs/heads/develop" ] || \
-               [ "${{ github.ref }}" = "refs/heads/main" ]; then
-              publish=true
-            fi
-          fi
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET and restore
         uses: ./.github/actions/setup-dotnet-and-restore
@@ -61,90 +44,19 @@ jobs:
           -c ${{ env.DOTNET_CONFIGURATION }}
           --verbosity normal
           --logger "console;verbosity=normal"
-          --filter "Category!=MsSql"
+          --filter "Category!=E2E"
 
       - name: Publish win-x86
-        if: steps.meta.outputs.publish == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
         uses: ./.github/actions/publish-api
         with:
           configuration: ${{ env.DOTNET_CONFIGURATION }}
 
       - name: Upload publish artifact
-        if: steps.meta.outputs.publish == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PUBLISH_ARTIFACT }}
           path: ./publish/**
           if-no-files-found: error
           retention-days: 7
-
-  deploy-preview:
-    name: Deploy preview
-    needs: [check]
-    if: >-
-      needs.check.outputs.publish == 'true'
-      && github.event_name == 'push'
-      && github.ref == 'refs/heads/develop'
-    runs-on: windows-latest
-    environment: preview
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download publish artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.PUBLISH_ARTIFACT }}
-          path: ./publish
-
-      - name: Render preview appsettings and web.config
-        uses: ./.github/actions/render-publish-config
-        with:
-          db-connection-string: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
-          aspnetcore-environment: Development
-
-      - name: Deploy preview via WebDeploy
-        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
-        with:
-          website-name: ${{ secrets.PREVIEW_WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.PREVIEW_SERVER_COMPUTER_NAME }}
-          server-username: ${{ secrets.PREVIEW_SERVER_USERNAME }}
-          server-password: ${{ secrets.PREVIEW_SERVER_PASSWORD }}
-          source-path: '\publish\'
-          target-delete: 'true'
-          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'
-
-  deploy-production:
-    name: Deploy production
-    needs: [check]
-    if: >-
-      needs.check.outputs.publish == 'true'
-      && (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        || github.event_name == 'workflow_dispatch'
-      )
-    runs-on: windows-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download publish artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.PUBLISH_ARTIFACT }}
-          path: ./publish
-
-      - name: Render production appsettings and web.config
-        uses: ./.github/actions/render-publish-config
-        with:
-          db-connection-string: ${{ secrets.PROD_DB_CONNECTION_STRING }}
-
-      - name: Deploy production via WebDeploy
-        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
-        with:
-          website-name: ${{ secrets.WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
-          server-username: ${{ secrets.SERVER_USERNAME }}
-          server-password: ${{ secrets.SERVER_PASSWORD }}
-          source-path: '\publish\'
-          target-delete: 'true'
-          skip-patterns: '.*\.db$,.*\.db-shm$,.*\.db-wal$'

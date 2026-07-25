@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormAiTruncationTests : IDisposable
 {
     private const string Clinical = /*lang=json,strict*/
@@ -22,11 +23,12 @@ public sealed class FormAiTruncationTests : IDisposable
     private const string Rules = /*lang=json,strict*/
         """{"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{},"validations":[]}""";
 
-    private readonly TruncatedFormAiWebApplicationFactory factory = new();
+    private readonly TruncatedFormAiWebApplicationFactory factory;
     private readonly HttpClient client;
 
-    public FormAiTruncationTests()
+    public FormAiTruncationTests(PostgreSqlDatabaseFixture database)
     {
+        factory = new TruncatedFormAiWebApplicationFactory(database.Settings);
         client = factory.CreateClient();
         client.DefaultRequestHeaders.TryAddWithoutValidation(
             "X-Hospital-Code",
@@ -81,7 +83,8 @@ public sealed class FormAiTruncationTests : IDisposable
     }
 }
 
-internal sealed class TruncatedFormAiWebApplicationFactory : CynaraWebApplicationFactory
+internal sealed class TruncatedFormAiWebApplicationFactory(TestDatabaseSettings database)
+    : CynaraWebApplicationFactory(database)
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

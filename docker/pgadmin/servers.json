@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Cynara Postgres",
+      "Group": "Servers",
+      "Host": "postgresql",
+      "Port": 5432,
+      "Username": "postgres",
+      "MaintenanceDB": "postgres",
+      "SSLMode": "prefer",
+      "Shared": false,
+      "Favorite": true
+    }
+  }
+}
