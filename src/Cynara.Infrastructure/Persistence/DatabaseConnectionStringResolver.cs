@@ -6,13 +6,14 @@ namespace Cynara.Infrastructure.Persistence;
 /// Resolves the active PostgreSQL connection string. Resolution order:
 /// <list type="number">
 ///   <item><c>ConnectionStrings:ActiveName</c> — explicit named connection
-///     (used by Neon PR previews to pick a per-PR branch without touching
+///     (used by Neon PR previews and production deploys to pick a named
+///     connection without changing <c>ASPNETCORE_ENVIRONMENT</c>).</item>
+///   <item>Otherwise, <c>ConnectionStrings:Default</c> (preserves the
+///     pre-existing behaviour for the integration test suite, which sets
+///     <c>ConnectionStrings:Default</c> in memory and never sets
 ///     <c>ASPNETCORE_ENVIRONMENT</c>).</item>
-///   <item><c>ASPNETCORE_ENVIRONMENT=Development</c> →
-///     <c>ConnectionStrings:Default</c>; any other value →
-///     <c>ConnectionStrings:Prod</c>.</item>
 /// </list>
-/// Env vars (<c>ConnectionStrings__Prod</c>, <c>ConnectionStrings__Default</c>,
+/// Env vars (<c>ConnectionStrings__Default</c>, <c>ConnectionStrings__Prod</c>,
 /// <c>ConnectionStrings__ActiveName</c>) take precedence over
 /// <c>appsettings.json</c>.
 /// </summary>
@@ -39,11 +40,6 @@ public sealed class DatabaseConnectionStringResolver(IConfiguration configuratio
             return explicitName;
         }
 
-        return string.Equals(
-            configuration["ASPNETCORE_ENVIRONMENT"],
-            "Development",
-            StringComparison.Ordinal)
-            ? DefaultConnectionName
-            : ProductionConnectionName;
+        return DefaultConnectionName;
     }
 }
