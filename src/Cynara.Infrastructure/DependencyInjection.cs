@@ -26,11 +26,12 @@ public static class InfrastructureServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var resolver = new DatabaseConnectionStringResolver(configuration);
-        _ = services.AddSingleton(resolver);
+        string connectionString = configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings:Default is required for the PostgreSQL provider.");
 
         return services.AddCynaraInfrastructure(
-            resolver.Resolve(),
+            connectionString,
             SchemaFilePaths.FromBaseDirectory());
     }
 
@@ -44,19 +45,6 @@ public static class InfrastructureServiceCollectionExtensions
         _ = services.AddCynaraPersistence();
         _ = services.AddFormAiInfrastructureModule();
         return services;
-    }
-
-    public static bool IsPreviewStorage(IConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-
-        // Render sets `IS_PULL_REQUEST=true` automatically on every PR preview
-        // instance and leaves it unset on the main service. Reading that env
-        // var through configuration lets the same image detect whether it is
-        // running as a preview without needing a separate configuration knob
-        // in the Render dashboard.
-        string? value = configuration["IS_PULL_REQUEST"];
-        return bool.TryParse(value, out bool isPreview) && isPreview;
     }
 
     public static IServiceCollection AddCynaraDatabase(
@@ -100,21 +88,6 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceProvider services,
         CancellationToken cancellationToken = default)
     {
-        IConfiguration configuration = services.GetRequiredService<IConfiguration>();
-        if (IsPreviewStorage(configuration))
-        {
-            // Neon PR preview branches inherit the schema from the parent
-            // branch; EnsureCreatedAsync would be a noisy no-op on every
-            // restart and may also interact badly with concurrent boot
-            // attempts while Render is still warming the container.
-            return;
-        }
-
-        // Neon suspends a compute endpoint after roughly five minutes of
-        // inactivity. The first connection after a wake-up can complete the
-        // TCP handshake and then receive an EOF mid-protocol while the
-        // server is still starting up. Retry the migration a few times
-        // before giving up so a cold start does not crash the boot.
         const int maxAttempts = 5;
         var backoff = TimeSpan.FromSeconds(3);
 
