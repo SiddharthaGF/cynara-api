@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure;
 
-public static class InfrastructureServiceCollectionExtensions
+public static partial class InfrastructureServiceCollectionExtensions
 {
     public static IServiceCollection AddCynaraInfrastructure(
         this IServiceCollection services,
@@ -113,12 +113,7 @@ public static class InfrastructureServiceCollectionExtensions
                 ILogger logger = services
                     .GetRequiredService<ILoggerFactory>()
                     .CreateLogger("Cynara.Infrastructure.DatabaseInitialization");
-                logger.LogWarning(
-                    ex,
-                    "Database initialization failed on attempt {Attempt}/{Max}; retrying in {Backoff}s.",
-                    attempt,
-                    maxAttempts,
-                    backoff.TotalSeconds);
+                LogDatabaseInitRetry(logger, ex, attempt, maxAttempts, backoff.TotalSeconds);
                 await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
             }
             finally
@@ -127,4 +122,15 @@ public static class InfrastructureServiceCollectionExtensions
             }
         }
     }
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Database initialization failed on attempt {Attempt}/{Max}; retrying in {Backoff}s.")]
+    private static partial void LogDatabaseInitRetry(
+        ILogger logger,
+        Exception exception,
+        int attempt,
+        int max,
+        double backoff);
 }

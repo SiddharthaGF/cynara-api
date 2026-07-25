@@ -80,10 +80,8 @@ internal sealed class FailureLogWebApplicationFactory(TestDatabaseSettings datab
 {
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        _ = builder.ConfigureServices(services =>
-        {
-            _ = services.AddTransient<IStartupFilter, FailureTestEndpointsStartupFilter>();
-        });
-        return base.CreateHost(builder);
+        return base.CreateHost(
+            builder.ConfigureServices(services =>
+                _ = services.AddTransient<IStartupFilter, FailureTestEndpointsStartupFilter>()));
     }
 }

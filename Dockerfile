@@ -25,6 +25,10 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+RUN addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --ingroup appgroup appuser
+USER appuser
+
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_HTTP_PORTS=10000
 

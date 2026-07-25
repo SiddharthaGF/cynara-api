@@ -12,7 +12,7 @@ namespace Cynara.Api.Hosting;
 /// scoped <see cref="IHospitalContext"/> for the request. Anonymous
 /// requests are rejected with a 400/403 result when the path is tenant-owned.
 /// </summary>
-internal sealed class HospitalContextMiddleware
+internal sealed partial class HospitalContextMiddleware
 {
     private const string HospitalContextItemsKey = "Cynara.HospitalContext";
 
@@ -97,11 +97,7 @@ internal sealed class HospitalContextMiddleware
         string title,
         string detail)
     {
-        logger.LogWarning(
-            "Rejecting {Method} {Path}: {Title}",
-            context.Request.Method,
-            context.Request.Path,
-            title);
+        LogRejectingRequest(logger, context.Request.Method, context.Request.Path, title);
 
         var document = new
         {
@@ -149,4 +145,14 @@ internal sealed class HospitalContextMiddleware
 
         return false;
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "Rejecting {Method} {Path}: {Title}")]
+    private static partial void LogRejectingRequest(
+        ILogger logger,
+        string method,
+        PathString path,
+        string title);
 }
