@@ -10,7 +10,8 @@ public sealed class OpenApiContractTests : IDisposable
 {
     public OpenApiContractTests(PostgreSqlDatabaseFixture database)
     {
-        Factory = new CynaraWebApplicationFactory(database.Settings);
+        DatabaseSettings = database.Settings;
+        Factory = new CynaraWebApplicationFactory(DatabaseSettings);
         Client = Factory.CreateClient();
         Client.DefaultRequestHeaders.TryAddWithoutValidation(
             "X-Hospital-Code",
@@ -120,6 +121,32 @@ public sealed class OpenApiContractTests : IDisposable
     }
 
     [Fact]
+    public async Task OpenApiDocument_UsesForwardedHttpsSchemeOnRender()
+    {
+        await using var renderFactory = new CynaraWebApplicationFactory(
+            DatabaseSettings,
+            emulateRenderProxy: true);
+        using HttpClient renderClient = renderFactory.CreateClient();
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            new Uri("/swagger/v1/swagger.json", UriKind.Relative));
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", "203.0.113.10");
+        request.Headers.TryAddWithoutValidation("X-Forwarded-Proto", "https");
+
+        using HttpResponseMessage response = await renderClient
+            .SendAsync(request)
+            .ConfigureAwait(false);
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(body);
+
+        JsonElement server = Assert.Single(
+            document.RootElement.GetProperty("servers").EnumerateArray());
+        string url = server.GetProperty("url").GetString() ?? string.Empty;
+        Assert.StartsWith("https://", url, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ScalarUi_IsAvailable()
     {
         using HttpResponseMessage response = await Client
@@ -143,6 +170,8 @@ public sealed class OpenApiContractTests : IDisposable
     }
 
     private HttpClient Client { get; }
+
+    private TestDatabaseSettings DatabaseSettings { get; }
 
     private CynaraWebApplicationFactory Factory { get; }
 }

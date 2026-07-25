@@ -9,8 +9,8 @@ public static class FormRuleAnalyzer
 {
     public static RuleDependencyMetadata Analyze(string clinicalSchemaJson, string rulesSchemaJson)
     {
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
-        JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject rulesRoot = JsonParsing.ParseObject(rulesSchemaJson, "rules schema");
         Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
             ClinicalFieldIndex.BuildById(clinicalRoot);
 
@@ -53,8 +53,8 @@ public static class FormRuleAnalyzer
 
     public static void ValidateDependencies(string clinicalSchemaJson, string rulesSchemaJson)
     {
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
-        JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject rulesRoot = JsonParsing.ParseObject(rulesSchemaJson, "rules schema");
         Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
             ClinicalFieldIndex.BuildById(clinicalRoot);
         Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsByCode =
@@ -290,19 +290,5 @@ public static class FormRuleAnalyzer
         }
 
         return order;
-    }
-
-    private static JsonObject ParseObject(string json, string label)
-    {
-        try
-        {
-            return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException(
-                    $"Invalid {label}: expected a JSON object.");
-        }
-        catch (System.Text.Json.JsonException exception)
-        {
-            throw new ValidationException($"Invalid {label}: {exception.Message}");
-        }
     }
 }

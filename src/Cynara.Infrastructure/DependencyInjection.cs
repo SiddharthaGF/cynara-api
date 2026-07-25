@@ -51,8 +51,11 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceCollection services,
         string connectionString)
     {
+        string normalizedConnectionString = PostgreSqlConnectionStringNormalizer
+            .Normalize(connectionString);
+
         _ = services.AddDbContext<CynaraDbContext>(options =>
-            _ = options.UseNpgsql(connectionString));
+            _ = options.UseNpgsql(normalizedConnectionString));
 
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());

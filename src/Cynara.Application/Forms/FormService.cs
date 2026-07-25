@@ -33,7 +33,7 @@ public sealed class FormService(
     public async Task<FormSummaryDto> CreateAsync(CreateFormRequest request, string? actorId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        FormCodeRules.EnsureValid(request.Code);
+        CodeRules.EnsureValid(request.Code, "Form");
         hospitalContext.RequireResolved();
 
         if (string.IsNullOrWhiteSpace(request.Name))

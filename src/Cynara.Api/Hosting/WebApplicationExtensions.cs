@@ -19,6 +19,7 @@ internal static class WebApplicationExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        _ = app.UseForwardedHeaders();
         _ = app.Use(
             async (context, next) =>
             {

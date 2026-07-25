@@ -13,8 +13,8 @@ public sealed class FormRuleEngine : IFormRuleEngine
         IReadOnlyDictionary<string, object?> values,
         string? uiSchemaJson = null)
     {
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
-        JsonObject rulesRoot = ParseObject(rulesSchemaJson, "rules schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject rulesRoot = JsonParsing.ParseObject(rulesSchemaJson, "rules schema");
         Dictionary<string, ClinicalFieldIndex.FieldInfo> fieldsById =
             ClinicalFieldIndex.BuildById(clinicalRoot);
         RuleDependencyMetadata metadata = FormRuleAnalyzer.Analyze(
@@ -372,24 +372,10 @@ public sealed class FormRuleEngine : IFormRuleEngine
             return false;
         }
 
-        JsonObject uiRoot = ParseObject(uiSchemaJson, "UI schema");
+        JsonObject uiRoot = JsonParsing.ParseObject(uiSchemaJson, "UI schema");
         return uiRoot[SchemaJsonKeys.Fields] is JsonObject fields
             && fields.TryGetPropertyValue(fieldId, out JsonNode? presentation)
             && presentation is JsonObject presentationObject
             && (presentationObject["hidden"]?.GetValue<bool>() ?? false);
-    }
-
-    private static JsonObject ParseObject(string json, string label)
-    {
-        try
-        {
-            return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException(
-                    $"Invalid {label}: expected a JSON object.");
-        }
-        catch (System.Text.Json.JsonException exception)
-        {
-            throw new ValidationException($"Invalid {label}: {exception.Message}");
-        }
     }
 }

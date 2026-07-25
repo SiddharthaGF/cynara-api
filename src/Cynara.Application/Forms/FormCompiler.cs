@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Cynara.Application.Common;
@@ -18,9 +17,9 @@ public sealed partial class FormCompiler(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
-        JsonObject? uiRoot = uiSchemaJson is null ? null : ParseObject(uiSchemaJson, "UI schema");
-        JsonObject? rulesRoot = rulesSchemaJson is null ? null : ParseObject(rulesSchemaJson, "rules schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject? uiRoot = uiSchemaJson is null ? null : JsonParsing.ParseObject(uiSchemaJson, "UI schema");
+        JsonObject? rulesRoot = rulesSchemaJson is null ? null : JsonParsing.ParseObject(rulesSchemaJson, "rules schema");
 
         var context = new CompilationContext(components, hospitalContext.HospitalId, cancellationToken);
         JsonArray compiledFields = await CompileFieldArrayAsync(
@@ -251,19 +250,6 @@ public sealed partial class FormCompiler(
         if (source[propertyName] is JsonNode value)
         {
             target[propertyName] = value.DeepClone();
-        }
-    }
-
-    private static JsonObject ParseObject(string json, string label)
-    {
-        try
-        {
-            return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException($"Invalid {label}: expected a JSON object.");
-        }
-        catch (JsonException exception)
-        {
-            throw new ValidationException($"Invalid {label}: {exception.Message}");
         }
     }
 

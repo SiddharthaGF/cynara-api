@@ -1,7 +1,5 @@
 using Cynara.Domain.Forms;
 
-using Stateless;
-
 namespace Cynara.Application.Forms;
 
 internal static class FormVersionLifecycle
@@ -18,19 +16,34 @@ internal static class FormVersionLifecycle
     public static void Fire(FormVersion version, Trigger trigger)
     {
         ArgumentNullException.ThrowIfNull(version);
-        StateMachine<FormVersionStatus, Trigger> machine = Create(version);
-        if (!machine.CanFire(trigger))
+        bool valid = (version.Status, trigger) switch
+        {
+            (FormVersionStatus.Draft, Trigger.SubmitForReview) => true,
+            (FormVersionStatus.Review, Trigger.WithdrawFromReview) => true,
+            (FormVersionStatus.Review, Trigger.RejectReview) => true,
+            (FormVersionStatus.Review, Trigger.Publish) => true,
+            (FormVersionStatus.Published, Trigger.Retire) => true,
+            _ => false,
+        };
+        if (!valid)
         {
             throw new InvalidStateException(
                 $"Cannot {FormatTrigger(trigger)} a form version in status '{version.Status}'.");
         }
 
-        machine.Fire(trigger);
+        version.Status = (version.Status, trigger) switch
+        {
+            (FormVersionStatus.Draft, Trigger.SubmitForReview) => FormVersionStatus.Review,
+            (FormVersionStatus.Review, Trigger.WithdrawFromReview) => FormVersionStatus.Draft,
+            (FormVersionStatus.Review, Trigger.RejectReview) => FormVersionStatus.Draft,
+            (FormVersionStatus.Review, Trigger.Publish) => FormVersionStatus.Published,
+            (FormVersionStatus.Published, Trigger.Retire) => FormVersionStatus.Retired,
+            _ => version.Status,
+        };
     }
 
     public static IReadOnlyList<string> DescribePermittedTransitions()
     {
-        // Keep in sync with Create(...).Configure(...) below.
         return
         [
             "Draft --SubmitForReview--> Review",
@@ -39,29 +52,6 @@ internal static class FormVersionLifecycle
             "Review --Publish--> Published",
             "Published --Retire--> Retired",
         ];
-    }
-
-    private static StateMachine<FormVersionStatus, Trigger> Create(
-        FormVersion version)
-    {
-        var machine = new StateMachine<FormVersionStatus, Trigger>(
-            () => version.Status,
-            status => version.Status = status);
-
-        _ = machine.Configure(FormVersionStatus.Draft)
-            .Permit(Trigger.SubmitForReview, FormVersionStatus.Review);
-
-        _ = machine.Configure(FormVersionStatus.Review)
-            .Permit(Trigger.WithdrawFromReview, FormVersionStatus.Draft)
-            .Permit(Trigger.RejectReview, FormVersionStatus.Draft)
-            .Permit(Trigger.Publish, FormVersionStatus.Published);
-
-        _ = machine.Configure(FormVersionStatus.Published)
-            .Permit(Trigger.Retire, FormVersionStatus.Retired);
-
-        _ = machine.Configure(FormVersionStatus.Retired);
-
-        return machine;
     }
 
     private static string FormatTrigger(Trigger trigger)

@@ -88,8 +88,6 @@ jobs:
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
           preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
 
-          # Render is configured to spawn previews on the `render-preview`
-          # label, so the service typically appears within 60–120 seconds.
           deadline=$(( $(date +%s) + 300 ))
           service_id=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
@@ -135,12 +133,6 @@ jobs:
           base="https://api.render.com/v1"
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
 
-          # Render splits env var values on the first `=` when injecting them
-          # into the container, so a `postgresql://...?sslmode=require` URI is
-          # silently truncated to `postgresql://...?sslmode`. Rewrite the URI
-          # into Npgsql's `Host=...;Username=...;Password=...;Database=...;SslMode=...;ChannelBinding=...`
-          # form before forwarding it; the value then contains no `=` outside
-          # of the explicit key/value pairs Render is already expecting.
           CS=$(DB_URL="${DB_URL}" python3 - <<'PY'
           import os, sys, urllib.parse as u
           raw = os.environ["DB_URL"]
@@ -192,9 +184,11 @@ jobs:
           message: Neon branch ready.
 
   neon-delete:
-    name: Delete Neon branch
+    name: Delete Neon branch and PR environment
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
+    permissions:
+      deployments: write
     steps:
       - name: Compute Neon branch name
         id: name
@@ -209,6 +203,28 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Delete GitHub environment
+        env:
+          ENVIRONMENT_NAME: ${{ github.head_ref }} - cynara-api PR #${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/env-delete.out -w '%{http_code}' \
+            -X DELETE \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments/${ENVIRONMENT_NAME}")
+          case "${status}" in
+            204|404)
+              echo "Environment '${ENVIRONMENT_NAME}' removed (status ${status})."
+              ;;
+            *)
+              echo "::error::Failed to delete environment '${ENVIRONMENT_NAME}' (status ${status})."
+              cat /tmp/env-delete.out
+              exit 1
+              ;;
+          esac
 
       - name: Delete sticky PR comment
         uses: marocchino/sticky-pull-request-comment@v2
