@@ -2,8 +2,6 @@ name: Pipeline
 
 on:
   pull_request:
-  push:
-    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
@@ -47,13 +45,13 @@ jobs:
           --filter "Category!=E2E"
 
       - name: Publish win-x86
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/publish-api
         with:
           configuration: ${{ env.DOTNET_CONFIGURATION }}
 
       - name: Upload publish artifact
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PUBLISH_ARTIFACT }}
