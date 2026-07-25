@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Cynara.Application.Failures;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
@@ -121,7 +123,8 @@ public static class InfrastructureServiceCollectionExtensions
                 + "'Host=db;Port=5432;Database=cynara;Username=cynara;Password=...').");
         }
 
-        if (char.IsWhiteSpace(connectionString[0])
+        char firstChar = connectionString[0];
+        if (char.IsWhiteSpace(firstChar)
             || connectionString[^1] == '\n' || connectionString[^1] == '\r')
         {
             throw new InvalidOperationException(
@@ -139,18 +142,71 @@ public static class InfrastructureServiceCollectionExtensions
                 + "environment variable with a single-line connection string.");
         }
 
+        bool startsWithUri = connectionString.StartsWith(
+            "postgresql://", StringComparison.OrdinalIgnoreCase)
+            || connectionString.StartsWith(
+                "postgres://", StringComparison.OrdinalIgnoreCase);
+
+        if (startsWithUri)
+        {
+            try
+            {
+                _ = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+                return;
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(
+                    "ConnectionStrings:Default is a postgresql:// URI but "
+                    + "Npgsql could not parse it. The URI host may be missing "
+                    + "its full Render domain (try the .render.internal or "
+                    + ".render.com form). Original parser error: "
+                    + ex.Message,
+                    ex);
+            }
+        }
+
+        if (!char.IsLetter(firstChar) || firstChar == '=')
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default does not start with a valid "
+                + "key=value pair. The first character is '"
+                + DescribeChar(firstChar) + "' (code 0x"
+                + ((int)firstChar).ToString("X4", CultureInfo.InvariantCulture)
+                + "). The expected format is "
+                + "'Host=...;Port=5432;Database=...;Username=...;Password=...' "
+                + "or the postgresql:// URI form.");
+        }
+
         try
         {
             _ = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
         }
         catch (ArgumentException ex)
         {
-            Console.WriteLine(connectionString);
             throw new InvalidOperationException(
                 "ConnectionStrings:Default is not a valid Npgsql connection "
                 + "string. Check the environment variable value; the original "
                 + "parser error was: " + ex.Message,
                 ex);
         }
+    }
+
+    private static string DescribeChar(char c)
+    {
+        return c switch
+        {
+            '\uFEFF' => "BOM (UTF-8 byte order mark)",
+            '\u200B' => "zero-width space",
+            '\u200C' => "zero-width non-joiner",
+            '\u200D' => "zero-width joiner",
+            '\u00A0' => "non-breaking space",
+            '"' => "double quote",
+            '\'' => "single quote",
+            '`' => "backtick",
+            _ when char.IsControl(c) => "control character",
+            _ when char.IsWhiteSpace(c) => "whitespace",
+            _ => c.ToString(),
+        };
     }
 }
