@@ -25,9 +25,10 @@ public static class InfrastructureServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        string connectionString = configuration.GetConnectionString("Default")
+        string activeConnection = configuration["ConnectionStrings:Database"] ?? "Default";
+        string connectionString = configuration.GetConnectionString(activeConnection)
             ?? throw new InvalidOperationException(
-                "ConnectionStrings:Default is required for the PostgreSQL provider.");
+                $"ConnectionStrings:{activeConnection} is required for the PostgreSQL provider.");
 
         return services.AddCynaraInfrastructure(
             connectionString,
