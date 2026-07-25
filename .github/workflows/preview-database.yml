@@ -12,9 +12,6 @@ permissions:
   contents: read
   pull-requests: write
 
-env:
-  NEON_BRANCH_NAME: unset
-
 jobs:
   upsert:
     name: Create or update Neon branch for PR
@@ -28,12 +25,15 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
         run: |
           set -euo pipefail
-          source_ref="${HEAD_REF:-${GITHUB_REF_NAME}}"
+          # Sanitise the head ref so the name fits Neon's rules: lowercase,
+          # no '/' or '_', capped at 40 chars. On a plain `push` event
+          # `github.head_ref` is null, so fall back to `github.ref_name`.
+          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
           sanitised="$(printf '%s' "${source_ref}" \
             | tr '[:upper:]' '[:lower:]' \
             | tr '/_' '-' \
             | cut -c1-40)"
-          name="${sanitised}"
+          name="pr-${PR_NUMBER}-${sanitised}"
           echo "name=${name}" >> "${GITHUB_OUTPUT}"
           echo "Computed Neon branch name: ${name}"
 
@@ -45,6 +45,23 @@ jobs:
           branch_name: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
+      # Tell Render to create the preview instance. Render is configured with
+      # `previews.generation: manual` (in the Render dashboard), so it only
+      # creates a preview when the PR has the `render-preview` label. We add
+      # the label here, after the Neon branch is ready, so the preview service
+      # is created deterministically and the connection string we write next
+      # is not lost on the first boot.
+      - name: Add render-preview label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['render-preview'],
+            });
+
       - name: Wait for Render preview service
         id: preview
         env:
@@ -55,7 +72,10 @@ jobs:
           set -euo pipefail
           base="https://api.render.com/v1"
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
-          preview_name="${RENDER_SERVICE_BASE}"
+          # Render names preview instances "<base> PR #<N>" (with spaces and
+          # a literal hash). The hostname slug is "-pr-<n>" but that is not
+          # the service name, so query by the real name.
+          preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
 
           deadline=$(( $(date +%s) + 900 ))
           service_id=""
@@ -86,7 +106,7 @@ jobs:
 
           if [ -z "$service_id" ] || [ "$service_id" = "null" ]; then
             echo "::error::Could not find Render preview service '${preview_name}' after 15 minutes."
-            echo "::error::If previews are configured correctly in render.yaml and the PR is open against a linked branch, this usually means the service is still being provisioned."
+            echo "::error::If previews are configured with manual generation in the Render dashboard, this usually means Render did not pick up the render-preview label."
             exit 1
           fi
 
@@ -124,8 +144,9 @@ jobs:
         with:
           header: neon-preview
           message: |
-            Neon branch `${{ env.NEON_BRANCH_NAME }}` ready.
+            Neon branch `${{ steps.name.outputs.name }}` ready.
 
+            - `render-preview` label applied; Render preview instance spawned.
             - Pooled connection string written into Render preview instance.
             - Schema inherited from the parent branch; no migrations run.
             - If the preview fails to boot, check the deploy logs in Render.
