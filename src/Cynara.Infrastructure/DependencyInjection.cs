@@ -25,7 +25,12 @@ public static class InfrastructureServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        string activeConnection = configuration["ConnectionStrings:Database"] ?? "Default";
+        string activeConnection = string.Equals(
+            configuration["ASPNETCORE_ENVIRONMENT"],
+            "Production",
+            StringComparison.Ordinal)
+            ? "Prod"
+            : "Default";
         string connectionString = configuration.GetConnectionString(activeConnection)
             ?? throw new InvalidOperationException(
                 $"ConnectionStrings:{activeConnection} is required for the PostgreSQL provider.");
