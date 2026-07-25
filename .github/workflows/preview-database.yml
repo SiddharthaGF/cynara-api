@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 env:
-  NEON_BRANCH_NAME: pr-${{ github.event.number }}-${{ github.head_ref | lower | replace('/', '-') | replace('_', '-') | trunc(40, '') }}
+  NEON_BRANCH_NAME: ${{ github.head_ref | lower | replace('/', '-') | replace('_', '-') | trunc(40, '') }}
 
 jobs:
   upsert:
