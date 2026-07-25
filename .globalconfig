@@ -44,7 +44,5 @@ dotnet_diagnostic.SA1204.severity = none
 # MA0038 misfires on primary-constructor captures (prefer CA1822)
 dotnet_diagnostic.MA0038.severity = none
 
-# EF Core-generated migration classes use <inheritdoc /> and a single long
-# Up method; suppressing style guidance for files under Migrations/.
-dotnet_diagnostic.MA0197.severity = none
+# MA0051 fires on AI workflows and domain validators that legitimately exceed
 dotnet_diagnostic.MA0051.severity = none

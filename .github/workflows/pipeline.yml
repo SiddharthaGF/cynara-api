@@ -78,9 +78,51 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  apply-migrations-preview:
+    name: Apply migrations (preview)
+    needs: [check]
+    if: >-
+      needs.check.outputs.publish == 'true'
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Apply EF Core migrations to preview DB
+        uses: ./.github/actions/apply-ef-migrations
+        with:
+          db-connection-string: ${{ secrets.PREVIEW_DB_CONNECTION_STRING }}
+
+  apply-migrations-production:
+    name: Apply migrations (production)
+    needs: [check]
+    if: >-
+      needs.check.outputs.publish == 'true'
+      && (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        || github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Apply EF Core migrations to production DB
+        uses: ./.github/actions/apply-ef-migrations
+        with:
+          db-connection-string: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+
   deploy-preview:
     name: Deploy preview
-    needs: [check]
+    needs: [check, apply-migrations-preview]
     if: >-
       needs.check.outputs.publish == 'true'
       && github.event_name == 'push'
@@ -115,7 +157,7 @@ jobs:
 
   deploy-production:
     name: Deploy production
-    needs: [check]
+    needs: [check, apply-migrations-production]
     if: >-
       needs.check.outputs.publish == 'true'
       && (

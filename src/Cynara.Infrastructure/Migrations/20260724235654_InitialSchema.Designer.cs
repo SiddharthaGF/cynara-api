@@ -11,12 +11,13 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Cynara.Infrastructure.Migrations
 {
     [DbContext(typeof(CynaraDbContext))]
-    [Migration("20260724225853_InitialSchemaWithHospitals")]
-    partial class InitialSchemaWithHospitals
+    [Migration("20260724235654_InitialSchema")]
+    partial class InitialSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
+#pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("Cynara.Domain.Audit.AuditEvent", b =>
@@ -553,6 +554,7 @@ namespace Cynara.Infrastructure.Migrations
                 {
                     b.Navigation("Revisions");
                 });
+#pragma warning restore 612, 618
         }
     }
 }
