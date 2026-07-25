@@ -25,11 +25,11 @@ public static class InfrastructureServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        _ = services.AddSingleton(_ =>
-            new DatabaseConnectionStringResolver(configuration));
+        var resolver = new DatabaseConnectionStringResolver(configuration);
+        _ = services.AddSingleton(resolver);
 
         return services.AddCynaraInfrastructure(
-            new DatabaseConnectionStringResolver(configuration).Resolve(),
+            resolver.Resolve(),
             SchemaFilePaths.FromBaseDirectory());
     }
 
