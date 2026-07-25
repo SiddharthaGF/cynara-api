@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 env:
-  NEON_BRANCH_NAME: ${{ github.head_ref | lower | replace('/', '-') | replace('_', '-') | trunc(40, '') }}
+  NEON_BRANCH_NAME: unset
 
 jobs:
   upsert:
@@ -21,12 +21,28 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action != 'closed'
     steps:
+      - name: Compute Neon branch name
+        id: name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          source_ref="${HEAD_REF:-${GITHUB_REF_NAME}}"
+          sanitised="$(printf '%s' "${source_ref}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/_' '-' \
+            | cut -c1-40)"
+          name="${sanitised}"
+          echo "name=${name}" >> "${GITHUB_OUTPUT}"
+          echo "Computed Neon branch name: ${name}"
+
       - name: Create Neon branch
         id: create
         uses: neondatabase/create-branch-action@v5
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: ${{ env.NEON_BRANCH_NAME }}
+          branch_name: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Wait for Render preview service
@@ -39,10 +55,7 @@ jobs:
           set -euo pipefail
           base="https://api.render.com/v1"
           auth_header="Authorization: Bearer ${RENDER_API_KEY}"
-          # Render names preview instances "<base> PR #<N>" (with spaces and
-          # a literal hash). The hostname slug is "-pr-<n>" but that is not
-          # the service name, so query by the real name.
-          preview_name="${RENDER_SERVICE_BASE} PR #${PR_NUMBER}"
+          preview_name="${RENDER_SERVICE_BASE}"
 
           deadline=$(( $(date +%s) + 900 ))
           service_id=""
@@ -122,11 +135,27 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
     steps:
+      - name: Compute Neon branch name
+        id: name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          source_ref="${HEAD_REF:-${GITHUB_REF_NAME:-pr-${PR_NUMBER}}}"
+          sanitised="$(printf '%s' "${source_ref}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/_' '-' \
+            | cut -c1-40)"
+          name="pr-${PR_NUMBER}-${sanitised}"
+          echo "name=${name}" >> "${GITHUB_OUTPUT}"
+          echo "Computed Neon branch name: ${name}"
+
       - name: Delete Neon branch
         uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: ${{ env.NEON_BRANCH_NAME }}
+          branch: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Delete sticky PR comment
