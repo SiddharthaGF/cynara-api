@@ -14,6 +14,7 @@ using Cynara.Infrastructure.Schemas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure;
 
@@ -25,11 +26,12 @@ public static class InfrastructureServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var resolver = new DatabaseConnectionStringResolver(configuration);
-        _ = services.AddSingleton(resolver);
+        string connectionString = configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings:Default is required for the PostgreSQL provider.");
 
         return services.AddCynaraInfrastructure(
-            resolver.Resolve(),
+            connectionString,
             SchemaFilePaths.FromBaseDirectory());
     }
 
@@ -43,13 +45,6 @@ public static class InfrastructureServiceCollectionExtensions
         _ = services.AddCynaraPersistence();
         _ = services.AddFormAiInfrastructureModule();
         return services;
-    }
-
-    public static bool IsPreviewStorage(IConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-        string? value = configuration["Database:PreviewStorage"];
-        return bool.TryParse(value, out bool isPreview) && isPreview;
     }
 
     public static IServiceCollection AddCynaraDatabase(
@@ -93,27 +88,40 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceProvider services,
         CancellationToken cancellationToken = default)
     {
-        IConfiguration configuration = services.GetRequiredService<IConfiguration>();
-        if (IsPreviewStorage(configuration))
-        {
-            // Neon PR preview branches inherit the schema from the parent
-            // branch; EnsureCreatedAsync would be a noisy no-op on every
-            // restart and may also interact badly with concurrent boot
-            // attempts while Render is still warming the container.
-            return;
-        }
+        const int maxAttempts = 5;
+        var backoff = TimeSpan.FromSeconds(3);
 
-        AsyncServiceScope scope = services.CreateAsyncScope();
-        try
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            CynaraDbContext dbContext = scope.ServiceProvider
-                .GetRequiredService<CynaraDbContext>();
-            _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        finally
-        {
-            await scope.DisposeAsync().ConfigureAwait(false);
+            AsyncServiceScope scope = services.CreateAsyncScope();
+            try
+            {
+                CynaraDbContext dbContext = scope.ServiceProvider
+                    .GetRequiredService<CynaraDbContext>();
+                _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts
+                && (ex is Npgsql.NpgsqlException
+                    || ex is IOException
+                    || ex is TimeoutException))
+            {
+                ILogger logger = services
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Cynara.Infrastructure.DatabaseInitialization");
+                logger.LogWarning(
+                    ex,
+                    "Database initialization failed on attempt {Attempt}/{Max}; retrying in {Backoff}s.",
+                    attempt,
+                    maxAttempts,
+                    backoff.TotalSeconds);
+                await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await scope.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 }

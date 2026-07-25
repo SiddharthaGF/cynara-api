@@ -39,8 +39,7 @@ internal static class WebApplicationExtensions
             .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
             .ConfigureAwait(false);
 
-        if (InfrastructureServiceCollectionExtensions.IsPreviewStorage(
-                app.Configuration))
+        if (IsPreviewEnvironment(app.Configuration))
         {
             await app.Services.SeedPreviewDemoAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -72,5 +71,14 @@ internal static class WebApplicationExtensions
             .GetSection(HospitalBootstrapOptions.SectionName)
             .Bind(options);
         return options;
+    }
+
+    private static bool IsPreviewEnvironment(IConfiguration configuration)
+    {
+        // Render sets `IS_PULL_REQUEST=true` on every PR preview instance and
+        // `IS_PULL_REQUEST=false` on the main service; the variable is not
+        // present in local dev.
+        string? value = configuration["IS_PULL_REQUEST"];
+        return bool.TryParse(value, out bool isPreview) && isPreview;
     }
 }
