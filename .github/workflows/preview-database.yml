@@ -114,7 +114,7 @@ jobs:
             -H "$auth_header" \
             -H "Content-Type: application/json" \
             --data "$(jq -n --arg v "${DB_URL}" '{value: $v}')" \
-            "${base}/services/${RENDER_SERVICE_ID}/env-vars/ConnectionStrings__Preview"
+            "${base}/services/${RENDER_SERVICE_ID}/env-vars/ConnectionStrings__Default"
 
       - name: Trigger deploy of Render preview
         env:

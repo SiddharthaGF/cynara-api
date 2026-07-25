@@ -14,6 +14,7 @@ using Cynara.Infrastructure.Schemas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure;
 
@@ -48,7 +49,13 @@ public static class InfrastructureServiceCollectionExtensions
     public static bool IsPreviewStorage(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        string? value = configuration["Database:PreviewStorage"];
+
+        // Render sets `IS_PULL_REQUEST=true` automatically on every PR preview
+        // instance and leaves it unset on the main service. Reading that env
+        // var through configuration lets the same image detect whether it is
+        // running as a preview without needing a separate configuration knob
+        // in the Render dashboard.
+        string? value = configuration["IS_PULL_REQUEST"];
         return bool.TryParse(value, out bool isPreview) && isPreview;
     }
 
@@ -103,17 +110,45 @@ public static class InfrastructureServiceCollectionExtensions
             return;
         }
 
-        AsyncServiceScope scope = services.CreateAsyncScope();
-        try
+        // Neon suspends a compute endpoint after roughly five minutes of
+        // inactivity. The first connection after a wake-up can complete the
+        // TCP handshake and then receive an EOF mid-protocol while the
+        // server is still starting up. Retry the migration a few times
+        // before giving up so a cold start does not crash the boot.
+        const int maxAttempts = 5;
+        var backoff = TimeSpan.FromSeconds(3);
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            CynaraDbContext dbContext = scope.ServiceProvider
-                .GetRequiredService<CynaraDbContext>();
-            _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        finally
-        {
-            await scope.DisposeAsync().ConfigureAwait(false);
+            AsyncServiceScope scope = services.CreateAsyncScope();
+            try
+            {
+                CynaraDbContext dbContext = scope.ServiceProvider
+                    .GetRequiredService<CynaraDbContext>();
+                _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts
+                && (ex is Npgsql.NpgsqlException
+                    || ex is IOException
+                    || ex is TimeoutException))
+            {
+                ILogger logger = services
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Cynara.Infrastructure.DatabaseInitialization");
+                logger.LogWarning(
+                    ex,
+                    "Database initialization failed on attempt {Attempt}/{Max}; retrying in {Backoff}s.",
+                    attempt,
+                    maxAttempts,
+                    backoff.TotalSeconds);
+                await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await scope.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 }
