@@ -37,7 +37,7 @@ public sealed class HospitalContext : IHospitalContext
     /// <summary>Resets the context (used by infrastructure tests).</summary>
     public void Reset()
     {
-        HospitalId = default;
+        HospitalId = Guid.Empty;
         Code = string.Empty;
         Name = string.Empty;
         IsResolved = false;

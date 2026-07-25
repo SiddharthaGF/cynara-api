@@ -49,8 +49,7 @@ public sealed class OpenAiChatClientFactory : IOpenAiChatClientFactory
 
     private static Uri CreateEndpoint(string baseUrl)
     {
-        char slash = Path.AltDirectorySeparatorChar;
-        string trimmed = baseUrl.Trim().TrimEnd(slash);
-        return new Uri(string.Concat(trimmed, slash), UriKind.Absolute);
+        string trimmed = baseUrl.Trim().TrimEnd('/');
+        return new UriBuilder { Scheme = Uri.UriSchemeHttps, Host = trimmed }.Uri;
     }
 }

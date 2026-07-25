@@ -6,6 +6,12 @@ namespace Cynara.Application.Modules.FormAi;
 
 internal static class FormAiDraftPatch
 {
+    public const string LayerLayout = "layout";
+
+    public const string LayerRulesFields = "rules.fields";
+
+    public const string LayerRulesValidations = "rules.validations";
+
     public static DraftTriple Empty(string schemaVersion = "1.0.0")
     {
         return new DraftTriple(

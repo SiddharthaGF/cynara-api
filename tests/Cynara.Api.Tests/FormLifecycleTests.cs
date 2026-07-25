@@ -287,9 +287,4 @@ public sealed class FormLifecycleTests : IDisposable
     }
 }
 
-internal sealed class FormWebApplicationFactory : CynaraWebApplicationFactory
-{
-    public FormWebApplicationFactory()
-    {
-    }
-}
+internal sealed class FormWebApplicationFactory : CynaraWebApplicationFactory;

@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.Hospitals;
 
 using Microsoft.AspNetCore.Mvc;
@@ -113,11 +114,7 @@ public sealed class WorkspaceController(
             return BadRequest(TenantValidationError("Request body is required."));
         }
 
-        string? actorId = HttpContext.Request.Headers.TryGetValue(
-            "X-Actor-Id",
-            out Microsoft.Extensions.Primitives.StringValues value)
-            ? value.ToString()
-            : null;
+        string? actorId = HttpContext.GetActorId();
         HospitalWorkspaceDto workspace = await workspaceService
             .UpdateCurrentAsync(request, actorId, cancellationToken)
             .ConfigureAwait(false);

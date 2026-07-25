@@ -44,10 +44,12 @@ internal static class Program
                 await serviceProvider.DisposeAsync().ConfigureAwait(false);
             }
 
-            Console.WriteLine(
+            await Console.Out.WriteLineAsync(
                 $"→ Seeded '{DemoShowcaseSeeder.ComponentCode}' "
-                + $"and '{DemoShowcaseSeeder.FormCode}'.");
-            Console.WriteLine("→ Open: /forms/demo-showcase/designer");
+                + $"and '{DemoShowcaseSeeder.FormCode}'.")
+                .ConfigureAwait(false);
+            await Console.Out.WriteLineAsync("→ Open: /forms/demo-showcase/designer")
+                .ConfigureAwait(false);
             return 0;
         }
         catch (Exception exception)

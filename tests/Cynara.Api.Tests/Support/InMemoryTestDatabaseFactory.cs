@@ -33,7 +33,9 @@ public sealed class InMemoryTestDatabaseFactory
     public static InMemoryTestDatabaseFactory Create()
     {
         int id = Interlocked.Increment(ref databaseCounter);
-        string databaseName = string.Concat("CynaraTests_", id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        string databaseName = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"CynaraTests_{id}");
         DbContextOptions<CynaraDbContext> options =
             new DbContextOptionsBuilder<CynaraDbContext>()
                 .UseInMemoryDatabase(databaseName)

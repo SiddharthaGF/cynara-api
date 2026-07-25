@@ -1,0 +1,156 @@
+using System.Text.Json.Nodes;
+
+using Cynara.Application.Forms;
+
+namespace Cynara.Application.Modules.FormAi;
+
+public sealed partial class FormAiService
+{
+    private static FormAiChatMessage RequireLatestUser(IReadOnlyList<FormAiChatMessage> messages)
+    {
+        FormAiChatMessage? latest = messages.LastOrDefault(
+            item => string.Equals(item.Role, "user", StringComparison.Ordinal));
+        return latest ?? throw new ValidationException("At least one user message is required.");
+    }
+
+    private static List<FormAiChatMessage> NormalizeMessages(
+        IReadOnlyList<FormAiChatMessage>? messages)
+    {
+        if (messages is null)
+        {
+            throw new ValidationException("At least one user message is required.");
+        }
+
+        var result = messages
+            .Where(item => (item.Role is "user" or "assistant") && !string.IsNullOrWhiteSpace(item.Content))
+            .Select(item => new FormAiChatMessage(item.Role, item.Content.Trim()))
+            .TakeLast(MaxMessages)
+            .ToList();
+        return result.Count == 0 || result.TrueForAll(item => !string.Equals(item.Role, "user", StringComparison.Ordinal))
+            ? throw new ValidationException("At least one user message is required.")
+            : result;
+    }
+
+    private static string NormalizeLocale(string? locale)
+    {
+        if (string.IsNullOrWhiteSpace(locale))
+        {
+            return "en";
+        }
+
+        string normalized = locale.Trim().ToUpperInvariant().Replace('_', '-');
+        if (normalized.StartsWith("ES", StringComparison.Ordinal))
+        {
+            return "es";
+        }
+
+        return normalized.StartsWith("EN", StringComparison.Ordinal)
+            ? "en"
+            : normalized[..Math.Min(16, normalized.Length)];
+    }
+
+    private static FormAiChatResponse LimitationResponse(
+        DraftContext draft,
+        string message,
+        string locale)
+    {
+        return new FormAiChatResponse(
+            FormAiGuardrails.LimitationSummary(locale),
+            message,
+            Thinking: null,
+            draft.ClinicalSchemaJson,
+            draft.UiSchemaJson ?? DefaultUiSchema,
+            draft.RulesSchemaJson ?? DefaultRulesSchema);
+    }
+
+    private static FormAiChatResponse EmptyDraftResponse(string locale)
+    {
+        DraftTriple empty = FormAiDraftPatch.Empty();
+        return new FormAiChatResponse(
+            FormAiGuardrails.DraftResetSummary(locale),
+            FormAiGuardrails.DraftResetMessage(locale),
+            Thinking: null,
+            empty.Clinical.ToJsonString(),
+            empty.Ui.ToJsonString(),
+            empty.Rules.ToJsonString());
+    }
+
+    private static DraftTriple ParseDraftTriple(DraftContext draft)
+    {
+        return new DraftTriple(
+            ParseObjectOrEmpty(draft.ClinicalSchemaJson),
+            ParseObjectOrEmpty(draft.UiSchemaJson),
+            ParseObjectOrEmpty(draft.RulesSchemaJson));
+    }
+
+    private static string ResolveMode(JsonObject parsed)
+    {
+        if (parsed[AiModePatch] is JsonObject)
+        {
+            return AiModePatch;
+        }
+
+        return parsed["clinical"] is JsonObject
+                    && parsed["ui"] is JsonObject
+                    && parsed["rules"] is JsonObject
+            ? "replace"
+            : "unchanged";
+    }
+
+    private static bool IsValidFieldId(string value)
+    {
+        return FieldIdRegex.IsMatch(value.Trim());
+    }
+
+    private async Task<DraftContext> ResolveDraftAsync(
+        string formCode,
+        FormAiChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(request.ClinicalSchemaJson))
+        {
+            return new DraftContext(
+                request.ClinicalSchemaJson,
+                request.UiSchemaJson,
+                request.RulesSchemaJson);
+        }
+
+        FormVersionDto draft = await forms.GetEditableVersionAsync(formCode, cancellationToken).ConfigureAwait(false);
+        return new DraftContext(
+            draft.ClinicalSchemaJson,
+            draft.UiSchemaJson,
+            draft.RulesSchemaJson);
+    }
+
+    private IReadOnlyList<OpenAiMessage> BuildMessages(
+        string formCode,
+        string locale,
+        IReadOnlyList<FormAiChatMessage> messages,
+        DraftContext draft,
+        FocusContext focus)
+    {
+        // Only load the full skill body on the first turn of a conversation.
+        // Subsequent turns reuse the contract that was already loaded — the
+        // header reminder explicitly tells the model to keep applying it.
+        bool isFirstTurn = messages.Count <= 1;
+        string? skillBody = isFirstTurn ? skillLoader.GetSkillBody() : null;
+        return
+        [
+            new(
+                "system",
+                FormAiPromptBuilder.BuildSystemPrompt(locale, skillBody, isFirstTurn)),
+            new(
+                "user",
+                FormAiPromptBuilder.BuildUserTurn(
+                    new FormAiUserTurnRequest(
+                        formCode,
+                        locale,
+                        messages,
+                        draft.ClinicalSchemaJson,
+                        draft.UiSchemaJson,
+                        draft.RulesSchemaJson,
+                        focus.Fields,
+                        focus.Types))),
+        ];
+    }
+}

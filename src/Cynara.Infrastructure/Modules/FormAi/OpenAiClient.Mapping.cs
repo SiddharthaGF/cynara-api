@@ -278,10 +278,10 @@ public sealed partial class OpenAiClient
         string? thinking = thoughts.Count == 0 ? null : string.Join("\n\n", thoughts);
         if (string.IsNullOrWhiteSpace(content))
         {
-            string emptyMessage = isTruncated
-                ? "AI provider truncated the response before completing the JSON output."
-                : "OpenAI-compatible provider returned an empty assistant message.";
-            throw new ValidationException(emptyMessage);
+            throw new ValidationException(
+                isTruncated
+                    ? "AI provider truncated the response before completing the JSON output."
+                    : "OpenAI-compatible provider returned an empty assistant message.");
         }
 
         return new OpenAiCompletionResult(content.Trim(), thinking, isTruncated);

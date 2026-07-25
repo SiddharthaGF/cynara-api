@@ -227,9 +227,4 @@ public sealed class ComponentLifecycleTests : IDisposable
     }
 }
 
-internal sealed class ComponentWebApplicationFactory : CynaraWebApplicationFactory
-{
-    public ComponentWebApplicationFactory()
-    {
-    }
-}
+internal sealed class ComponentWebApplicationFactory : CynaraWebApplicationFactory;

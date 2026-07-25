@@ -193,9 +193,9 @@ internal static partial class FormAiDraftConsistency
     {
         return layer switch
         {
-            "layout" => "layout",
-            "rules.fields" => "field rules",
-            "rules.validations" => "validations",
+            FormAiDraftPatch.LayerLayout => FormAiDraftPatch.LayerLayout,
+            FormAiDraftPatch.LayerRulesFields => "field rules",
+            FormAiDraftPatch.LayerRulesValidations => "validations",
             _ => layer,
         };
     }

@@ -43,18 +43,29 @@ public sealed partial class FormAiService
                 break;
             }
 
-            int bodyStart = SkipNewlineAfterFence(raw, open + openFence.Length);
-            int close = raw.IndexOf(closeFence, bodyStart, StringComparison.Ordinal);
+            int close = FindFenceClose(raw, open, openFence, closeFence);
             if (close < 0)
             {
                 break;
             }
 
-            lastBody = raw[bodyStart..close].Trim();
+            lastBody = ReadFenceBody(raw, open, openFence, close);
             searchFrom = close + closeFence.Length;
         }
 
         return lastBody;
+    }
+
+    private static int FindFenceClose(string raw, int open, string openFence, string closeFence)
+    {
+        int bodyStart = SkipNewlineAfterFence(raw, open + openFence.Length);
+        return raw.IndexOf(closeFence, bodyStart, StringComparison.Ordinal);
+    }
+
+    private static string ReadFenceBody(string raw, int open, string openFence, int close)
+    {
+        int bodyStart = SkipNewlineAfterFence(raw, open + openFence.Length);
+        return raw[bodyStart..close].Trim();
     }
 
     private static int SkipNewlineAfterFence(string raw, int start)
@@ -146,7 +157,7 @@ public sealed partial class FormAiService
         return parsed["upsertClinicalFields"] is not null
             || parsed["removeFieldIds"] is not null
             || parsed["upsertUiFields"] is not null
-            || parsed["layout"] is not null
+            || parsed[FormAiDraftPatch.LayerLayout] is not null
             || parsed["upsertRulesFields"] is not null
             || parsed["removeRulesFieldIds"] is not null
             || parsed["upsertValidations"] is not null
@@ -177,6 +188,15 @@ public sealed partial class FormAiService
             return false;
         }
 
+        return TryParseJsonSlice(content, start, end, out parsed);
+    }
+
+    private static bool TryParseJsonSlice(
+        string content,
+        int start,
+        int end,
+        out JsonObject? parsed)
+    {
         try
         {
             parsed = JsonNode.Parse(content[start..(end + 1)]) as JsonObject;
@@ -184,6 +204,7 @@ public sealed partial class FormAiService
         }
         catch (JsonException)
         {
+            parsed = null;
             return false;
         }
     }
