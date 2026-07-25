@@ -29,6 +29,8 @@ public static class InfrastructureServiceCollectionExtensions
             ?? throw new InvalidOperationException(
                 "ConnectionStrings:Default is required for the PostgreSQL provider.");
 
+        ValidateNpgsqlConnectionString(connectionString);
+
         return services.AddCynaraInfrastructure(
             connectionString,
             SchemaFilePaths.FromBaseDirectory());
@@ -105,6 +107,49 @@ public static class InfrastructureServiceCollectionExtensions
         finally
         {
             await scope.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static void ValidateNpgsqlConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is empty. Set the "
+                + "ConnectionStrings__Default environment variable with a "
+                + "valid Npgsql connection string (e.g. "
+                + "'Host=db;Port=5432;Database=cynara;Username=cynara;Password=...').");
+        }
+
+        if (char.IsWhiteSpace(connectionString[0])
+            || connectionString[^1] == '\n' || connectionString[^1] == '\r')
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default has leading/trailing whitespace or "
+                + "a trailing newline. Trim the environment variable value in "
+                + "the Render dashboard before saving.");
+        }
+
+        if (connectionString.Contains('\n', StringComparison.Ordinal)
+            || connectionString.Contains('\r', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default contains an embedded newline. "
+                + "Replace literal '\\n' or carriage returns in the "
+                + "environment variable with a single-line connection string.");
+        }
+
+        try
+        {
+            _ = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is not a valid Npgsql connection "
+                + "string. Check the environment variable value; the original "
+                + "parser error was: " + ex.Message,
+                ex);
         }
     }
 }
