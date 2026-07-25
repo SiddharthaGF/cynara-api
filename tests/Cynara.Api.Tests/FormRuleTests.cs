@@ -8,8 +8,16 @@ using Cynara.Application.Forms;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormRuleTests
 {
+    private readonly PostgreSqlDatabaseFixture database;
+
+    public FormRuleTests(PostgreSqlDatabaseFixture database)
+    {
+        this.database = database;
+    }
+
     private static readonly string FixtureRoot = Path.Combine(
         AppContext.BaseDirectory,
         "Fixtures",
@@ -87,7 +95,7 @@ public sealed class FormRuleTests
     [Fact]
     public async Task CreateForm_RejectsCalculateOnWritableField()
     {
-        await using FormWebApplicationFactory factory = new();
+        await using FormWebApplicationFactory factory = new(database.Settings);
         using HttpClient client = factory.CreateClient();
         client.AcceptJsonApi();
         client.DefaultRequestHeaders.TryAddWithoutValidation(
@@ -133,7 +141,7 @@ public sealed class FormRuleTests
     [Fact]
     public async Task PublishDraft_IncludesRulesInSnapshotAndDependencyMetadata()
     {
-        await using FormWebApplicationFactory factory = new();
+        await using FormWebApplicationFactory factory = new(database.Settings);
         using HttpClient client = factory.CreateClient();
         client.AcceptJsonApi();
         client.DefaultRequestHeaders.TryAddWithoutValidation(

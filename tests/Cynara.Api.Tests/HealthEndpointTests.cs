@@ -1,16 +1,18 @@
 using System.Net;
 
-using Microsoft.AspNetCore.Mvc.Testing;
+using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class HealthEndpointTests : IDisposable
 {
-    private readonly WebApplicationFactory<Program> factory = new();
+    private readonly CynaraWebApplicationFactory factory;
     private readonly HttpClient client;
 
-    public HealthEndpointTests()
+    public HealthEndpointTests(PostgreSqlDatabaseFixture database)
     {
+        factory = new CynaraWebApplicationFactory(database.Settings);
         client = factory.CreateClient();
     }
 

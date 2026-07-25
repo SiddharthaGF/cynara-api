@@ -1,3 +1,4 @@
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Persistence;
 
@@ -6,16 +7,25 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Support;
 
-internal sealed class CynaraTenantWebApplicationFactory : CynaraWebApplicationFactory
+internal sealed class CynaraTenantWebApplicationFactory(
+    TestDatabaseSettings database,
+    HospitalBootstrapOptions? bootstrapOptions = null)
+    : CynaraWebApplicationFactory(database, bootstrapOptions)
 {
     public const string PrimaryCode = "primary";
     public const string OtherCode = "secondary";
 
-    public CynaraTenantWebApplicationFactory()
-        : base(TestDatabaseSettings.SqliteInMemory)
+    public CynaraTenantWebApplicationFactory(TestDatabaseSettings database)
+        : this(
+            database,
+            new HospitalBootstrapOptions
+            {
+                BootstrapCode = PrimaryCode,
+                BootstrapName = "primary workspace",
+                HeaderName = "X-Hospital-Code",
+                AllowAutoBootstrap = true,
+            })
     {
-        BootstrapOptions.BootstrapCode = PrimaryCode;
-        BootstrapOptions.BootstrapName = "primary workspace";
     }
 
     public FactoryScope CreateScope()

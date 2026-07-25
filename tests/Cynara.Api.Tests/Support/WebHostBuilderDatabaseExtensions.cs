@@ -12,10 +12,7 @@ internal static class WebHostBuilderDatabaseExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(database);
 
-        _ = builder.UseSetting("Database:Provider", database.Provider);
-        _ = builder.UseSetting(
-            "ConnectionStrings:Default",
-            database.ConnectionString);
+        _ = builder.UseSetting("ConnectionStrings:Default", database.ConnectionString);
 
         return builder.ConfigureAppConfiguration((_, configuration) =>
         {
@@ -27,7 +24,6 @@ internal static class WebHostBuilderDatabaseExtensions
             configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
-                    ["Database:Provider"] = database.Provider,
                     ["ConnectionStrings:Default"] = database.ConnectionString,
                 });
         });

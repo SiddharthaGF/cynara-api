@@ -11,10 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormLifecycleTests : IDisposable
 {
-    public FormLifecycleTests()
+    public FormLifecycleTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Api = new JsonApiClient(Client);
@@ -180,7 +182,7 @@ public sealed class FormLifecycleTests : IDisposable
 
     private JsonApiClient Api { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private async Task<JsonDocument> PostWorkflowAsync(
         string versionId,
@@ -288,10 +290,4 @@ public sealed class FormLifecycleTests : IDisposable
 }
 
 internal sealed class FormWebApplicationFactory(TestDatabaseSettings database)
-    : CynaraWebApplicationFactory(database)
-{
-    public FormWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
-    {
-    }
-}
+    : CynaraWebApplicationFactory(database);

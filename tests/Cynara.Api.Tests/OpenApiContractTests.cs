@@ -5,10 +5,12 @@ using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class OpenApiContractTests : IDisposable
 {
-    public OpenApiContractTests()
+    public OpenApiContractTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new CynaraWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.DefaultRequestHeaders.TryAddWithoutValidation(
             "X-Hospital-Code",
@@ -142,5 +144,5 @@ public sealed class OpenApiContractTests : IDisposable
 
     private HttpClient Client { get; }
 
-    private CynaraWebApplicationFactory Factory { get; } = new();
+    private CynaraWebApplicationFactory Factory { get; }
 }

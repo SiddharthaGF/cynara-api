@@ -11,10 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormReviewWorkflowTests : IDisposable
 {
-    public FormReviewWorkflowTests()
+    public FormReviewWorkflowTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "reviewer-1");
@@ -208,7 +210,7 @@ public sealed class FormReviewWorkflowTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private static string FormWithComponentRef(
         string id,

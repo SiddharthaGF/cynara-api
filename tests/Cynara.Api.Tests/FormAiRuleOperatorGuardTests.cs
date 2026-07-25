@@ -12,9 +12,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FormAiRuleOperatorGuardTests : IDisposable
 {
-    private readonly GuardFactory factory = new();
+    private readonly GuardFactory factory;
+
+    public FormAiRuleOperatorGuardTests(PostgreSqlDatabaseFixture database)
+    {
+        factory = new GuardFactory(database.Settings);
+    }
 
     public void Dispose()
     {
@@ -130,7 +136,8 @@ public sealed class FormAiRuleOperatorGuardTests : IDisposable
     }
 }
 
-internal sealed class GuardFactory : CynaraWebApplicationFactory
+internal sealed class GuardFactory(TestDatabaseSettings database)
+    : CynaraWebApplicationFactory(database)
 {
     private RegexOpenAiClientStub? stubOverride;
 

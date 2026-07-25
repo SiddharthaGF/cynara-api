@@ -4,7 +4,7 @@ namespace Cynara.Api.Tests;
 
 public sealed partial class FormLifecycleE2ETests
 {
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 
     private async Task CreateAndPublishComponentAsync(
         string code,

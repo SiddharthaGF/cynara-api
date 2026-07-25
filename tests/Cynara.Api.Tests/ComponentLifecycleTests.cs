@@ -12,10 +12,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class ComponentLifecycleTests : IDisposable
 {
-    public ComponentLifecycleTests()
+    public ComponentLifecycleTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new ComponentWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Api = new JsonApiClient(Client);
@@ -203,7 +205,7 @@ public sealed class ComponentLifecycleTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private ComponentWebApplicationFactory Factory { get; } = new();
+    private ComponentWebApplicationFactory Factory { get; }
 
     private async Task AssertAuditEventsRecordedAsync(
         Guid resourceId,
@@ -228,10 +230,4 @@ public sealed class ComponentLifecycleTests : IDisposable
 }
 
 internal sealed class ComponentWebApplicationFactory(TestDatabaseSettings database)
-    : CynaraWebApplicationFactory(database)
-{
-    public ComponentWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
-    {
-    }
-}
+    : CynaraWebApplicationFactory(database);

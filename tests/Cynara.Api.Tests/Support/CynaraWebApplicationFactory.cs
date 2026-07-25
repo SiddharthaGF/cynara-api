@@ -2,9 +2,11 @@ using Cynara.Api.Common.ActorContext;
 using Cynara.Api.Hosting;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,10 +18,8 @@ internal class CynaraWebApplicationFactory(
     HospitalBootstrapOptions? bootstrapOptions = null)
     : WebApplicationFactory<Program>
 {
-    public CynaraWebApplicationFactory()
-        : this(TestDatabaseSettings.SqliteInMemory)
-    {
-    }
+    private readonly SemaphoreSlim resetLock = new(1, 1);
+    private bool resetPerformed;
 
     public HospitalBootstrapOptions BootstrapOptions { get; } =
         bootstrapOptions ?? BuildDefaultOptions();
@@ -50,7 +50,6 @@ internal class CynaraWebApplicationFactory(
             configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
-                    ["Database:Provider"] = database.Provider,
                     ["ConnectionStrings:Default"] = database.ConnectionString,
                     ["Hospitals:BootstrapCode"] = BootstrapOptions.BootstrapCode
                         ?? HospitalBootstrap.DefaultBootstrapCode,
@@ -74,6 +73,73 @@ internal class CynaraWebApplicationFactory(
         });
 
         return base.CreateHost(builder);
+    }
+
+    public new HttpClient CreateClient()
+    {
+        EnsureReset().GetAwaiter().GetResult();
+        return base.CreateClient();
+    }
+
+    public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
+    {
+        EnsureReset().GetAwaiter().GetResult();
+        return base.CreateClient(options);
+    }
+
+    /// <summary>
+    /// Truncates every table in the shared Postgres container so each test
+    /// class starts from a clean slate. Schema, indexes, and sequences are
+    /// preserved so other tests sharing the connection string keep working.
+    /// The bootstrap hospital is re-seeded afterwards. The first
+    /// <c>CreateClient</c> call on a given factory instance triggers this
+    /// automatically; tests that bypass <c>CreateClient</c> can call it
+    /// directly (e.g. from <see cref="IAsyncLifetime.InitializeAsync"/>).
+    /// </summary>
+    public async Task ResetDatabaseAsync()
+    {
+        await resetLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            const string TruncateSql = @"
+DO $$
+DECLARE
+    tables_to_truncate TEXT;
+BEGIN
+    SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
+        INTO tables_to_truncate
+        FROM pg_tables
+        WHERE schemaname = current_schema();
+
+    IF tables_to_truncate IS NOT NULL THEN
+        EXECUTE 'TRUNCATE TABLE ' || tables_to_truncate || ' RESTART IDENTITY CASCADE';
+    END IF;
+END $$;";
+
+            await using AsyncServiceScope scope = Services.CreateAsyncScope();
+            CynaraDbContext dbContext = scope.ServiceProvider
+                .GetRequiredService<CynaraDbContext>();
+            _ = await dbContext.Database
+                .ExecuteSqlRawAsync(TruncateSql)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = resetLock.Release();
+        }
+
+        await EnsureBootstrapHospitalAsync().ConfigureAwait(false);
+        resetPerformed = true;
+    }
+
+    private async Task EnsureReset()
+    {
+        if (resetPerformed)
+        {
+            return;
+        }
+
+        await ResetDatabaseAsync().ConfigureAwait(false);
     }
 
     /// <summary>

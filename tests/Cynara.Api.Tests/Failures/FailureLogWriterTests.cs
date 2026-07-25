@@ -1,28 +1,28 @@
+using Cynara.Api.Tests.Support;
 using Cynara.Application.Failures;
 using Cynara.Domain.Failures;
 using Cynara.Infrastructure.Failures;
 using Cynara.Infrastructure.Persistence;
 
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cynara.Api.Tests.Failures;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class FailureLogWriterTests : IDisposable
 {
-    private readonly SqliteConnection connection = new("Data Source=:memory:");
+    private readonly DbContextOptions<CynaraDbContext> options;
     private readonly ServiceProvider serviceProvider;
 
-    public FailureLogWriterTests()
+    public FailureLogWriterTests(PostgreSqlDatabaseFixture database)
     {
-        connection.Open();
+        database.ResetAsync().GetAwaiter().GetResult();
 
-        DbContextOptions<CynaraDbContext> options =
-            new DbContextOptionsBuilder<CynaraDbContext>()
-                .UseSqlite(connection)
-                .Options;
+        options = new DbContextOptionsBuilder<CynaraDbContext>()
+            .UseNpgsql(database.Settings.ConnectionString)
+            .Options;
 
         using (CynaraDbContext dbContext = new(options))
         {
@@ -37,7 +37,6 @@ public sealed class FailureLogWriterTests : IDisposable
     public void Dispose()
     {
         serviceProvider.Dispose();
-        connection.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -104,7 +103,7 @@ public sealed class FailureLogWriterTests : IDisposable
     {
         DbContextOptions<CynaraDbContext> badOptions =
             new DbContextOptionsBuilder<CynaraDbContext>()
-                .UseSqlite("Data Source=/nonexistent/path/db.sqlite")
+                .UseNpgsql("Host=127.0.0.1;Port=1;Database=none;Username=u;Password=p;Timeout=1")
                 .Options;
 
         ServiceCollection services = new();

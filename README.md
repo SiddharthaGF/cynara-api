@@ -55,7 +55,7 @@ requests live in [`http/cynara.http`](http/cynara.http).
 | `FluentValidation` | Request DTO validation for retained command models |
 | `Stateless` | Form/component/response status transitions |
 | `Verify.Xunit` | Snapshot tests for stable contracts |
-| `Testcontainers.MsSql` | Optional SQL Server integration tests |
+| `Testcontainers.PostgreSql` | Optional PostgreSQL integration tests |
 | `JsonSchema.Net` | Structural schema validation (Draft 2020-12) |
 
 ### WSL (Windows Subsystem for Linux)
@@ -96,25 +96,25 @@ Linting and formatting follow .NET conventions via [NetAnalyzers](https://learn.
 make format        # write formatting changes
 make format-check  # verify only (--verify-no-changes)
 make lint          # dotnet build --no-restore -warnaserror
-make test          # SQLite suite (excludes Category=MsSql)
-make test-mssql    # SQL Server via Testcontainers (needs Docker)
-make check         # full local/CI validation
-make fix           # format + apply safe analyzer fixes
-make sonar         # local SonarQube Community Build analysis
-make seed          # seed demo showcase into configured DB (no HTTP)
+make test    # PostgreSQL suite via Testcontainers (needs Docker; excludes Category=E2E)
+make check   # restore + format-check + lint + test
+make fix     # format + apply safe analyzer fixes
+make sonar   # local SonarQube Community Build analysis
+make seed    # seed demo showcase into configured DB (no HTTP)
 ```
 
-Default `make test` keeps the fast in-memory SQLite host. `make test-mssql`
-starts a disposable SQL Server container and runs the `Category=MsSql` smoke
-tests against the same API path (`Database:Provider=SqlServer`).
+`make test` starts a disposable PostgreSQL container (Testcontainers) and runs
+the full API suite against it. Set `ConnectionStrings__Default` (env var or
+`appsettings`) to point at a running PostgreSQL instance instead of the
+ephemeral container.
 
-Seed uses the same `Database:Provider` / `ConnectionStrings:Default` resolution as the API
-(`appsettings`, env vars, or CLI). Examples:
+Seed resolves `ConnectionStrings:Default` from `appsettings`, env vars, or
+`--connection`. Examples:
 
 ```bash
 make seed
-make seed SEED_ARGS='--provider SqlServer --connection "Server=...;Database=cynara;..."'
-Database__Provider=SqlServer ConnectionStrings__Default='...' make seed
+make seed SEED_ARGS='--connection "Host=...;Database=cynara;Username=...;Password=..."'
+ConnectionStrings__Default='Host=...;Database=cynara;Username=...;Password=...' make seed
 ```
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.

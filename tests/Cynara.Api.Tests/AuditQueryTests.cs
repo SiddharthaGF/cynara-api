@@ -5,10 +5,12 @@ using Cynara.Api.Tests.Support;
 
 namespace Cynara.Api.Tests;
 
+[Collection(PostgresFixtureDefinition.Name)]
 public sealed class AuditQueryTests : IDisposable
 {
-    public AuditQueryTests()
+    public AuditQueryTests(PostgreSqlDatabaseFixture database)
     {
+        Factory = new FormWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
         Client.DefaultRequestHeaders.Add("X-Actor-Id", "auditor-1");
@@ -146,5 +148,5 @@ public sealed class AuditQueryTests : IDisposable
 
     private JsonApiWorkflow Workflow { get; }
 
-    private FormWebApplicationFactory Factory { get; } = new();
+    private FormWebApplicationFactory Factory { get; }
 }
