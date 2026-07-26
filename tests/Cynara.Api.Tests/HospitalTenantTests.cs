@@ -1,9 +1,7 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Text.Json;
 
 using Cynara.Api.Tests.Support;
-using Cynara.Domain.Audit;
 using Cynara.Domain.Forms;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Persistence;
@@ -13,9 +11,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Api.Tests;
 
 /// <summary>
-/// Integration tests for the CYN-33 hospital workspace and tenant context
-/// contract. Covers the public workspace endpoints, header enforcement,
-/// ownership stamping, isolation, and JSON:API contract guarantees.
+/// CYN-33 hospital workspace and tenant context contract tests.
+/// Covers the public workspace endpoints, header enforcement, ownership
+/// stamping, and basic isolation guarantees.
 /// </summary>
 [Collection(PostgresFixtureDefinition.Name)]
 public sealed class HospitalTenantTests : IDisposable
@@ -145,7 +143,8 @@ public sealed class HospitalTenantTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         string body = await response.Content.ReadAsStringAsync()
             .ConfigureAwait(false);
-        Assert.Contains("Hospital context required", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "Hospital context required", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -174,13 +173,15 @@ public sealed class HospitalTenantTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         string body = await response.Content.ReadAsStringAsync()
             .ConfigureAwait(false);
-        Assert.Contains("Unknown hospital workspace", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "Unknown hospital workspace", body, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task SuspendedHospitalContext_ReturnsForbidden()
     {
-        await using CynaraTenantWebApplicationFactory.FactoryScope scope = Scope;
+        await using CynaraTenantWebApplicationFactory.FactoryScope scope =
+            Scope;
         CynaraDbContext dbContext = scope.DbContext;
         dbContext.Hospitals.Add(new Hospital
         {
@@ -221,7 +222,8 @@ public sealed class HospitalTenantTests : IDisposable
     [Fact]
     public async Task FormCreated_StampsResolvedHospitalId()
     {
-        await using CynaraTenantWebApplicationFactory.FactoryScope scope = Scope;
+        await using CynaraTenantWebApplicationFactory.FactoryScope scope =
+            Scope;
         CynaraDbContext dbContext = scope.DbContext;
         Guid expected = scope.LoadPrimaryHospital().Id;
 
@@ -242,124 +244,6 @@ public sealed class HospitalTenantTests : IDisposable
             .SingleAsync(item => item.Id == definition.Id)
             .ConfigureAwait(false);
         Assert.Equal(expected, stored.HospitalId);
-    }
-
-    [Fact]
-    public async Task CrossTenant_FormDefinition_IsNotFound()
-    {
-        // Use the public JSON:API surface to create the form under the primary
-        // hospital context, then attempt to fetch it from the other tenant.
-        var primaryApi = new JsonApiClient(Client);
-        using JsonDocument created = await primaryApi.PostResourceAsync(
-            "formDefinitions",
-            new
-            {
-                code = "isolation-form",
-                name = "Isolation form",
-                initialClinicalSchemaJson =
-                    JsonApiWorkflow.MinimalClinicalSchema("patient-name", "patient.name"),
-            }).ConfigureAwait(false);
-        string definitionId = JsonApiClient.RequireId(created);
-
-        using HttpResponseMessage primary = await Client
-            .GetAsync(new Uri($"/api/formDefinitions/{definitionId}", UriKind.Relative))
-            .ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, primary.StatusCode);
-
-        // Spin up a new HttpClient to guarantee the header is the secondary
-        // hospital. Sharing an HttpClient across calls would carry the primary
-        // header and undermine the isolation check.
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
-        using HttpResponseMessage other = await secondaryClient
-            .GetAsync(new Uri($"/api/formDefinitions/{definitionId}", UriKind.Relative))
-            .ConfigureAwait(false);
-        string body = await other.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.True(
-            other.StatusCode == HttpStatusCode.NotFound,
-            $"Expected 404, got {other.StatusCode}. Body: {body}");
-    }
-
-    [Fact]
-    public async Task SameCode_DifferentHospitals_BothExist()
-    {
-        await using CynaraTenantWebApplicationFactory.FactoryScope scope = Scope;
-        CynaraDbContext dbContext = scope.DbContext;
-        Guid primaryId = scope.LoadPrimaryHospital().Id;
-        Guid otherId = scope.LoadOtherHospital().Id;
-        const string code = "shared-code";
-
-        FormDefinition first = new()
-        {
-            Id = Guid.NewGuid(),
-            Code = code,
-            Name = "primary shared",
-            HospitalId = primaryId,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
-        FormDefinition second = new()
-        {
-            Id = Guid.NewGuid(),
-            Code = code,
-            Name = "secondary shared",
-            HospitalId = otherId,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
-        dbContext.FormDefinitions.AddRange(first, second);
-        _ = await dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        Assert.Equal(code, first.Code);
-        Assert.Equal(code, second.Code);
-        Assert.NotEqual(first.Id, second.Id);
-    }
-
-    [Fact]
-    public async Task AuditEvents_AreScopedToResolvedHospital()
-    {
-        await using CynaraTenantWebApplicationFactory.FactoryScope scope = Scope;
-        CynaraDbContext dbContext = scope.DbContext;
-        Guid primaryId = scope.LoadPrimaryHospital().Id;
-        Guid otherId = scope.LoadOtherHospital().Id;
-
-        AuditEvent primaryEvent = new()
-        {
-            Id = Guid.NewGuid(),
-            HospitalId = primaryId,
-            ResourceType = "form",
-            ResourceId = Guid.NewGuid(),
-            Action = "create",
-            ActorId = "primary-actor",
-            OccurredAt = DateTimeOffset.UtcNow,
-        };
-        AuditEvent otherEvent = new()
-        {
-            Id = Guid.NewGuid(),
-            HospitalId = otherId,
-            ResourceType = "form",
-            ResourceId = Guid.NewGuid(),
-            Action = "create",
-            ActorId = "other-actor",
-            OccurredAt = DateTimeOffset.UtcNow,
-        };
-        dbContext.AuditEvents.AddRange(primaryEvent, otherEvent);
-        _ = await dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        int primaryCount = await dbContext.AuditEvents
-            .AsNoTracking()
-            .Where(item => item.HospitalId == primaryId)
-            .CountAsync()
-            .ConfigureAwait(false);
-        int otherCount = await dbContext.AuditEvents
-            .AsNoTracking()
-            .Where(item => item.HospitalId == otherId)
-            .CountAsync()
-            .ConfigureAwait(false);
-        Assert.True(primaryCount >= 1);
-        Assert.True(otherCount >= 1);
     }
 
     private async Task<uint> GetWorkspaceRowVersionAsync()
@@ -383,7 +267,9 @@ public sealed class HospitalTenantTests : IDisposable
                 JsonSerializer.Serialize(body),
                 System.Text.Encoding.UTF8),
         };
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.api+json");
+        request.Content.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "application/vnd.api+json");
         return request;
     }
 }

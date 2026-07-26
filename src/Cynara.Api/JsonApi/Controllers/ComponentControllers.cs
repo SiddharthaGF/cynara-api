@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.Components;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Components;
 using Cynara.Infrastructure.Persistence;
 
@@ -20,6 +21,7 @@ public sealed class ComponentDefinitionsController(
     ILoggerFactory loggerFactory,
     IResourceService<ComponentDefinition, Guid> resourceService,
     IComponentLifecycleService lifecycle,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor)
     : JsonApiController<ComponentDefinition, Guid>(
         options,
@@ -47,11 +49,18 @@ public sealed class ComponentDefinitionsController(
         Guid id,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await resourceService
             .GetAsync(id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Component definition '{id}' was not found.");
+
+        if (definition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Component definition '{id}' was not found.");
+        }
 
         Application.Components.ComponentVersionDto draft =
             await lifecycle.CreateDraftFromLatestAsync(
@@ -79,11 +88,18 @@ public sealed class ComponentDefinitionsController(
         Guid id,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         ComponentDefinition definition = await resourceService
             .GetAsync(id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Component definition '{id}' was not found.");
+
+        if (definition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Component definition '{id}' was not found.");
+        }
 
         await lifecycle.SoftDeleteDraftAsync(
             definition.Code,
@@ -101,6 +117,7 @@ public sealed class ComponentVersionsController(
     ILoggerFactory loggerFactory,
     IResourceService<ComponentVersion, Guid> resourceService,
     IComponentLifecycleService lifecycle,
+    IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     CynaraDbContext dbContext)
     : JsonApiController<ComponentVersion, Guid>(
@@ -169,12 +186,22 @@ public sealed class ComponentVersionsController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        return await dbContext.ComponentVersions
+        hospitalContext.RequireResolved();
+        ComponentVersion version = await dbContext.ComponentVersions
             .Include(item => item.ComponentDefinition)
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Component version '{id}' was not found.");
+
+        if (version.HospitalId != hospitalContext.HospitalId
+            || version.ComponentDefinition.HospitalId != hospitalContext.HospitalId)
+        {
+            throw new Application.NotFoundException(
+                $"Component version '{id}' was not found.");
+        }
+
+        return version;
     }
 }
