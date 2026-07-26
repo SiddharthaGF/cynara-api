@@ -1,5 +1,6 @@
 using Cynara.Application.Persistence;
 using Cynara.Domain.Audit;
+using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Components;
 using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
@@ -32,6 +33,12 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<AiProviderSettings> AiProviderSettings => Set<AiProviderSettings>();
 
     public DbSet<FailureLog> FailureLogs => Set<FailureLog>();
+
+    public DbSet<Facility> Facilities => Set<Facility>();
+
+    public DbSet<ClinicalArea> ClinicalAreas => Set<ClinicalArea>();
+
+    public DbSet<Discipline> Disciplines => Set<Discipline>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

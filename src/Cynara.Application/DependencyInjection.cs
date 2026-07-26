@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.Audit;
+using Cynara.Application.Modules.ClinicalTaxonomy;
 using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
@@ -22,6 +23,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddFormsModule();
         _ = services.AddFormResponsesModule();
         _ = services.AddFormAiModule();
+        _ = services.AddClinicalTaxonomyModule();
         _ = services.AddValidatorsFromAssembly(
             typeof(ApplicationServiceCollectionExtensions).Assembly);
 
