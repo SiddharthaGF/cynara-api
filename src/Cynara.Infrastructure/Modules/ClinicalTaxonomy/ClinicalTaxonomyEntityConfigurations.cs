@@ -1,4 +1,5 @@
 using Cynara.Domain.ClinicalTaxonomy;
+using Cynara.Domain.Common;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,7 +23,7 @@ public sealed class FacilityConfiguration
         _ = builder.HasIndex(item => item.HospitalId);
         _ = builder.HasIndex(item => new { item.HospitalId, item.Code }).IsUnique();
         _ = builder.Property(item => item.Code)
-            .HasMaxLength(Facility.Codes.MaxLength)
+            .HasMaxLength(ResourceCodeRules.MaxLength)
             .IsRequired();
         _ = builder.Property(item => item.Name).HasMaxLength(256).IsRequired();
         _ = builder.Property(item => item.Status)
@@ -55,7 +56,7 @@ public sealed class ClinicalAreaConfiguration
         _ = builder.HasIndex(item => item.FacilityId);
         _ = builder.HasIndex(item => new { item.HospitalId, item.Code }).IsUnique();
         _ = builder.Property(item => item.Code)
-            .HasMaxLength(ClinicalArea.Codes.MaxLength)
+            .HasMaxLength(ResourceCodeRules.MaxLength)
             .IsRequired();
         _ = builder.Property(item => item.Name).HasMaxLength(256).IsRequired();
         _ = builder.Property(item => item.Status)
@@ -93,7 +94,7 @@ public sealed class DisciplineConfiguration
         _ = builder.HasIndex(item => item.ClinicalAreaId);
         _ = builder.HasIndex(item => new { item.HospitalId, item.Code }).IsUnique();
         _ = builder.Property(item => item.Code)
-            .HasMaxLength(Discipline.Codes.MaxLength)
+            .HasMaxLength(ResourceCodeRules.MaxLength)
             .IsRequired();
         _ = builder.Property(item => item.Name).HasMaxLength(256).IsRequired();
         _ = builder.Property(item => item.Status)

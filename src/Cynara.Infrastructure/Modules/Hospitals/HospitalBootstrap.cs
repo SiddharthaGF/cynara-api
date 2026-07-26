@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Common;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Persistence;
 
@@ -30,7 +31,7 @@ public static class HospitalBootstrap
         string name = string.IsNullOrWhiteSpace(options.BootstrapName)
             ? DefaultBootstrapName
             : options.BootstrapName.Trim();
-        Hospital.Codes.EnsureValid(code);
+        ResourceCodeRules.EnsureValid(code, nameof(Hospital));
 
         AsyncServiceScope scope = services.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
@@ -62,7 +63,7 @@ public static class HospitalBootstrap
         string name = string.IsNullOrWhiteSpace(options.BootstrapName)
             ? DefaultBootstrapName
             : options.BootstrapName.Trim();
-        Hospital.Codes.EnsureValid(code);
+        ResourceCodeRules.EnsureValid(code, nameof(Hospital));
 
         return await EnsureBootstrapHospitalAsync(
                 dbContext,
