@@ -28,16 +28,11 @@ public static class FormAiInfrastructureModule
                     ShouldHandle = new PredicateBuilder()
                         .Handle<HttpRequestException>()
                         .Handle<System.ClientModel.ClientResultException>(
-                            static ex => IsTransientStatus(ex.Status))
+                            static ex => ProviderStatusRules.IsTransient(ex.Status))
                         .Handle<IOException>(),
                 });
                 _ = builder.AddTimeout(TimeSpan.FromMinutes(2));
             });
         return services;
-    }
-
-    private static bool IsTransientStatus(int status)
-    {
-        return status is 408 or 429 or >= 500;
     }
 }
