@@ -95,6 +95,7 @@ public sealed class WorkspaceController(
         StatusCodes.Status409Conflict,
         Description = "rowVersion does not match the persisted workspace.")]
     public async Task<ActionResult<HospitalWorkspaceDto>> PatchAsync(
+        [FromHeader(Name = "X-Actor-Id")] string? actorId,
         CancellationToken cancellationToken)
     {
         UpdateHospitalWorkspaceRequest? request;
@@ -113,11 +114,6 @@ public sealed class WorkspaceController(
             return BadRequest(TenantValidationError("Request body is required."));
         }
 
-        string? actorId = HttpContext.Request.Headers.TryGetValue(
-            "X-Actor-Id",
-            out Microsoft.Extensions.Primitives.StringValues value)
-            ? value.ToString()
-            : null;
         HospitalWorkspaceDto workspace = await workspaceService
             .UpdateCurrentAsync(request, actorId, cancellationToken)
             .ConfigureAwait(false);

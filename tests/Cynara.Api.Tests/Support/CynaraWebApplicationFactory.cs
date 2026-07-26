@@ -15,7 +15,8 @@ namespace Cynara.Api.Tests.Support;
 
 internal class CynaraWebApplicationFactory(
     TestDatabaseSettings database,
-    HospitalBootstrapOptions? bootstrapOptions = null)
+    HospitalBootstrapOptions? bootstrapOptions = null,
+    bool emulateRenderProxy = false)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
@@ -47,20 +48,26 @@ internal class CynaraWebApplicationFactory(
 
         _ = builder.ConfigureHostConfiguration(configuration =>
         {
-            configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>(StringComparer.Ordinal)
-                {
-                    ["ConnectionStrings:Default"] = database.ConnectionString,
-                    ["Hospitals:BootstrapCode"] = BootstrapOptions.BootstrapCode
-                        ?? HospitalBootstrap.DefaultBootstrapCode,
-                    ["Hospitals:BootstrapName"] = BootstrapOptions.BootstrapName
-                        ?? HospitalBootstrap.DefaultBootstrapName,
-                    ["Hospitals:HeaderName"] = BootstrapOptions.HeaderName
-                        ?? HttpContextHospitalExtensions.DefaultHeaderName,
-                    ["Hospitals:AllowAutoBootstrap"] = BootstrapOptions.AllowAutoBootstrap
-                        ? "true"
-                        : "false",
-                });
+            var settings = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["ConnectionStrings:Default"] = database.ConnectionString,
+                ["Hospitals:BootstrapCode"] = BootstrapOptions.BootstrapCode
+                    ?? HospitalBootstrap.DefaultBootstrapCode,
+                ["Hospitals:BootstrapName"] = BootstrapOptions.BootstrapName
+                    ?? HospitalBootstrap.DefaultBootstrapName,
+                ["Hospitals:HeaderName"] = BootstrapOptions.HeaderName
+                    ?? HttpContextHospitalExtensions.DefaultHeaderName,
+                ["Hospitals:AllowAutoBootstrap"] = BootstrapOptions.AllowAutoBootstrap
+                    ? "true"
+                    : "false",
+            };
+
+            if (emulateRenderProxy)
+            {
+                settings["RENDER_SERVICE_TYPE"] = "web";
+            }
+
+            configuration.AddInMemoryCollection(settings);
         });
 
         _ = builder.ConfigureServices(services =>

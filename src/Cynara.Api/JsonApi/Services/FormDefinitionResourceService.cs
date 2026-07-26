@@ -123,6 +123,16 @@ public sealed class FormDefinitionResourceService(
         return definition!;
     }
 
+    public override async Task<IReadOnlyCollection<FormDefinition>> GetAsync(
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyCollection<FormDefinition> definitions = await base
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        hospitalContext.RequireResolved();
+        return [.. definitions.Where(item => item.HospitalId == hospitalContext.HospitalId)];
+    }
+
     public override async Task<object?> GetSecondaryAsync(
         Guid id,
         string relationshipName,
@@ -144,16 +154,6 @@ public sealed class FormDefinitionResourceService(
         }
 
         return definition;
-    }
-
-    public override async Task<IReadOnlyCollection<FormDefinition>> GetAsync(
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyCollection<FormDefinition> definitions = await base
-            .GetAsync(cancellationToken)
-            .ConfigureAwait(false);
-        hospitalContext.RequireResolved();
-        return [.. definitions.Where(item => item.HospitalId == hospitalContext.HospitalId)];
     }
 
     public override Task DeleteAsync(

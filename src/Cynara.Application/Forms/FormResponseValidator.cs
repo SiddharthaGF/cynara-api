@@ -15,7 +15,7 @@ public sealed partial class FormResponseValidator(IFormRuleEngine ruleEngine) : 
         string answersJson,
         FormResponseValidationMode mode)
     {
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
         Dictionary<string, AnswerFieldDefinition> fieldsByCode = AnswerFieldIndex.Build(clinicalRoot);
         var repeatersByCode = fieldsByCode.Values
             .Where(static item => string.Equals(

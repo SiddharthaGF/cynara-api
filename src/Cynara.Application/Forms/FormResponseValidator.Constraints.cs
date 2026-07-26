@@ -16,7 +16,7 @@ public sealed partial class FormResponseValidator
             return rulesSchemaJson;
         }
 
-        JsonObject clinicalRoot = ParseObject(clinicalSchemaJson, "clinical schema");
+        JsonObject clinicalRoot = JsonParsing.ParseObject(clinicalSchemaJson, "clinical schema");
         string clinicalVersion = clinicalRoot["schemaVersion"]?.GetValue<string>() ?? "1.0.0";
         return $$"""
             {
@@ -265,19 +265,6 @@ public sealed partial class FormResponseValidator
         catch (JsonException exception)
         {
             throw new ValidationException($"Answers must be valid JSON: {exception.Message}");
-        }
-    }
-
-    private static JsonObject ParseObject(string json, string label)
-    {
-        try
-        {
-            return JsonNode.Parse(json)?.AsObject()
-                ?? throw new ValidationException($"Invalid {label}: expected a JSON object.");
-        }
-        catch (JsonException exception)
-        {
-            throw new ValidationException($"Invalid {label}: {exception.Message}");
         }
     }
 

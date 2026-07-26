@@ -60,7 +60,7 @@ public sealed partial class FormCompiler
         }
 
         ResolvedComponentDependency dependency = await context.ResolveAsync(componentCode, componentVersion, path).ConfigureAwait(false);
-        JsonObject componentClinical = ParseObject(dependency.ClinicalSchemaJson, $"component '{componentCode}' clinical schema");
+        JsonObject componentClinical = JsonParsing.ParseObject(dependency.ClinicalSchemaJson, $"component '{componentCode}' clinical schema");
         JsonArray componentFields = RequireArray(componentClinical[SchemaJsonKeys.Fields], $"/components/{componentCode}/fields");
 
         context.ResolutionStack.Push(componentCode);

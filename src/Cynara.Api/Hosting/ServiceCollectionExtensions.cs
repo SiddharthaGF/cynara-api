@@ -12,6 +12,7 @@ using JsonApiDotNetCore.Configuration;
 using JsonApiDotNetCore.OpenApi.Swashbuckle;
 using JsonApiDotNetCore.Resources.Annotations;
 
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 
@@ -41,6 +42,7 @@ internal static class ServiceCollectionExtensions
                         .AllowAnyHeader()
                         .AllowAnyMethod());
             })
+            .AddCynaraForwardedHeaders(configuration)
             .AddCynaraApplication()
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
@@ -131,6 +133,30 @@ internal static class ServiceCollectionExtensions
         _ = services.AddSingleton<
             IConfigureOptions<SwaggerGenOptions>,
             CynaraSwaggerGenConfigureOptions>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCynaraForwardedHeaders(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        if (!string.Equals(
+                configuration["RENDER_SERVICE_TYPE"],
+                "web",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return services;
+        }
+
+        _ = services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto;
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+            options.ForwardLimit = 1;
+        });
 
         return services;
     }

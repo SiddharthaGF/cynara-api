@@ -38,7 +38,7 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
-        ComponentCodeRules.EnsureValid(request.Code);
+        CodeRules.EnsureValid(request.Code, "Component");
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ValidationException("Component name is required.");
