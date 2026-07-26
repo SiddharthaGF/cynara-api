@@ -1,5 +1,6 @@
 using System.Net;
 
+using Cynara.Api.Common.ErrorHandling;
 using Cynara.Application;
 
 using JsonApiDotNetCore.Configuration;
@@ -11,6 +12,10 @@ namespace Cynara.Api.JsonApi;
 /// <summary>
 /// Maps application <see cref="CynaraException"/> types to JSON:API error
 /// objects with the correct HTTP status instead of treating them as 500s.
+/// The status code, title, detail, code, and pointer all originate in the
+/// shared <see cref="CynaraErrorMapping"/> so both this JsonAPI handler and
+/// the minimal-API <c>ProblemDetailsMapping</c> emit byte-identical error
+/// documents for the same exception.
 /// </summary>
 internal sealed class CynaraJsonApiExceptionHandler(
     ILoggerFactory loggerFactory,
@@ -22,60 +27,22 @@ internal sealed class CynaraJsonApiExceptionHandler(
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        if (exception is FormResponseValidationException formResponseValidation)
+        if (exception is not CynaraException)
         {
-            return [.. formResponseValidation.Errors
-                .Select(static error => new ErrorObject(HttpStatusCode.BadRequest)
-                {
-                    Code = error.Code,
-                    Title = "Validation failed",
-                    Detail = error.Message,
-                    Source = string.IsNullOrWhiteSpace(error.Path)
-                        ? null
-                        : new ErrorSource { Pointer = error.Path },
-                })];
+            return base.CreateErrorResponse(exception);
         }
 
-        if (exception is CynaraException cynaraException)
-        {
-            return
-            [
-                new ErrorObject(MapStatus(cynaraException))
-                {
-                    Title = MapTitle(cynaraException),
-                    Detail = cynaraException.Message,
-                },
-            ];
-        }
+        CynaraErrorDocument document = CynaraErrorMapping.FromException(exception);
 
-        return base.CreateErrorResponse(exception);
-    }
-
-    private static HttpStatusCode MapStatus(CynaraException exception)
-    {
-        return exception switch
-        {
-            NotFoundException => HttpStatusCode.NotFound,
-            ConflictException => HttpStatusCode.Conflict,
-            ValidationException => HttpStatusCode.BadRequest,
-            ConcurrencyException => HttpStatusCode.Conflict,
-            InvalidStateException => HttpStatusCode.Conflict,
-            TenantContextException => HttpStatusCode.Forbidden,
-            _ => HttpStatusCode.InternalServerError,
-        };
-    }
-
-    private static string MapTitle(CynaraException exception)
-    {
-        return exception switch
-        {
-            NotFoundException => "Not found",
-            ConflictException => "Conflict",
-            ValidationException => "Validation failed",
-            ConcurrencyException => "Concurrency conflict",
-            InvalidStateException => "Invalid state",
-            TenantContextException => "Tenant context required",
-            _ => "Unexpected error",
-        };
+        return [.. document.Items
+            .Select(item => new ErrorObject((HttpStatusCode)document.StatusCode)
+            {
+                Code = item.Code,
+                Title = item.Title,
+                Detail = item.Detail,
+                Source = item.Source == null
+                    ? null
+                    : new ErrorSource { Pointer = item.Source.JsonApiPointer },
+            })];
     }
 }
