@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.FormAi;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.FormAi;
 
 using JsonApiDotNetCore.Configuration;
@@ -24,7 +25,8 @@ public sealed class AiProviderSettingsResourceService(
     IJsonApiRequest request,
     IResourceChangeTracker<AiProviderSettings> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
-    IAiProviderSettingsService settingsService)
+    IAiProviderSettingsService settingsService,
+    IHospitalContext hospitalContext)
     : JsonApiResourceService<AiProviderSettings, string>(
         repositoryAccessor,
         queryLayerComposer,
@@ -47,6 +49,7 @@ public sealed class AiProviderSettingsResourceService(
         string id,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
         if (!string.Equals(id, AiProviderSettings.DefaultId, StringComparison.Ordinal))
         {
             throw new Application.NotFoundException(
@@ -65,6 +68,7 @@ public sealed class AiProviderSettingsResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
         if (!string.Equals(id, AiProviderSettings.DefaultId, StringComparison.Ordinal))
         {
             throw new Application.NotFoundException(
