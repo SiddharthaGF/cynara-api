@@ -14,6 +14,16 @@ namespace Cynara.Infrastructure.Modules.ClinicalTaxonomy;
 public sealed class ClinicalTaxonomyRepository(
     CynaraDbContext dbContext) : IClinicalTaxonomyRepository
 {
+    public static IQueryable<T> ApplyRetiredFilter<T>(
+        IQueryable<T> query,
+        bool includeRetired)
+        where T : class, IClinicalTaxonomyDefinition
+    {
+        return includeRetired
+            ? query
+            : query.Where(item => item.Status == ClinicalTaxonomyStatus.Active);
+    }
+
     public Task<Facility?> FindFacilityByIdAsync(
         Guid hospitalId,
         Guid id,
@@ -51,11 +61,7 @@ public sealed class ClinicalTaxonomyRepository(
             .AsNoTracking()
             .Where(item => item.HospitalId == hospitalId);
 
-        if (!includeRetired)
-        {
-            query = query.Where(
-                item => item.Status == ClinicalTaxonomyStatus.Active);
-        }
+        query = ApplyRetiredFilter(query, includeRetired);
 
         return await query
             .OrderBy(item => item.Code)
@@ -121,11 +127,7 @@ public sealed class ClinicalTaxonomyRepository(
             query = query.Where(item => item.FacilityId == parentId);
         }
 
-        if (!includeRetired)
-        {
-            query = query.Where(
-                item => item.Status == ClinicalTaxonomyStatus.Active);
-        }
+        query = ApplyRetiredFilter(query, includeRetired);
 
         return await query
             .OrderBy(item => item.Code)
@@ -191,11 +193,7 @@ public sealed class ClinicalTaxonomyRepository(
             query = query.Where(item => item.ClinicalAreaId == parentId);
         }
 
-        if (!includeRetired)
-        {
-            query = query.Where(
-                item => item.Status == ClinicalTaxonomyStatus.Active);
-        }
+        query = ApplyRetiredFilter(query, includeRetired);
 
         return await query
             .OrderBy(item => item.Code)

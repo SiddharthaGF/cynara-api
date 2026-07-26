@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -13,7 +11,7 @@ namespace Cynara.Domain.ClinicalTaxonomy;
 [Resource(
     PublicName = "clinicalAreas",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class ClinicalArea : Identifiable<Guid>
+public sealed class ClinicalArea : Identifiable<Guid>, IClinicalTaxonomyDefinition
 {
     /// <summary>Owning hospital workspace. Stamped by application workflows.</summary>
     public Guid HospitalId { get; set; }
@@ -59,23 +57,4 @@ public sealed class ClinicalArea : Identifiable<Guid>
     [HasMany(PublicName = "disciplines")]
     public ISet<Discipline> Disciplines { get; set; } =
         new HashSet<Discipline>();
-
-    /// <summary>Clinical area code constraints applied at the application boundary.</summary>
-    public static class Codes
-    {
-        public const int MaxLength = 64;
-        public const int MinLength = 1;
-        public const string Pattern = "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$";
-
-        public static void EnsureValid(string code)
-        {
-            if (string.IsNullOrWhiteSpace(code)
-                || code.Length < MinLength
-                || code.Length > MaxLength)
-            {
-                throw new ValidationException(
-                    $"Clinical area code '{code}' must be {MinLength}-{MaxLength} characters.");
-            }
-        }
-    }
 }

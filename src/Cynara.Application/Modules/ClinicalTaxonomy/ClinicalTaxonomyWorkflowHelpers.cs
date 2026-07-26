@@ -1,4 +1,5 @@
 using Cynara.Domain.ClinicalTaxonomy;
+using Cynara.Domain.Common;
 
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
 
@@ -14,14 +15,7 @@ internal static class ClinicalTaxonomyWorkflowHelpers
         string code,
         string entityName)
     {
-        if (string.IsNullOrWhiteSpace(code)
-            || code.Length < Facility.Codes.MinLength
-            || code.Length > Facility.Codes.MaxLength)
-        {
-            throw new ValidationException(
-                $"{entityName} code '{code}' must be "
-                + $"{Facility.Codes.MinLength}-{Facility.Codes.MaxLength} characters.");
-        }
+        ResourceCodeRules.EnsureValid(code, entityName);
     }
 
     public static void EnsureConcurrency(uint current, uint provided, string entityName)
