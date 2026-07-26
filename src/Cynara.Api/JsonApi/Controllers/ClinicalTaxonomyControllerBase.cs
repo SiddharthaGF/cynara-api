@@ -1,7 +1,7 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,11 +24,11 @@ public abstract class ClinicalTaxonomyControllerBase(
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
     };
 
     /// <summary>Deserialises the request body into <typeparamref name="T"/>.</summary>
-    /// <exception cref="Cynara.Application.ValidationException">
+    /// <exception cref="ValidationException">
     /// Thrown when the body cannot be parsed as JSON.
     /// </exception>
     protected async Task<T?> ReadJsonAsync<T>(CancellationToken cancellationToken)
@@ -45,7 +45,7 @@ public abstract class ClinicalTaxonomyControllerBase(
         }
         catch (JsonException exception)
         {
-            throw new Application.ValidationException(
+            throw new ValidationException(
                 $"Request body rejected: {exception.Message}");
         }
     }

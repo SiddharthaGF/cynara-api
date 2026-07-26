@@ -9,7 +9,7 @@ namespace Cynara.Infrastructure.Modules.FormAi;
 internal static class ProviderStatusRules
 {
     /// <summary>
-    /// Returns <c>true</c> when the status indicates a transient
+    /// Returns <see langword="true"/> when the status indicates a transient
     /// provider failure that is safe to retry: 408, 429, or any
     /// server error in the 500-599 range.
     /// </summary>
