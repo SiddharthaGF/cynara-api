@@ -1,3 +1,5 @@
+using Cynara.Application.Modules.Hospitals;
+
 using Microsoft.OpenApi;
 
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -216,17 +218,11 @@ public sealed class WorkspaceSchemaFilter : ISchemaFilter
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (string.Equals(
-                context.Type.FullName,
-                "Cynara.Application.Modules.Hospitals.HospitalWorkspaceDto",
-                StringComparison.Ordinal))
+        if (context.Type?.Equals(typeof(HospitalWorkspaceDto)) == true)
         {
             DescribeHospitalWorkspace(schema);
         }
-        else if (string.Equals(
-                     context.Type.FullName,
-                     "Cynara.Application.Modules.Hospitals.UpdateHospitalWorkspaceRequest",
-                     StringComparison.Ordinal))
+        else if (context.Type?.Equals(typeof(UpdateHospitalWorkspaceRequest)) == true)
         {
             DescribeUpdateHospitalWorkspace(schema);
         }

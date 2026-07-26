@@ -27,12 +27,11 @@ public sealed class HospitalTenantTests : IDisposable
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
         Client = Factory.CreateClient();
         Client.AcceptJsonApi();
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
-
         Client.DefaultRequestHeaders.TryAddWithoutValidation(
             "X-Hospital-Code",
             PrimaryHospitalCode);
+        OtherClient = Factory.CreateClient();
+        OtherClient.AcceptJsonApi();
         OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
             "X-Hospital-Code",
             OtherHospitalCode);
