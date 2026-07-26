@@ -25,8 +25,8 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-RUN addgroup --system --gid 1001 appgroup \
-    && adduser --system --uid 1001 --ingroup appgroup appuser
+RUN groupadd --system --gid 1001 appgroup \
+    && useradd --system --uid 1001 --gid appgroup appuser
 USER appuser
 
 ENV ASPNETCORE_ENVIRONMENT=Production
