@@ -12,7 +12,7 @@ metadata:
 
 ## Activation Contract
 
-Author or correct the open form’s clinical+ui+rules triple; refuse engine-impossible
+Author or correct the open form's clinical+ui+rules triple; refuse engine-impossible
 or out-of-scope asks. Coexists with the manual designer — never replace it.
 
 ## Hard Rules

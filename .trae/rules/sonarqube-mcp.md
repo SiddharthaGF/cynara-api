@@ -1,6 +1,5 @@
 ---
 description: SonarQube MCP Server usage guidelines
-globs:
 alwaysApply: true
 ---
 

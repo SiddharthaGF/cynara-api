@@ -1,6 +1,6 @@
 ---
-description: Conventional Commit message style for cynara-api
 alwaysApply: true
+scene: git_message
 ---
 
 # Commit Messages
@@ -11,9 +11,7 @@ in English (match existing history).
 ## Format
 
 ```
-type(scope): imperative summary
-
-Optional body explaining why, not a file list.
+type(scope): imperative summary.
 ```
 
 - Subject: ≤72 chars, imperative mood, no trailing period
@@ -63,11 +61,11 @@ chore(config): tighten editorconfig for test projects
 ## Anti-patterns
 
 ```
-# ❌ vague / file dump
+# vague / file dump
 update stuff
 fix bugs
 feat: update FormService.cs and tests
 
-# ❌ past tense / trailing period
+# past tense / trailing period
 Fixed the concurrency check.
 ```
