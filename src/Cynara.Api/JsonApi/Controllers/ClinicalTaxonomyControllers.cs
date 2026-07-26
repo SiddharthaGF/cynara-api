@@ -1,6 +1,3 @@
-using System.Text.Json;
-
-using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.ClinicalTaxonomy;
 using Cynara.Application.Modules.Hospitals;
 
@@ -20,17 +17,8 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Facilities")]
 public sealed class FacilitiesController(
     IClinicalTaxonomyService taxonomyService,
-    IHttpContextAccessor httpContextAccessor) : ControllerBase
+    IHttpContextAccessor httpContextAccessor) : ClinicalTaxonomyControllerBase(httpContextAccessor)
 {
-    private const string ContentType = "application/vnd.api+json";
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        UnmappedMemberHandling =
-            System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
-    };
-
     /// <summary>
     /// Lists facility definitions owned by the resolved hospital workspace.
     /// </summary>
@@ -118,30 +106,6 @@ public sealed class FacilitiesController(
             .RetireFacilityAsync(id, request, ActorId(), cancellationToken)
             .ConfigureAwait(false);
         return Ok(retired);
-    }
-
-    private async Task<T?> ReadJsonAsync<T>(CancellationToken cancellationToken)
-        where T : class
-    {
-        try
-        {
-            return await JsonSerializer
-                .DeserializeAsync<T>(
-                    Request.Body,
-                    JsonOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (JsonException exception)
-        {
-            throw new Application.ValidationException(
-                $"Request body rejected: {exception.Message}");
-        }
-    }
-
-    private string? ActorId()
-    {
-        return httpContextAccessor.HttpContext?.GetActorId();
     }
 }
 
