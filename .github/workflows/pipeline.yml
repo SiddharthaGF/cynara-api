@@ -36,7 +36,12 @@ jobs:
       - name: Lint
         run: make lint CONFIGURATION=${{ env.DOTNET_CONFIGURATION }}
 
+      - name: Verify Docker
+        run: docker info
+
       - name: Test
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: >
           dotnet test Cynara.Api.sln
           --no-restore
