@@ -1,5 +1,5 @@
-#load "./build/shell.cake"
-#load "./build/docker.cake"
+#load "./cake/shell.cake"
+#load "./cake/docker.cake"
 
 var solution = Argument<string>("solution", EnvironmentVariable("SOLUTION") ?? "Cynara.Api.sln");
 var configuration = Argument<string>("configuration", EnvironmentVariable("CONFIGURATION") ?? "Debug");

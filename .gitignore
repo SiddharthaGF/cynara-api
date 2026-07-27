@@ -12,7 +12,6 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 publish/
-build/
 .cake/
 
 ## IDE
