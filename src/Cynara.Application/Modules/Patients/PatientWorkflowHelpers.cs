@@ -71,6 +71,10 @@ internal static class PatientWorkflowHelpers
     /// Ensures the supplied MRN is non-empty and respects the configured
     /// length bounds.
     /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the MRN is whitespace, or longer than the configured
+    /// maximum length.
+    /// </exception>
     public static void EnsureValidMrn(string mrn)
     {
         if (string.IsNullOrWhiteSpace(mrn))
@@ -82,11 +86,20 @@ internal static class PatientWorkflowHelpers
         if (trimmed.Length > MrnMaxLength)
         {
             throw new ValidationException(
-                $"Patient MRN must be {MrnMaxLength} characters or fewer.");
+                "Patient MRN must be "
+                + MrnMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " characters or fewer.");
         }
     }
 
-    /// <summary>Ensures the supplied national identifier respects the configured bounds.</summary>
+    /// <summary>
+    /// Ensures the supplied national identifier respects the configured
+    /// length bounds when provided.
+    /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the national identifier is longer than the configured
+    /// maximum length.
+    /// </exception>
     public static void EnsureValidNationalId(string? nationalId)
     {
         if (nationalId is null)
@@ -103,22 +116,37 @@ internal static class PatientWorkflowHelpers
         }
     }
 
-    /// <summary>Ensures a name is present and respects the configured bounds.</summary>
+    /// <summary>
+    /// Ensures a name is present and respects the configured bounds.
+    /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the name is whitespace, or longer than the configured
+    /// maximum length.
+    /// </exception>
     public static void EnsureValidName(string name, string fieldName)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ValidationException($"Patient {fieldName} is required.");
+            throw new ValidationException(
+                "Patient " + fieldName + " is required.");
         }
 
         if (name.Trim().Length > NameMaxLength)
         {
             throw new ValidationException(
-                $"Patient {fieldName} must be {NameMaxLength} characters or fewer.");
+                "Patient " + fieldName + " must be "
+                + NameMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " characters or fewer.");
         }
     }
 
-    /// <summary>Ensures the supplied date of birth is in a sensible range.</summary>
+    /// <summary>
+    /// Ensures the supplied date of birth is in a sensible range.
+    /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the birth date is in the future or older than the
+    /// supported minimum age.
+    /// </exception>
     public static void EnsureValidBirthDate(DateOnly birthDate)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
@@ -137,6 +165,10 @@ internal static class PatientWorkflowHelpers
     /// Parses the supplied sex string into the <see cref="Sex"/> enum and
     /// throws <see cref="ValidationException"/> when the value is unknown.
     /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the supplied sex value does not match a defined
+    /// <see cref="Sex"/> member.
+    /// </exception>
     public static Sex ParseSex(string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
@@ -144,13 +176,20 @@ internal static class PatientWorkflowHelpers
             || !Enum.IsDefined(parsed))
         {
             throw new ValidationException(
-                $"Patient sex '{value}' is not one of: female, male, unknown.");
+                "Patient sex '" + value
+                + "' is not one of: female, male, unknown.");
         }
 
         return parsed;
     }
 
-    /// <summary>Optimistic concurrency guard for patient updates.</summary>
+    /// <summary>
+    /// Optimistic concurrency guard for patient updates.
+    /// </summary>
+    /// <exception cref="ConcurrencyException">
+    /// Thrown when the stored row version does not match the version
+    /// supplied by the caller.
+    /// </exception>
     public static void EnsureConcurrency(uint current, uint provided)
     {
         if (current != provided)
@@ -160,13 +199,20 @@ internal static class PatientWorkflowHelpers
         }
     }
 
-    /// <summary>Ensures the patient has not been soft-deleted.</summary>
+    /// <summary>
+    /// Ensures the patient has not been soft-deleted.
+    /// </summary>
+    /// <exception cref="InvalidStateException">
+    /// Thrown when the patient has been soft-deleted and may no longer be
+    /// mutated.
+    /// </exception>
     public static void EnsureNotDeleted(Patient patient)
     {
         if (patient.DeletedAt is not null)
         {
             throw new InvalidStateException(
-                $"Patient '{patient.Id}' is deleted and cannot be modified.");
+                "Patient '" + patient.Id
+                + "' is deleted and cannot be modified.");
         }
     }
 }

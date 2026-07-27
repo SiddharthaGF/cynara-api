@@ -13,17 +13,27 @@ namespace Cynara.Application.Modules.Patients.Validation;
 public sealed class CreatePatientRequestValidator
     : AbstractValidator<CreatePatientRequest>
 {
+    private const string MaxLengthMessageSuffix =
+        " characters or fewer.";
+
     private const string MrnMaxLengthMessage =
         "Patient MRN must be " + nameof(PatientFieldLimits.MrnMaxLength)
-        + " characters or fewer.";
+        + MaxLengthMessageSuffix;
 
     private const string NationalIdMaxLengthMessage =
         "Patient national identifier must be "
         + nameof(PatientFieldLimits.NationalIdMaxLength)
-        + " characters or fewer.";
+        + MaxLengthMessageSuffix;
 
-    private const string NameMaxLengthMessageSuffix =
-        " characters or fewer.";
+    private const string GivenNameMaxLengthMessage =
+        "Patient given name must be "
+        + nameof(PatientFieldLimits.NameMaxLength)
+        + MaxLengthMessageSuffix;
+
+    private const string FamilyNameMaxLengthMessage =
+        "Patient family name must be "
+        + nameof(PatientFieldLimits.NameMaxLength)
+        + MaxLengthMessageSuffix;
 
     public CreatePatientRequestValidator()
     {
@@ -42,19 +52,13 @@ public sealed class CreatePatientRequestValidator
             .NotEmpty()
                 .WithMessage("Patient given name is required.")
             .MaximumLength(PatientWorkflowHelpers.NameMaxLength)
-                .WithMessage(item =>
-                    "Patient given name must be "
-                    + nameof(PatientFieldLimits.NameMaxLength)
-                    + NameMaxLengthMessageSuffix);
+                .WithMessage(GivenNameMaxLengthMessage);
 
         _ = RuleFor(item => item.FamilyName)
             .NotEmpty()
                 .WithMessage("Patient family name is required.")
             .MaximumLength(PatientFieldLimits.NameMaxLength)
-                .WithMessage(item =>
-                    "Patient family name must be "
-                    + nameof(PatientFieldLimits.NameMaxLength)
-                    + NameMaxLengthMessageSuffix);
+                .WithMessage(FamilyNameMaxLengthMessage);
 
         _ = RuleFor(item => item.Sex)
             .NotEmpty()
