@@ -11,6 +11,16 @@
       "args": [
         "${workspaceFolder}/.cursor/sonarqube-mcp.sh"
       ]
+    },
+    "render": {
+      "url": "https://mcp.render.com/mcp",
+      "auth": {
+        "CLIENT_ID": "cursor"
+      }
+    },
+    "Neon": {
+      "type": "http",
+      "url": "https://mcp.neon.tech/mcp"
     }
   }
 }
