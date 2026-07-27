@@ -226,30 +226,6 @@ jobs:
           branch: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      - name: Delete GitHub environment
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ENVIRONMENT_NAME: ${{ github.head_ref }} - cynara-api PR #${{ github.event.number }}
-        run: |
-          set -euo pipefail
-          encoded_name=$(jq -rn --arg n "${ENVIRONMENT_NAME}" '$n | @uri')
-          status=$(curl -sS -o /tmp/env-delete.out -w '%{http_code}' \
-            -X DELETE \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments/${encoded_name}")
-          case "${status}" in
-            204|404)
-              echo "Environment '${ENVIRONMENT_NAME}' removed (status ${status})."
-              ;;
-            *)
-              echo "::error::Failed to delete environment '${ENVIRONMENT_NAME}' (status ${status})."
-              cat /tmp/env-delete.out
-              exit 1
-              ;;
-          esac
-
       - name: Delete sticky PR comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
