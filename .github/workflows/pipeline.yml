@@ -3,6 +3,16 @@ name: Pipeline
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list matching environments without deleting"
+        type: boolean
+        default: true
+      pr_number_filter:
+        description: "Only delete environments for this PR number (empty = all)"
+        type: string
+        default: ""
 
 concurrency:
   group: pipeline-${{ github.workflow }}-${{ github.ref }}
@@ -245,3 +255,95 @@ jobs:
         with:
           header: neon-preview
           delete: true
+
+  cleanup-neon-environments:
+    name: Cleanup orphan Neon PR environments
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: List and delete Neon PR environments
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PR_NUMBER_FILTER: ${{ inputs.pr_number_filter }}
+        run: |
+          set -euo pipefail
+
+          list_envs() {
+            local page=1
+            while :; do
+              local body status
+              body=$(mktemp)
+              status=$(curl -sS -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments?per_page=100&page=${page}")
+              if [ "$status" != "200" ]; then
+                echo "::error::Failed to list environments (status ${status})."
+                cat "$body"
+                exit 1
+              fi
+              jq -r '.environments[]?.name // empty' < "$body"
+              local count
+              count=$(jq -r '.environments | length // 0' < "$body")
+              rm -f "$body"
+              if [ "$count" -lt 100 ]; then
+                break
+              fi
+              page=$((page + 1))
+            done
+          }
+
+          names=$(list_envs)
+
+          pattern=' - cynara-api PR #'
+          if [ -n "${PR_NUMBER_FILTER}" ]; then
+            names=$(printf '%s\n' "$names" | grep -F "${pattern}${PR_NUMBER_FILTER}\$" || true)
+          else
+            names=$(printf '%s\n' "$names" | grep -F "$pattern" || true)
+          fi
+
+          if [ -z "$names" ]; then
+            echo "No matching Neon PR environments found."
+            exit 0
+          fi
+
+          echo "Matched environments:"
+          printf '  - %s\n' $names
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "::notice::Dry run — set inputs.dry_run=false to actually delete."
+            exit 0
+          fi
+
+          failures=0
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            encoded=$(jq -rn --arg n "$name" '$n | @uri')
+            body=$(mktemp)
+            status=$(curl -sS -o "$body" -w '%{http_code}' \
+              -X DELETE \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments/${encoded}")
+            case "$status" in
+              204|404)
+                echo "Removed: ${name} (status ${status})"
+                ;;
+              *)
+                echo "::error::Failed to delete ${name} (status ${status})."
+                cat "$body"
+                failures=$((failures + 1))
+                ;;
+            esac
+            rm -f "$body"
+          done <<< "$names"
+
+          if [ "$failures" -gt 0 ]; then
+            echo "::error::${failures} environment(s) failed to delete."
+            exit 1
+          fi
