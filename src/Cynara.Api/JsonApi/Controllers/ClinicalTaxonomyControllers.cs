@@ -42,6 +42,9 @@ public sealed class FacilitiesController(
     /// <summary>
     /// Creates a new facility under the resolved hospital workspace.
     /// </summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPost(Name = "createFacility")]
     [Consumes(ContentType)]
     [Produces(ContentType)]
@@ -64,6 +67,9 @@ public sealed class FacilitiesController(
     /// <summary>
     /// Updates the mutable display fields on an existing facility.
     /// </summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPatch("{id:guid}", Name = "patchFacility")]
     [Consumes(ContentType)]
     [Produces(ContentType)]

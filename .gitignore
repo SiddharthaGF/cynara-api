@@ -51,6 +51,7 @@ appsettings.*.local.json
 .scannerwork/
 coverage.xml
 *.coveragexml
+TestResults/
 
 # VS Code C# Dev Tools - Auto-generated runners
 .vscodecsdt/Runners/

@@ -8,8 +8,7 @@
       "args": [
         "cake",
         "--target=Format",
-        "--include",
-        "${staged}"
+        "--include=${staged:;}"
       ],
       "include": ["**/*.cs"]
     },

@@ -36,6 +36,9 @@ public sealed class DisciplinesController(
     }
 
     /// <summary>Creates a new discipline under the resolved hospital workspace.</summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPost(Name = "createDiscipline")]
     [Consumes(ContentType)]
     [Produces(ContentType)]
@@ -57,6 +60,9 @@ public sealed class DisciplinesController(
     }
 
     /// <summary>Updates the mutable display fields on an existing discipline.</summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPatch("{id:guid}", Name = "patchDiscipline")]
     [Consumes(ContentType)]
     [Produces(ContentType)]

@@ -7,7 +7,7 @@ var seedArgs = Argument<string>("seed-args", EnvironmentVariable("SEED_ARGS") ??
 
 var includeRaw = Argument<string>("include", EnvironmentVariable("FORMAT_INCLUDE") ?? string.Empty) ?? string.Empty;
 var formatInclude = includeRaw
-    .Split(new[] { ',', ' ', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+    .Split(new[] { ',', ';', ' ', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)
     .ToList();
 
 var sonarCompose = "docker/sonarqube/docker-compose.yml";

@@ -37,7 +37,10 @@ public sealed class ResourceCodeRulesTests
     {
         const string oneChar = "a";
 
-        ResourceCodeRules.EnsureValid(oneChar, "Hospital");
+        Exception? exception = Record.Exception(
+            () => ResourceCodeRules.EnsureValid(oneChar, "Hospital"));
+
+        Assert.Null(exception);
     }
 
     [Fact]
@@ -45,7 +48,10 @@ public sealed class ResourceCodeRulesTests
     {
         string atMax = new('a', ResourceCodeRules.MaxLength);
 
-        ResourceCodeRules.EnsureValid(atMax, "Hospital");
+        Exception? exception = Record.Exception(
+            () => ResourceCodeRules.EnsureValid(atMax, "Hospital"));
+
+        Assert.Null(exception);
     }
 
     [Fact]
@@ -55,7 +61,10 @@ public sealed class ResourceCodeRulesTests
         // ResourceCodeRules.EnsureValid is intentionally bounds-only.
         const string withSpace = "a b";
 
-        ResourceCodeRules.EnsureValid(withSpace, "Hospital");
+        Exception? exception = Record.Exception(
+            () => ResourceCodeRules.EnsureValid(withSpace, "Hospital"));
+
+        Assert.Null(exception);
     }
 
     [Fact]
@@ -65,7 +74,10 @@ public sealed class ResourceCodeRulesTests
         // ResourceCodeRules.EnsureValid is intentionally bounds-only.
         const string withSlash = "a/b";
 
-        ResourceCodeRules.EnsureValid(withSlash, "Hospital");
+        Exception? exception = Record.Exception(
+            () => ResourceCodeRules.EnsureValid(withSlash, "Hospital"));
+
+        Assert.Null(exception);
     }
 
     [Fact]
