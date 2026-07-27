@@ -15,6 +15,7 @@ internal static class JsonApiResourceServiceRegistration
         _ = services.AddResourceService<FormResponseRevisionResourceService>();
         _ = services.AddResourceService<AuditEventResourceService>();
         _ = services.AddResourceService<AiProviderSettingsResourceService>();
+        _ = services.AddResourceService<DocumentDefinitionResourceService>();
 
         return services;
     }

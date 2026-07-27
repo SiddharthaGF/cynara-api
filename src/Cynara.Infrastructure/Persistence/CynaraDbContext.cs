@@ -2,6 +2,7 @@ using Cynara.Application.Persistence;
 using Cynara.Domain.Audit;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Components;
+using Cynara.Domain.Documents;
 using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
@@ -39,6 +40,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<ClinicalArea> ClinicalAreas => Set<ClinicalArea>();
 
     public DbSet<Discipline> Disciplines => Set<Discipline>();
+
+    public DbSet<DocumentDefinition> DocumentDefinitions => Set<DocumentDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

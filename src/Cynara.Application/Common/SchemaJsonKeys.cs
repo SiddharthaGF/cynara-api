@@ -66,4 +66,5 @@ public static class AuditEntityTypes
     public const string Facility = "facility";
     public const string ClinicalArea = "clinical-area";
     public const string Discipline = "discipline";
+    public const string DocumentDefinition = "document-definition";
 }
