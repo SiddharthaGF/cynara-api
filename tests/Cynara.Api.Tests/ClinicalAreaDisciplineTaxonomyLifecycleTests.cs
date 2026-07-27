@@ -179,11 +179,10 @@ public sealed class ClinicalAreaDisciplineTaxonomyLifecycleTests : IDisposable
                 && item.ResourceId == disciplineId
                 && item.Action == "discipline.created")
             .ConfigureAwait(false);
-        Assert.NotNull(createdEvent.MetadataJson);
-        Assert.Contains(
-            "imaging",
-            createdEvent.MetadataJson!,
-            StringComparison.Ordinal);
+        string metadata = createdEvent.MetadataJson
+            ?? throw new InvalidOperationException(
+                "Audit metadata should have been populated.");
+        Assert.Contains("imaging", metadata, StringComparison.Ordinal);
     }
 
     [Fact]

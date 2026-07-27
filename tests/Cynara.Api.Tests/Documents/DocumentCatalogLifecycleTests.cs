@@ -397,8 +397,8 @@ public sealed class DocumentCatalogLifecycleTests : IDisposable
                 name = "First document",
             },
             DocumentRelationships(fixture)).ConfigureAwait(false);
-        Assert.True(created.RootElement.GetProperty("data").GetProperty("id").ValueKind
-            != JsonValueKind.Null);
+        Assert.NotEqual(JsonValueKind.Null, created.RootElement
+            .GetProperty("data").GetProperty("id").ValueKind);
 
         using HttpResponseMessage conflict = await Client.PostAsync(
             new Uri("/api/documentDefinitions", UriKind.Relative),

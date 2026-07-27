@@ -37,7 +37,7 @@ public sealed class CynaraExceptionMetadataTests
         Assert.True(type.IsAbstract);
         PropertyInfo status = Assert.Single(
             type.GetProperties(),
-            static p => string.Equals(p.Name, nameof(CynaraException.StatusCode)));
+            static p => string.Equals(p.Name, nameof(CynaraException.StatusCode), StringComparison.Ordinal));
         Assert.True(
             status.GetMethod!.IsAbstract,
             "StatusCode must be abstract so every subtype is forced to declare one.");
@@ -50,7 +50,7 @@ public sealed class CynaraExceptionMetadataTests
         Type type = typeof(CynaraException);
         PropertyInfo title = Assert.Single(
             type.GetProperties(),
-            static p => string.Equals(p.Name, nameof(CynaraException.Title)));
+            static p => string.Equals(p.Name, nameof(CynaraException.Title), StringComparison.Ordinal));
         Assert.True(
             title.GetMethod!.IsAbstract,
             "Title must be abstract so every subtype is forced to declare one.");

@@ -36,7 +36,9 @@ public sealed class ClinicalAreasController(
     }
 
     /// <summary>Creates a new clinical area under the resolved hospital workspace.</summary>
-    /// <exception cref="Application.ValidationException"></exception>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPost(Name = "createClinicalArea")]
     [Consumes(ContentType)]
     [Produces(ContentType)]
@@ -58,6 +60,9 @@ public sealed class ClinicalAreasController(
     }
 
     /// <summary>Updates the mutable display fields on an existing clinical area.</summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
     [HttpPatch("{id:guid}", Name = "patchClinicalArea")]
     [Consumes(ContentType)]
     [Produces(ContentType)]

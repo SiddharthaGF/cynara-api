@@ -28,6 +28,7 @@ public abstract class ClinicalTaxonomyControllerBase(
     };
 
     /// <summary>Deserialises the request body into <typeparamref name="T"/>.</summary>
+    /// <typeparam name="T">The concrete DTO type to materialise from the request body.</typeparam>
     /// <exception cref="ValidationException">
     /// Thrown when the body cannot be parsed as JSON.
     /// </exception>

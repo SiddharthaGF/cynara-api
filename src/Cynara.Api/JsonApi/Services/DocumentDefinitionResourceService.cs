@@ -197,7 +197,7 @@ public sealed class DocumentDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        DocumentDefinition entry = await dbContext.DocumentDefinitions
+        return await dbContext.DocumentDefinitions
             .AsNoTracking()
             .Include(item => item.FormDefinition)
             .Include(item => item.FormVersion)
@@ -209,6 +209,5 @@ public sealed class DocumentDefinitionResourceService(
                     && item.HospitalId == hospitalContext.HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
-        return entry;
     }
 }
