@@ -1,0 +1,145 @@
+using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Patients;
+
+using Microsoft.AspNetCore.Mvc;
+
+namespace Cynara.Api.JsonApi.Controllers;
+
+/// <summary>
+/// Tenant-scoped patient registry endpoints. Bound to the resolved hospital
+/// workspace via <see cref="IHospitalContext"/>; clients cannot move
+/// patient records between tenants through this surface. Body shapes
+/// mirror the application services exactly so the OpenAPI documentation
+/// can be authored without <c>JsonApiDotNetCore</c> attribute projection.
+/// </summary>
+[ApiController]
+[Route("api/patients")]
+[Tags("Patients")]
+public sealed class PatientsController(
+    IPatientService patientService,
+    IHttpContextAccessor httpContextAccessor) : PatientControllerBase(httpContextAccessor)
+{
+    /// <summary>
+    /// Searches the patient roster for the resolved hospital workspace.
+    /// Soft-deleted records are hidden unless
+    /// <c>includeDeleted=true</c> is supplied.
+    /// </summary>
+    [HttpGet(Name = "searchPatients")]
+    [EndpointDescription(
+        "Searches the patient roster for the resolved hospital workspace. "
+        + "Tenant failures (missing X-Hospital-Code, unknown code, inactive "
+        + "hospital) are surfaced before this endpoint runs.")]
+    [Produces(ContentType)]
+    [ProducesResponseType(typeof(PatientListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PatientListResponse>> SearchAsync(
+        [FromQuery(Name = "mrn")] string? mrn,
+        [FromQuery(Name = "nationalId")] string? nationalId,
+        [FromQuery(Name = "givenName")] string? givenName,
+        [FromQuery(Name = "familyName")] string? familyName,
+        [FromQuery(Name = "includeDeleted")] bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        PatientSearchRequest request = new(
+            mrn, nationalId, givenName, familyName, includeDeleted);
+        IReadOnlyList<PatientDto> matches = await patientService
+            .SearchAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        return Ok(new PatientListResponse(matches));
+    }
+
+    /// <summary>Returns the patient matching the supplied identifier.</summary>
+    [HttpGet("{id:guid}", Name = "getPatient")]
+    [EndpointDescription(
+        "Returns the patient matching the supplied identifier within the "
+        + "resolved hospital workspace. Soft-deleted patients return 404.")]
+    [Produces(ContentType)]
+    [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PatientDto>> GetAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        PatientDto patient = await patientService
+            .GetAsync(id, cancellationToken)
+            .ConfigureAwait(false);
+        return Ok(patient);
+    }
+
+    /// <summary>
+    /// Creates a new patient under the resolved hospital workspace. MRN is
+    /// unique within the hospital; duplicates return 409.
+    /// </summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
+    [HttpPost(Name = "createPatient")]
+    [Consumes(ContentType)]
+    [Produces(ContentType)]
+    [ProducesResponseType(typeof(PatientDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PatientDto>> CreateAsync(
+        CancellationToken cancellationToken)
+    {
+        CreatePatientRequest? request = await ReadJsonAsync<CreatePatientRequest>(
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new Application.ValidationException(
+                "Request body is required.");
+        PatientDto created = await patientService
+            .CreateAsync(request, ActorId(), cancellationToken)
+            .ConfigureAwait(false);
+        return Created($"/api/patients/{created.Id}", created);
+    }
+
+    /// <summary>
+    /// Updates the mutable demographic fields on an existing patient. The
+    /// MRN is immutable after creation.
+    /// </summary>
+    /// <exception cref="Application.ValidationException">
+    /// Thrown when the request body is missing or fails validation.
+    /// </exception>
+    [HttpPatch("{id:guid}", Name = "patchPatient")]
+    [Consumes(ContentType)]
+    [Produces(ContentType)]
+    [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PatientDto>> PatchAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        UpdatePatientRequest? request = await ReadJsonAsync<UpdatePatientRequest>(
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new Application.ValidationException(
+                "Request body is required.");
+        PatientDto updated = await patientService
+            .UpdateAsync(id, request, ActorId(), cancellationToken)
+            .ConfigureAwait(false);
+        return Ok(updated);
+    }
+
+    /// <summary>
+    /// Soft-deletes an existing patient. The record is hidden from default
+    /// search and detail responses but remains resolvable for historical
+    /// form responses and audit continuity.
+    /// </summary>
+    [HttpPost("{id:guid}/soft-delete", Name = "softDeletePatient")]
+    [Consumes(ContentType)]
+    [Produces(ContentType)]
+    [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PatientDto>> SoftDeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        SoftDeletePatientRequest? request = await ReadJsonAsync<SoftDeletePatientRequest>(
+            cancellationToken).ConfigureAwait(false)
+            ?? new SoftDeletePatientRequest(0);
+        PatientDto deleted = await patientService
+            .SoftDeleteAsync(id, request, ActorId(), cancellationToken)
+            .ConfigureAwait(false);
+        return Ok(deleted);
+    }
+}

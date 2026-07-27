@@ -1,0 +1,172 @@
+using Cynara.Domain.Patients;
+
+namespace Cynara.Application.Modules.Patients;
+
+/// <summary>
+/// Shared validation and normalization helpers for the patient lifecycle.
+/// Keeps the patient service free of repeated string sanitation while
+/// preserving the rules described in CYN-49: hospital-scoped MRN
+/// uniqueness, optimistic concurrency, and rejection of demographic edits
+/// against soft-deleted records.
+/// </summary>
+internal static class PatientWorkflowHelpers
+{
+    /// <summary>Maximum length for the displayed MRN.</summary>
+    public const int MrnMaxLength = PatientFieldLimits.MrnMaxLength;
+
+    /// <summary>Maximum length for the national identifier.</summary>
+    public const int NationalIdMaxLength = PatientFieldLimits.NationalIdMaxLength;
+
+    /// <summary>Maximum length for given and family names.</summary>
+    public const int NameMaxLength = PatientFieldLimits.NameMaxLength;
+
+    /// <summary>
+    /// Returns the trimmed, upper-invariant comparison form used by the
+    /// composite unique index and search comparisons.
+    /// </summary>
+    public static string NormalizeMrn(string mrn)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(mrn);
+        return mrn.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Returns the trimmed, upper-invariant comparison form for an
+    /// optional MRN filter, or <see langword="null"/> when the input is
+    /// null/whitespace.
+    /// </summary>
+    public static string? NormalizeMrnOrNull(string? mrn)
+    {
+        if (string.IsNullOrWhiteSpace(mrn))
+        {
+            return null;
+        }
+
+        return mrn.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Returns the trimmed, upper-invariant comparison form for the
+    /// national identifier, or <see langword="null"/> when the input is
+    /// null/whitespace.
+    /// </summary>
+    public static string? NormalizeNationalId(string? nationalId)
+    {
+        if (string.IsNullOrWhiteSpace(nationalId))
+        {
+            return null;
+        }
+
+        return nationalId.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>Returns the trimmed, upper-invariant comparison form for a name.</summary>
+    public static string NormalizeName(string name)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        return name.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Ensures the supplied MRN is non-empty and respects the configured
+    /// length bounds.
+    /// </summary>
+    public static void EnsureValidMrn(string mrn)
+    {
+        if (string.IsNullOrWhiteSpace(mrn))
+        {
+            throw new ValidationException("Patient MRN is required.");
+        }
+
+        string trimmed = mrn.Trim();
+        if (trimmed.Length > MrnMaxLength)
+        {
+            throw new ValidationException(
+                $"Patient MRN must be {MrnMaxLength} characters or fewer.");
+        }
+    }
+
+    /// <summary>Ensures the supplied national identifier respects the configured bounds.</summary>
+    public static void EnsureValidNationalId(string? nationalId)
+    {
+        if (nationalId is null)
+        {
+            return;
+        }
+
+        if (nationalId.Length > NationalIdMaxLength)
+        {
+            throw new ValidationException(
+                "Patient national identifier must be "
+                + NationalIdMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " characters or fewer.");
+        }
+    }
+
+    /// <summary>Ensures a name is present and respects the configured bounds.</summary>
+    public static void EnsureValidName(string name, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ValidationException($"Patient {fieldName} is required.");
+        }
+
+        if (name.Trim().Length > NameMaxLength)
+        {
+            throw new ValidationException(
+                $"Patient {fieldName} must be {NameMaxLength} characters or fewer.");
+        }
+    }
+
+    /// <summary>Ensures the supplied date of birth is in a sensible range.</summary>
+    public static void EnsureValidBirthDate(DateOnly birthDate)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        if (birthDate > today)
+        {
+            throw new ValidationException("Patient birth date cannot be in the future.");
+        }
+
+        if (birthDate < today.AddYears(-130))
+        {
+            throw new ValidationException("Patient birth date is unrealistically old.");
+        }
+    }
+
+    /// <summary>
+    /// Parses the supplied sex string into the <see cref="Sex"/> enum and
+    /// throws <see cref="ValidationException"/> when the value is unknown.
+    /// </summary>
+    public static Sex ParseSex(string value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(value);
+        if (!Enum.TryParse(value, ignoreCase: true, out Sex parsed)
+            || !Enum.IsDefined(parsed))
+        {
+            throw new ValidationException(
+                $"Patient sex '{value}' is not one of: female, male, unknown.");
+        }
+
+        return parsed;
+    }
+
+    /// <summary>Optimistic concurrency guard for patient updates.</summary>
+    public static void EnsureConcurrency(uint current, uint provided)
+    {
+        if (current != provided)
+        {
+            throw new ConcurrencyException(
+                "The patient was modified by another request.");
+        }
+    }
+
+    /// <summary>Ensures the patient has not been soft-deleted.</summary>
+    public static void EnsureNotDeleted(Patient patient)
+    {
+        if (patient.DeletedAt is not null)
+        {
+            throw new InvalidStateException(
+                $"Patient '{patient.Id}' is deleted and cannot be modified.");
+        }
+    }
+}
