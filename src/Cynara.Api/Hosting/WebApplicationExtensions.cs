@@ -19,14 +19,14 @@ internal static class WebApplicationExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        _ = app.UseCynaraExceptionHandling();
         _ = app.UseForwardedHeaders();
         _ = app.Use(
-            async (context, next) =>
+            (context, next) =>
             {
                 context.Response.Headers.XContentTypeOptions = "nosniff";
-                await next().ConfigureAwait(false);
+                return next();
             });
-        _ = app.UseCynaraExceptionHandling();
         _ = app.UseRouting();
         _ = app.UseCors();
         _ = app.UseHospitalContext();
@@ -35,7 +35,9 @@ internal static class WebApplicationExtensions
         await app.Services.InitializeDatabaseAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        HospitalBootstrapOptions hospitalOptions = ResolveHospitalOptions(app);
+        HospitalBootstrapOptions hospitalOptions = app.Configuration
+            .GetSection(HospitalBootstrapOptions.SectionName)
+            .Get<HospitalBootstrapOptions>() ?? new();
         await app.Services
             .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
             .ConfigureAwait(false);
@@ -62,16 +64,6 @@ internal static class WebApplicationExtensions
         _ = app.MapControllers();
 
         return app;
-    }
-
-    private static HospitalBootstrapOptions ResolveHospitalOptions(
-        WebApplication app)
-    {
-        HospitalBootstrapOptions options = new();
-        app.Configuration
-            .GetSection(HospitalBootstrapOptions.SectionName)
-            .Bind(options);
-        return options;
     }
 
     private static bool IsPreviewEnvironment(IConfiguration configuration)

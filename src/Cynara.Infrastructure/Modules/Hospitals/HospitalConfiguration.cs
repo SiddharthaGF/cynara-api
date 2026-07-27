@@ -1,3 +1,4 @@
+using Cynara.Domain.Common;
 using Cynara.Domain.Hospitals;
 
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +20,7 @@ public sealed class HospitalConfiguration
         _ = builder.ToTable("hospitals");
         _ = builder.HasKey(item => item.Id);
         _ = builder.HasIndex(item => item.Code).IsUnique();
-        _ = builder.Property(item => item.Code).HasMaxLength(Hospital.Codes.MaxLength).IsRequired();
+        _ = builder.Property(item => item.Code).HasMaxLength(ResourceCodeRules.MaxLength).IsRequired();
         _ = builder.Property(item => item.Name).HasMaxLength(256).IsRequired();
         _ = builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(32);
         _ = builder.Property(item => item.RowVersion).IsConcurrencyToken();

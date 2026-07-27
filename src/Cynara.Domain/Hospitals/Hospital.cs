@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -43,23 +41,4 @@ public sealed class Hospital : Identifiable<Guid>
     /// <summary>Optimistic concurrency token for workspace updates.</summary>
     [Attr(PublicName = "rowVersion")]
     public uint RowVersion { get; set; }
-
-    /// <summary>Hospital code constraints applied at the application boundary.</summary>
-    public static class Codes
-    {
-        public const int MaxLength = 64;
-        public const int MinLength = 1;
-        public const string Pattern = "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$";
-
-        public static void EnsureValid(string code)
-        {
-            if (string.IsNullOrWhiteSpace(code)
-                || code.Length < MinLength
-                || code.Length > MaxLength)
-            {
-                throw new ValidationException(
-                    $"Hospital code '{code}' must be {MinLength}-{MaxLength} characters.");
-            }
-        }
-    }
 }

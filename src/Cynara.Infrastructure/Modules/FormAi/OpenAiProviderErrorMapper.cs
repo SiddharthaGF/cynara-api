@@ -40,7 +40,7 @@ internal static class OpenAiProviderErrorMapper
                 "AI provider endpoint was not found. Check the base URL in Settings.",
             408 or 429 =>
                 "AI provider is rate-limiting or timed out. Try again shortly.",
-            >= 500 and <= 599 =>
+            _ when ProviderStatusRules.IsTransient(status) =>
                 "AI provider is temporarily unavailable. Try again shortly.",
             > 0 => string.Create(
                 CultureInfo.InvariantCulture,

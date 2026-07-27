@@ -165,6 +165,9 @@ END $$;";
     /// <summary>
     /// Creates an <see cref="HttpClient"/> with the bootstrap hospital
     /// context pre-applied and the bootstrap hospital already seeded.
+    /// The header name is sourced from
+    /// <see cref="HospitalBootstrapOptions.HeaderName"/> so test fixtures
+    /// can override it via configuration.
     /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string? hospitalCode = null,
@@ -173,7 +176,7 @@ END $$;";
         HttpClient client = CreateClient();
         client.AcceptJsonApi();
         client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
+            BootstrapOptions.HeaderName ?? "X-Hospital-Code",
             string.IsNullOrWhiteSpace(hospitalCode)
                 ? BootstrapOptions.BootstrapCode ?? "default"
                 : hospitalCode);

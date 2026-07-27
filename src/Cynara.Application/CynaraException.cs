@@ -1,7 +1,18 @@
+using System.Net;
+
 using Cynara.Application.Forms;
 
 namespace Cynara.Application;
 
+/// <summary>
+/// Base type for all application-level exceptions. Subtypes declare the
+/// HTTP status and JSON:API title the shared error mapping must emit. The
+/// Api layer (<c>Cynara.Api.Common.ErrorHandling.ProblemDetailsMapping</c>
+/// for the minimal-API pipeline and the JsonAPI pipeline's
+/// <c>CynaraJsonApiExceptionHandler</c>) reads these properties so a single
+/// mapping definition drives both transports and every error response stays
+/// byte-identical regardless of which endpoint raised the exception.
+/// </summary>
 public abstract class CynaraException : Exception
 {
     protected CynaraException()
@@ -17,6 +28,21 @@ public abstract class CynaraException : Exception
         : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// HTTP status code that the shared error mapping emits when this
+    /// exception reaches the wire. Subclasses must declare their canonical
+    /// status (e.g. <see cref="HttpStatusCode.NotFound"/>,
+    /// <see cref="HttpStatusCode.Conflict"/>).
+    /// </summary>
+    public abstract HttpStatusCode StatusCode { get; }
+
+    /// <summary>
+    /// Human-readable title used in the JSON:API error envelope (the
+    /// <c>title</c> field). Subclasses must declare the canonical title so
+    /// both the minimal-API and JsonAPI error pipelines stay in sync.
+    /// </summary>
+    public abstract string Title { get; }
 }
 
 public sealed class NotFoundException : CynaraException
@@ -34,6 +60,10 @@ public sealed class NotFoundException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.NotFound;
+
+    public override string Title => "Not found";
 }
 
 public sealed class ConflictException : CynaraException
@@ -51,6 +81,10 @@ public sealed class ConflictException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
+
+    public override string Title => "Conflict";
 }
 
 public sealed class ValidationException : CynaraException
@@ -68,6 +102,10 @@ public sealed class ValidationException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.BadRequest;
+
+    public override string Title => "Validation failed";
 }
 
 public sealed class ConcurrencyException : CynaraException
@@ -85,6 +123,10 @@ public sealed class ConcurrencyException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
+
+    public override string Title => "Concurrency conflict";
 }
 
 public sealed class InvalidStateException : CynaraException
@@ -102,6 +144,10 @@ public sealed class InvalidStateException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
+
+    public override string Title => "Invalid state";
 }
 
 public sealed class FormResponseValidationException : CynaraException
@@ -129,11 +175,16 @@ public sealed class FormResponseValidationException : CynaraException
     }
 
     public IReadOnlyList<FormResponseFieldError> Errors { get; } = [];
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.BadRequest;
+
+    public override string Title => "Validation failed";
 }
 
 /// <summary>
 /// Raised when a request cannot be associated with a known, active hospital
-/// workspace. Maps to 400/403 depending on the failure cause.
+/// workspace. Maps to 403 by default; the workspace bootstrap may decide the
+/// specific response based on the failure cause.
 /// </summary>
 public sealed class TenantContextException : CynaraException
 {
@@ -150,4 +201,8 @@ public sealed class TenantContextException : CynaraException
         : base(message, innerException)
     {
     }
+
+    public override HttpStatusCode StatusCode => HttpStatusCode.Forbidden;
+
+    public override string Title => "Tenant context required";
 }

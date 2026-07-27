@@ -3,6 +3,7 @@ using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Infrastructure.Failures;
 using Cynara.Infrastructure.Modules.Audit;
+using Cynara.Infrastructure.Modules.ClinicalTaxonomy;
 using Cynara.Infrastructure.Modules.Components;
 using Cynara.Infrastructure.Modules.FormAi;
 using Cynara.Infrastructure.Modules.FormResponses;
@@ -82,6 +83,7 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddFormsPersistenceModule();
         _ = services.AddFormResponsesPersistenceModule();
         _ = services.AddFormAiPersistenceModule();
+        _ = services.AddClinicalTaxonomyPersistenceModule();
         _ = services.AddSingleton<IFailureLogWriter, FailureLogWriter>();
 
         return services;

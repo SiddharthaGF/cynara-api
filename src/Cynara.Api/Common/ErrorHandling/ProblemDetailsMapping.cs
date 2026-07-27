@@ -1,9 +1,18 @@
+using System.Globalization;
 using System.Text.Json;
 
 using Cynara.Application;
 
 namespace Cynara.Api.Common.ErrorHandling;
 
+/// <summary>
+/// Minimal-API error envelope that wraps the shared
+/// <see cref="CynaraErrorDocument"/> produced by <see cref="CynaraErrorMapping"/>.
+/// Status codes, titles, details, codes, and pointers all originate in the
+/// neutral mapping; this class only chooses the envelope shape (camelCase
+/// property names, <c>application/vnd.api+json</c> content type) and the
+/// transport-specific pointer form for <see cref="FormResponseValidationException"/>.
+/// </summary>
 internal static class ProblemDetailsMapping
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -13,95 +22,40 @@ internal static class ProblemDetailsMapping
 
     public static IResult FromException(CynaraException exception)
     {
-        return exception switch
-        {
-            NotFoundException => JsonApiError(
-                StatusCodes.Status404NotFound,
-                "Not found",
-                exception.Message),
-            ConflictException => JsonApiError(
-                StatusCodes.Status409Conflict,
-                "Conflict",
-                exception.Message),
-            ValidationException => JsonApiError(
-                StatusCodes.Status400BadRequest,
-                "Validation failed",
-                exception.Message),
-            ConcurrencyException => JsonApiError(
-                StatusCodes.Status409Conflict,
-                "Concurrency conflict",
-                exception.Message),
-            InvalidStateException => JsonApiError(
-                StatusCodes.Status409Conflict,
-                "Invalid state",
-                exception.Message),
-            TenantContextException => JsonApiError(
-                StatusCodes.Status403Forbidden,
-                "Tenant context required",
-                exception.Message),
-            FormResponseValidationException validationException =>
-                FormResponseErrors(validationException),
-            _ => JsonApiError(
-                StatusCodes.Status500InternalServerError,
-                "Unexpected error",
-                exception.Message),
-        };
+        CynaraErrorDocument document = CynaraErrorMapping.FromException(exception);
+        return BuildEnvelope(document);
     }
 
     public static IResult Unexpected(string detail)
     {
-        return JsonApiError(
-            StatusCodes.Status500InternalServerError,
-            "Unexpected error",
-            detail);
+        return BuildEnvelope(CynaraErrorMapping.Unexpected(detail));
     }
 
-    private static IResult FormResponseErrors(
-        FormResponseValidationException exception)
+    private static IResult BuildEnvelope(CynaraErrorDocument document)
     {
-        var errors = exception.Errors.Select(static error => new
-        {
-            status = "400",
-            code = error.Code,
-            title = "Validation failed",
-            detail = error.Message,
-            source = new
+        object[] errors = [.. document.Items
+            .Select(item => item switch
             {
-                pointer = string.IsNullOrWhiteSpace(error.Path)
-                    ? null
-                    : $"/data/attributes/answersJson/{error.Path}",
-            },
-        }).ToArray();
+                { Code: null, Source: null } => (object)new
+                {
+                    status = document.StatusCode.ToString(CultureInfo.InvariantCulture),
+                    title = item.Title,
+                    detail = item.Detail,
+                },
+                _ => new
+                {
+                    status = document.StatusCode.ToString(CultureInfo.InvariantCulture),
+                    code = item.Code,
+                    title = item.Title,
+                    detail = item.Detail,
+                    source = new { pointer = item.Source!.MinimalApiPointer },
+                },
+            })];
 
         return Results.Json(
             new { errors },
             SerializerOptions,
             contentType: "application/vnd.api+json",
-            statusCode: StatusCodes.Status400BadRequest);
-    }
-
-    private static IResult JsonApiError(
-        int statusCode,
-        string title,
-        string detail)
-    {
-        var document = new
-        {
-            errors = new[]
-            {
-                new
-                {
-                    status = statusCode.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    title,
-                    detail,
-                },
-            },
-        };
-
-        return Results.Json(
-            document,
-            SerializerOptions,
-            contentType: "application/vnd.api+json",
-            statusCode: statusCode);
+            statusCode: document.StatusCode);
     }
 }
