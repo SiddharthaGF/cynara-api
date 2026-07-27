@@ -12,6 +12,8 @@ internal static class HealthEndpoints
             contract = "https://github.com/ailuracode/cynara",
         });
 
+        _ = endpoints.MapGet("/", () => Results.Text("Hello, Cynara"))
+            .ExcludeFromDescription();
         _ = endpoints.MapGet("/health", handler).ExcludeFromDescription();
         _ = endpoints.MapMethods("/health", ["HEAD"], handler).ExcludeFromDescription();
 

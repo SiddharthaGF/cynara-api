@@ -12,7 +12,7 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 publish/
-TestResults/
+.cake/
 
 ## IDE
 .idea/
