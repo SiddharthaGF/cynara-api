@@ -226,12 +226,6 @@ jobs:
           branch: ${{ steps.name.outputs.name }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      - name: Delete sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: neon-preview
-          delete: true
-
   cleanup-neon-environments:
     name: Cleanup orphan Neon PR environments
     runs-on: ubuntu-latest
