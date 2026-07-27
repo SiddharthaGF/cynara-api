@@ -218,6 +218,7 @@ jobs:
 
       - name: Delete GitHub environment
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENVIRONMENT_NAME: ${{ github.head_ref }} - cynara-api PR #${{ github.event.number }}
         run: |
           set -euo pipefail
