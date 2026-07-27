@@ -193,6 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
     permissions:
+      contents: read
       deployments: write
     steps:
       - name: Checkout
