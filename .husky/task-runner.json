@@ -5,17 +5,23 @@
       "name": "format-staged",
       "group": "pre-commit",
       "command": "dotnet",
-      "args": ["format", "Cynara.Api.sln", "--include", "${staged}"],
+      "args": [
+        "cake",
+        "--target=Format",
+        "--include",
+        "${staged}"
+      ],
       "include": ["**/*.cs"]
     },
     {
       "name": "lint",
       "group": "pre-commit",
-      "command": "bash",
+      "command": "dotnet",
       "args": [
-        "-c",
-        "git diff --cached --name-only --diff-filter=ACM | grep -q '\\.cs$' || exit 0; dotnet build Cynara.Api.sln --no-restore -warnaserror -c Debug"
-      ]
+        "cake",
+        "--target=Lint"
+      ],
+      "include": ["**/*.cs"]
     }
   ]
 }

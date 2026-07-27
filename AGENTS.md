@@ -25,25 +25,28 @@ Default listen URL: `http://localhost:5000`.
 ## Commands
 
 ```bash
-dotnet restore
+dotnet tool restore
 dotnet run --project src/Cynara.Api
 
-make format        # write formatting changes
-make format-check  # verify only
-make lint          # build -warnaserror
-make test          # dotnet test
-make check         # restore + format-check + lint + test
-make fix           # format + safe analyzer fixes
-make sonar         # SonarQube Community Build: up + bootstrap + scan
-make sonar-up      # start local SonarQube + Postgres (Docker)
-make sonar-scan    # SonarScanner for .NET → http://localhost:9000
+# Build pipeline is Cake — wrap calls with `dotnet cake`.
+dotnet cake --target=Format         # write formatting changes
+dotnet cake --target=FormatCheck    # verify only
+dotnet cake --target=Lint           # build -warnaserror
+dotnet cake --target=Test           # dotnet test
+dotnet cake --target=Check          # restore + format-check + lint + test
+dotnet cake --target=Fix            # format + safe analyzer fixes
+dotnet cake --target=Seed           # seed demo showcase via Application services
+dotnet cake --target=Sonar          # SonarQube Community Build: up + bootstrap + scan
+dotnet cake --target=SonarUp        # start local SonarQube + Postgres (Docker)
+dotnet cake --target=SonarBootstrap # change admin password + write .sonar/token
+dotnet cake --target=SonarScan      # SonarScanner for .NET → http://localhost:9000
 # Bootstrap also assigns profile "Cynara C#" (S104 file LOC ≤400).
-make seed          # seed demo showcase via Application services (any configured DB)
 ```
 
-Run the narrowest relevant checks first. Prefer `make test` (or a filtered
-`dotnet test`) for behavior changes; run `make check` before claiming the
-change is ready. Do not claim tests were run when only format/lint ran.
+Run the narrowest relevant checks first. Prefer `dotnet cake --target=Test`
+(or a filtered `dotnet test`) for behavior changes; run
+`dotnet cake --target=Check` before claiming the change is ready. Do not
+claim tests were run when only format/lint ran.
 
 Husky.Net installs a pre-commit hook on restore that formats staged `.cs` files
 and builds with `-warnaserror`. If the hook rewrites files, re-stage and commit
@@ -144,13 +147,13 @@ audit emission on mutating workflows.
 - After meaningful changes, run at least:
 
 ```bash
-make test
+dotnet cake --target=Test
 ```
 
 For broader readiness (format + analyzers + tests):
 
 ```bash
-make check
+dotnet cake --target=Check
 ```
 
 ## Related Repositories

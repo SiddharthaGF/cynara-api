@@ -90,31 +90,35 @@ Git hooks load `.husky/env.sh` automatically so commits from the IDE work even w
 ## Code quality
 
 Linting and formatting follow .NET conventions via [NetAnalyzers](https://learn.microsoft.com/dotnet/fundamentals/code-analysis/overview), `.editorconfig`, and the SDK [`dotnet format`](https://learn.microsoft.com/dotnet/core/tools/dotnet-format) command.
+Day-to-day tasks live in Cake (`build.cake`).
 
 
 ```bash
-make format        # write formatting changes
-make format-check  # verify only (--verify-no-changes)
-make lint          # dotnet build --no-restore -warnaserror
-make test    # PostgreSQL suite via Testcontainers (needs Docker; excludes Category=E2E)
-make check   # restore + format-check + lint + test
-make fix     # format + apply safe analyzer fixes
-make sonar   # local SonarQube Community Build analysis
-make seed    # seed demo showcase into configured DB (no HTTP)
+dotnet tool restore                                  # one-time: pulls dotnet-cake, husky, sonarscanner
+dotnet cake --target=Format        # write formatting changes
+dotnet cake --target=FormatCheck   # verify only (--verify-no-changes)
+dotnet cake --target=Lint          # dotnet build --no-restore -warnaserror
+dotnet cake --target=Test          # PostgreSQL suite via Testcontainers (needs Docker; excludes Category=E2E)
+dotnet cake --target=Check         # restore + format-check + lint + test
+dotnet cake --target=Fix           # format + apply safe analyzer fixes
+dotnet cake --target=Sonar         # local SonarQube Community Build analysis
+dotnet cake --target=Seed          # seed demo showcase into configured DB (no HTTP)
 ```
 
-`make test` starts a disposable PostgreSQL container (Testcontainers) and runs
-the full API suite against it. Set `ConnectionStrings__Default` (env var or
-`appsettings`) to point at a running PostgreSQL instance instead of the
-ephemeral container.
+Para correr la API localmente usa `dotnet run --project src/Cynara.Api` (ver "Getting started").
+
+`dotnet cake --target=Test` starts a disposable PostgreSQL container
+(Testcontainers) and runs the full API suite against it. Set
+`ConnectionStrings__Default` (env var or `appsettings`) to point at a running
+PostgreSQL instance instead of the ephemeral container.
 
 Seed resolves `ConnectionStrings:Default` from `appsettings`, env vars, or
 `--connection`. Examples:
 
 ```bash
-make seed
-make seed SEED_ARGS='--connection "Host=...;Database=cynara;Username=...;Password=..."'
-ConnectionStrings__Default='Host=...;Database=cynara;Username=...;Password=...' make seed
+dotnet cake --target=Seed
+dotnet cake --target=Seed --seed-args='--connection "Host=...;Database=cynara;Username=...;Password=..."'
+ConnectionStrings__Default='Host=...;Database=cynara;Username=...;Password=...' dotnet cake --target=Seed
 ```
 
 Rules live in `.editorconfig`, `.globalconfig`, and `Directory.Build.props`.
@@ -126,23 +130,60 @@ Local smell / quality-gate analysis uses [SonarQube Community Build](https://doc
 Prerequisites: Docker Desktop (or Docker Engine) with Compose.
 
 ```bash
-make sonar              # start server, bootstrap token, scan
+dotnet cake --target=Up                 # full dev stack: app Postgres + pgAdmin + SonarQube
+dotnet cake --target=Sonar              # change admin password, bootstrap token, run scanner
 # or step by step:
-make sonar-up           # SonarQube + Postgres on :9000
-make sonar-bootstrap    # change default admin password + write .sonar/token
-make sonar-scan         # begin → build → end; opens project cynara-api
-make sonar-down         # stop containers (keeps volumes)
+dotnet cake --target=SonarUp           # SonarQube container only (joins the shared Postgres)
+dotnet cake --target=SonarBootstrap    # change default admin password + write .sonar/token
+dotnet cake --target=SonarScan         # begin → build → end; opens project cynara-api
+dotnet cake --target=Down               # stop both stacks (preserves volumes)
+dotnet cake --target=Status             # ps of every Cynara-related container
 ```
 
-- UI: http://localhost:9000
+- UIs:
+  - SonarQube: http://localhost:9000
+  - pgAdmin:   http://localhost:5050 (login `admin@example.com` / `admin`)
 - Default bootstrap password: `CynaraSonarAdmin1!` (override with `SONAR_ADMIN_PASSWORD`)
 - Token path: `.sonar/token` (gitignored), or export `SONAR_TOKEN`
-- Compose file: `docker/sonarqube/docker-compose.yml`
+- Compose files:
+  - App stack (Postgres + pgAdmin): `docker/stack.yml`
+  - SonarQube: `docker/sonarqube/docker-compose.yml`
+- API Dockerfile: `docker/Dockerfile`
 - Local quality gate: `Cynara Local` (`new_violations=0`, no coverage requirement)
 - Local C# profile: `Cynara C#` — Sonar S104 file size warning at **400 LOC**
   (`maximumFileLocThreshold=400`, severity MINOR)
 
-First boot can take 1–2 minutes while Elasticsearch starts. Re-run `make sonar-scan` after code changes to refresh findings.
+### Shared Postgres topology
+
+The app stack and SonarQube share a single Postgres instance, joined by the
+external bridge network `cynara-net`. The instance hosts two databases:
+
+| Database   | Owner     | Used by                                |
+|------------|-----------|----------------------------------------|
+| `postgres` | `postgres` | Cynara API (EF Core, dev seed)        |
+| `sonar`    | `sonar`    | SonarQube                             |
+
+The `sonar` database and role are created on first boot from
+`docker/postgres/init-sonar.sql`. SonarQube connects via
+`jdbc:postgresql://postgresql:5432/sonar` — never with superuser.
+
+**Reset everything (destroy both databases):**
+
+```bash
+docker compose -f docker/stack.yml down -v
+docker compose -f docker/sonarqube/docker-compose.yml down -v
+dotnet cake --target=Up
+```
+
+**Reset only the app data, keep SonarQube history:**
+
+```bash
+docker compose -f docker/stack.yml down
+docker volume rm cynara_postgresql-data
+dotnet cake --target=Up
+```
+
+First boot can take 1–2 minutes while Elasticsearch starts. Re-run `dotnet cake --target=SonarScan` after code changes to refresh findings.
 
 ## Architecture
 
@@ -197,7 +238,7 @@ On `dotnet restore`, [Husky.Net](https://github.com/alirezanet/Husky.Net) instal
 1. **Formats** staged `.cs` files (`dotnet format`)
 2. **Lints** the solution (`dotnet build -warnaserror`)
 
-Tests run separately via `make test` or CI (`make check`). Disable hooks with `HUSKY=0 git commit`.
+Tests run separately via `dotnet cake --target=Test` or CI (`dotnet cake --target=Check`). Disable hooks with `HUSKY=0 git commit`.
 
 NuGet vulnerability audit is disabled locally (`NuGetAudit=false` in `Directory.Build.props`) so pre-commit does not require nuget.org. Enable it in CI with `-p:NuGetAudit=true` if needed.
 
@@ -229,7 +270,14 @@ src/Cynara.Domain/               Entities and domain status models
 src/Cynara.Infrastructure/      EF Core, repositories, schemas, SeedData
 tests/Cynara.Api.Tests/         Integration and workflow tests
 tools/Cynara.Seed/              In-process demo showcase seeder CLI
+docker/                         Compose stacks, API Dockerfile, Postgres init SQL
+  ├─ Dockerfile                  Cynara API image
+  ├─ stack.yml                   Shared Postgres + pgAdmin
+  ├─ postgres/init-sonar.sql     Creates `sonar` DB on first boot
+  ├─ pgadmin/servers.json        pgAdmin seed (Cynara Postgres + SonarQube QA)
+  └─ sonarqube/docker-compose.yml  SonarQube (joins `cynara-net`)
 scripts/                        Local SonarQube bootstrap/scan helpers
+.cursor/                        Cursor MCP config + Postgres/SonarQube wrappers
 ```
 
 ## License

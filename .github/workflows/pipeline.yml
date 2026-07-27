@@ -30,11 +30,14 @@ jobs:
       - name: Setup .NET and restore
         uses: ./.github/actions/setup-dotnet-and-restore
 
+      - name: Restore Cake runner
+        run: dotnet tool restore
+
       - name: Format check
-        run: make fmt:check
+        run: dotnet cake --target=FormatCheck
 
       - name: Lint
-        run: make lint CONFIGURATION=${{ env.DOTNET_CONFIGURATION }}
+        run: dotnet cake --target=Lint --configuration=${{ env.DOTNET_CONFIGURATION }}
 
       - name: Verify Docker
         run: docker info
@@ -42,13 +45,7 @@ jobs:
       - name: Test
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
-        run: >
-          dotnet test Cynara.Api.sln
-          --no-restore
-          -c ${{ env.DOTNET_CONFIGURATION }}
-          --verbosity normal
-          --logger "console;verbosity=normal"
-          --filter "Category!=E2E"
+        run: dotnet cake --target=Test --configuration=${{ env.DOTNET_CONFIGURATION }}
 
   neon-upsert:
     name: Provision Neon branch and Render preview

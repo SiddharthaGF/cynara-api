@@ -1,5 +1,11 @@
 {
   "mcpServers": {
+    "postgres": {
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/.cursor/postgres-mcp.sh"
+      ]
+    },
     "sonarqube": {
       "command": "bash",
       "args": [
