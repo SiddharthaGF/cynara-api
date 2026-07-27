@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TOKEN_FILE="${SONARQUBE_TOKEN_FILE:-${ROOT}/.sonar/token}"
-NETWORK="${SONARQUBE_DOCKER_NETWORK:-sonarqube_default}"
+NETWORK="${SONARQUBE_DOCKER_NETWORK:-cynara-net}"
 
 if [[ -z "${SONARQUBE_TOKEN:-}" ]]; then
   if [[ ! -f "${TOKEN_FILE}" ]]; then
