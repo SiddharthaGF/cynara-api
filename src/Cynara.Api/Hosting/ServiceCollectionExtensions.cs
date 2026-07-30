@@ -28,17 +28,12 @@ internal static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        string[] allowedCorsOrigins = configuration
-            .GetSection("Cors:AllowedOrigins")
-            .Get<string[]>()
-            ?? [];
-
         services = services
             .AddCors(options =>
             {
                 options.AddDefaultPolicy(
                     policy => policy
-                        .WithOrigins(allowedCorsOrigins)
+                        .AllowAnyOrigin()
                         .AllowAnyHeader()
                         .AllowAnyMethod());
             })
