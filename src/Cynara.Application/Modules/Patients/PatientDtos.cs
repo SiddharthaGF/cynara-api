@@ -71,14 +71,27 @@ public sealed record SoftDeletePatientRequest(uint RowVersion);
 /// <summary>
 /// Search filter contract for the patient registry. All criteria are
 /// optional; an empty filter returns the active, non-deleted roster for
-/// the resolved hospital workspace.
+/// the resolved hospital workspace. Name filters are tokenized across
+/// given and family fields and matched against the full normalized name
+/// (diacritic-folded substrings). MRN and national ID remain exact.
+/// <c>Page</c> is 1-based; <c>PageSize</c> is clamped to
+/// <see cref="PatientFieldLimits.MaxPageSize"/>.
 /// </summary>
 public sealed record PatientSearchRequest(
     string? Mrn,
     string? NationalId,
     string? GivenName,
     string? FamilyName,
-    bool IncludeDeleted = false);
+    bool IncludeDeleted = false,
+    int Page = 1,
+    int PageSize = PatientFieldLimits.DefaultPageSize);
 
-/// <summary>JSON-API-free collection response for patient listings.</summary>
-public sealed record PatientListResponse(IReadOnlyList<PatientDto> Patients);
+/// <summary>
+/// JSON-API-free collection response for patient listings, including
+/// pagination metadata for the requested page.
+/// </summary>
+public sealed record PatientListResponse(
+    IReadOnlyList<PatientDto> Patients,
+    int Page,
+    int PageSize,
+    int TotalCount);

@@ -44,9 +44,11 @@ public sealed class PatientRepository(CynaraDbContext dbContext)
                 cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Patient>> SearchAsync(
+    public async Task<PatientSearchPage> SearchAsync(
         Guid hospitalId,
         PatientSearchCriteria criteria,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         IQueryable<Patient> query = dbContext.Patients
@@ -70,24 +72,31 @@ public sealed class PatientRepository(CynaraDbContext dbContext)
                 item => item.NormalizedNationalId == criteria.NormalizedNationalId);
         }
 
-        if (!string.IsNullOrEmpty(criteria.NormalizedGivenName))
+        foreach (string token in criteria.NameTokens)
         {
+            string nameToken = token;
             query = query.Where(
-                item => item.NormalizedGivenName == criteria.NormalizedGivenName);
+                item => (item.NormalizedGivenName + " " + item.NormalizedFamilyName)
+                    .Contains(nameToken));
         }
 
-        if (!string.IsNullOrEmpty(criteria.NormalizedFamilyName))
-        {
-            query = query.Where(
-                item => item.NormalizedFamilyName == criteria.NormalizedFamilyName);
-        }
-
-        return await query
+        query = query
             .OrderBy(item => item.NormalizedFamilyName)
             .ThenBy(item => item.NormalizedGivenName)
-            .ThenBy(item => item.NormalizedMrn)
+            .ThenBy(item => item.NormalizedMrn);
+
+        int totalCount = await query
+            .CountAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        int skip = (page - 1) * pageSize;
+        IReadOnlyList<Patient> items = await query
+            .Skip(skip)
+            .Take(pageSize)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        return new PatientSearchPage(items, totalCount);
     }
 
     public void Add(Patient patient)

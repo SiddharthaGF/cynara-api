@@ -37,14 +37,23 @@ public sealed class PatientsController(
         [FromQuery(Name = "givenName")] string? givenName,
         [FromQuery(Name = "familyName")] string? familyName,
         [FromQuery(Name = "includeDeleted")] bool includeDeleted = false,
+        [FromQuery(Name = "page")] int page = 1,
+        [FromQuery(Name = "pageSize")] int pageSize =
+            PatientFieldLimits.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
         PatientSearchRequest request = new(
-            mrn, nationalId, givenName, familyName, includeDeleted);
-        IReadOnlyList<PatientDto> matches = await patientService
+            mrn,
+            nationalId,
+            givenName,
+            familyName,
+            includeDeleted,
+            page,
+            pageSize);
+        PatientListResponse matches = await patientService
             .SearchAsync(request, cancellationToken)
             .ConfigureAwait(false);
-        return Ok(new PatientListResponse(matches));
+        return Ok(matches);
     }
 
     /// <summary>Returns the patient matching the supplied identifier.</summary>
