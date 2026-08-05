@@ -32,10 +32,14 @@ internal static class ServiceCollectionExtensions
             .AddCors(options =>
             {
                 options.AddDefaultPolicy(
-                    policy => policy
-                        .AllowAnyOrigin()
-                        .AllowAnyHeader()
-                        .AllowAnyMethod());
+                    policy =>
+                    {
+                        // Dev/maquette CORS: origins are not yet locked down.
+                        _ = policy
+                            .AllowAnyOrigin()
+                            .AllowAnyHeader()
+                            .AllowAnyMethod();
+                    });
             })
             .AddCynaraForwardedHeaders(configuration)
             .AddCynaraApplication()
@@ -79,7 +83,8 @@ internal static class ServiceCollectionExtensions
                     Version = "v1",
                     Description =
                         "JSON:API contract for Cynara clinical form "
-                        + "lifecycle, responses, components, audit, and "
+                        + "lifecycle, responses, components, patients, "
+                        + "encounters, clinical taxonomy, audit, and "
                         + "AI provider settings. Send `X-Actor-Id` on "
                         + "mutating requests for audit attribution and "
                         + "`X-Hospital-Code` on every request to select "
