@@ -139,9 +139,9 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         for (int index = 1; index <= 5; index++)
         {
             await CreatePatientAsync(
-                mrn: $"MRN-PAGE-{index.ToString("D2", System.Globalization.CultureInfo.InvariantCulture)}",
-                givenName: $"Given{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
-                familyName: $"Family{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}").ConfigureAwait(false);
+                mrn: $"MRN-PAGE-{index.ToString("D2", CultureInfo.InvariantCulture)}",
+                givenName: $"Given{index.ToString(CultureInfo.InvariantCulture)}",
+                familyName: $"Family{index.ToString(CultureInfo.InvariantCulture)}").ConfigureAwait(false);
         }
 
         using HttpResponseMessage page1Response = await Client

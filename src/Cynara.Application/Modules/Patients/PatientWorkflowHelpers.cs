@@ -138,7 +138,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient MRN must be "
-                + MrnMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + MrnMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }
@@ -162,7 +162,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient national identifier must be "
-                + NationalIdMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + NationalIdMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }
@@ -186,7 +186,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient " + fieldName + " must be "
-                + NameMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + NameMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }

@@ -304,6 +304,51 @@ public sealed class PatientsServiceTests
     }
 
     [Fact]
+    public async Task SearchAsync_IgnoresDiacriticsInNameFilters()
+    {
+        var harness = PatientsServiceHarness.Create();
+        harness.Repository.Seed(
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-ACCENT-01",
+                givenName: "José",
+                familyName: "Núñez García"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-ACCENT-02",
+                givenName: "Ana",
+                familyName: "Pérez"));
+
+        PatientListResponse withoutAccents = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "jose",
+                    FamilyName: "nunez"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(
+            "MRN-ACCENT-01",
+            Assert.Single(withoutAccents.Patients).Mrn);
+
+        PatientListResponse withAccents = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "José",
+                    FamilyName: "Núñez"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(
+            "MRN-ACCENT-01",
+            Assert.Single(withAccents.Patients).Mrn);
+    }
+
+    [Fact]
     public async Task CreateAsync_NormalizesMrnToUppercase()
     {
         var harness = PatientsServiceHarness.Create();
