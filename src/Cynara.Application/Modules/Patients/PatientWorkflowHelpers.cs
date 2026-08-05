@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+
 using Cynara.Domain.Patients;
 
 namespace Cynara.Application.Modules.Patients;
@@ -60,11 +63,59 @@ internal static class PatientWorkflowHelpers
         return nationalId.Trim().ToUpperInvariant();
     }
 
-    /// <summary>Returns the trimmed, upper-invariant comparison form for a name.</summary>
+    /// <summary>
+    /// Returns the trimmed, upper-invariant, diacritic-folded form used for
+    /// name indexing and search so <c>rodri</c> matches <c>Rodríguez</c>.
+    /// </summary>
     public static string NormalizeName(string name)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        return name.Trim().ToUpperInvariant();
+        string trimmed = name.Trim().ToUpperInvariant();
+        string formD = trimmed.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(formD.Length);
+        foreach (char character in formD)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character)
+                != UnicodeCategory.NonSpacingMark)
+            {
+                _ = builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    /// <summary>
+    /// Splits given/family name filters into search tokens. Tokens from
+    /// either field must each appear somewhere in the patient's full
+    /// normalized name (given + family), so <c>jorge rodri</c> matches
+    /// <c>Jorge Soto Rodríguez</c>.
+    /// </summary>
+    public static IReadOnlyList<string> TokenizeNameFilter(
+        string? givenName,
+        string? familyName)
+    {
+        List<string> tokens = [];
+        foreach (string? value in new[] { givenName, familyName })
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            foreach (string part in value.Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                string token = NormalizeName(part);
+                if (token.Length > 0)
+                {
+                    tokens.Add(token);
+                }
+            }
+        }
+
+        return tokens;
     }
 
     /// <summary>
@@ -87,7 +138,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient MRN must be "
-                + MrnMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + MrnMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }
@@ -111,7 +162,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient national identifier must be "
-                + NationalIdMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + NationalIdMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }
@@ -135,7 +186,7 @@ internal static class PatientWorkflowHelpers
         {
             throw new ValidationException(
                 "Patient " + fieldName + " must be "
-                + NameMaxLength.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + NameMaxLength.ToString(CultureInfo.InvariantCulture)
                 + " characters or fewer.");
         }
     }

@@ -27,9 +27,11 @@ public interface IPatientService
     /// Searches the patient roster for the resolved hospital workspace.
     /// Soft-deleted records are hidden unless
     /// <see cref="PatientSearchRequest.IncludeDeleted"/> is
-    /// <see langword="true"/>.
+    /// <see langword="true"/>. Results are paged via
+    /// <see cref="PatientSearchRequest.Page"/> and
+    /// <see cref="PatientSearchRequest.PageSize"/>.
     /// </summary>
-    public Task<IReadOnlyList<PatientDto>> SearchAsync(
+    public Task<PatientListResponse> SearchAsync(
         PatientSearchRequest request,
         CancellationToken cancellationToken);
 

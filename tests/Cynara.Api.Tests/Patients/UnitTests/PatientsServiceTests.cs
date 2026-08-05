@@ -64,7 +64,7 @@ public sealed class PatientsServiceTests
                 givenName: "Alan",
                 familyName: "Turing"));
 
-        IReadOnlyList<PatientDto> matches = await harness.Service
+        PatientListResponse matches = await harness.Service
             .SearchAsync(
                 new PatientSearchRequest(
                     Mrn: null,
@@ -74,8 +74,11 @@ public sealed class PatientsServiceTests
                 CancellationToken.None)
             .ConfigureAwait(false);
 
-        PatientDto single = Assert.Single(matches);
+        PatientDto single = Assert.Single(matches.Patients);
         Assert.Equal("MRN-OWN", single.Mrn);
+        Assert.Equal(1, matches.TotalCount);
+        Assert.Equal(1, matches.Page);
+        Assert.Equal(PatientFieldLimits.DefaultPageSize, matches.PageSize);
     }
 
     [Fact]
@@ -94,7 +97,7 @@ public sealed class PatientsServiceTests
                 givenName: "Alan",
                 familyName: "Turing"));
 
-        IReadOnlyList<PatientDto> matches = await harness.Service
+        PatientListResponse matches = await harness.Service
             .SearchAsync(
                 new PatientSearchRequest(
                     Mrn: "  mrn-001  ",
@@ -104,8 +107,245 @@ public sealed class PatientsServiceTests
                 CancellationToken.None)
             .ConfigureAwait(false);
 
-        PatientDto single = Assert.Single(matches);
+        PatientDto single = Assert.Single(matches.Patients);
         Assert.Equal("MRN-001", single.Mrn);
+        Assert.Equal(1, matches.TotalCount);
+    }
+
+    [Fact]
+    public async Task SearchAsync_PagesResultsAndReportsTotalCount()
+    {
+        var harness = PatientsServiceHarness.Create();
+        for (int index = 1; index <= 5; index++)
+        {
+            harness.Repository.Seed(
+                PatientsServiceHarness.BuildPatient(
+                    harness.HospitalId,
+                    mrn: $"MRN-P{index.ToString("D2", System.Globalization.CultureInfo.InvariantCulture)}",
+                    givenName: $"Given{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                    familyName: $"Family{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}"));
+        }
+
+        PatientListResponse page1 = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: null,
+                    FamilyName: null,
+                    Page: 1,
+                    PageSize: 2),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(5, page1.TotalCount);
+        Assert.Equal(1, page1.Page);
+        Assert.Equal(2, page1.PageSize);
+        Assert.Equal(2, page1.Patients.Count);
+
+        PatientListResponse page3 = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: null,
+                    FamilyName: null,
+                    Page: 3,
+                    PageSize: 2),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(5, page3.TotalCount);
+        Assert.Equal(3, page3.Page);
+        Assert.Single(page3.Patients);
+
+        PatientListResponse beyond = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: null,
+                    FamilyName: null,
+                    Page: 9,
+                    PageSize: 2),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(5, beyond.TotalCount);
+        Assert.Empty(beyond.Patients);
+    }
+
+    [Fact]
+    public async Task SearchAsync_ClampsInvalidPageAndPageSize()
+    {
+        var harness = PatientsServiceHarness.Create();
+        harness.Repository.Seed(
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-CLAMP",
+                givenName: "Ada",
+                familyName: "Lovelace"));
+
+        PatientListResponse matches = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: null,
+                    FamilyName: null,
+                    Page: 0,
+                    PageSize: 500),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(1, matches.Page);
+        Assert.Equal(PatientFieldLimits.MaxPageSize, matches.PageSize);
+        Assert.Single(matches.Patients);
+    }
+
+    [Fact]
+    public async Task SearchAsync_MatchesPartialGivenAndFamilyNames()
+    {
+        var harness = PatientsServiceHarness.Create();
+        harness.Repository.Seed(
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-NAME-01",
+                givenName: "María José",
+                familyName: "García López"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-NAME-02",
+                givenName: "Ana",
+                familyName: "Martínez"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-NAME-03",
+                givenName: "Carlos",
+                familyName: "García Ruiz"));
+
+        PatientListResponse byGiven = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "maría",
+                    FamilyName: null),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        PatientDto givenMatch = Assert.Single(byGiven.Patients);
+        Assert.Equal("MRN-NAME-01", givenMatch.Mrn);
+
+        PatientListResponse byFamily = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: null,
+                    FamilyName: "garcia"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(2, byFamily.TotalCount);
+        Assert.All(
+            byFamily.Patients,
+            item => Assert.Contains(
+                "García",
+                item.FamilyName,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SearchAsync_MatchesTokensAcrossFullName()
+    {
+        var harness = PatientsServiceHarness.Create();
+        harness.Repository.Seed(
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-FULL-01",
+                givenName: "Jorge",
+                familyName: "Soto Rodríguez"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-FULL-02",
+                givenName: "Jorge",
+                familyName: "Pérez"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-FULL-03",
+                givenName: "Ana",
+                familyName: "Rodríguez"));
+
+        PatientListResponse matches = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "jorge rodri",
+                    FamilyName: null),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        PatientDto match = Assert.Single(matches.Patients);
+        Assert.Equal("MRN-FULL-01", match.Mrn);
+
+        PatientListResponse splitFields = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "jorge",
+                    FamilyName: "rodri"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal("MRN-FULL-01", Assert.Single(splitFields.Patients).Mrn);
+    }
+
+    [Fact]
+    public async Task SearchAsync_IgnoresDiacriticsInNameFilters()
+    {
+        var harness = PatientsServiceHarness.Create();
+        harness.Repository.Seed(
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-ACCENT-01",
+                givenName: "José",
+                familyName: "Núñez García"),
+            PatientsServiceHarness.BuildPatient(
+                harness.HospitalId,
+                mrn: "MRN-ACCENT-02",
+                givenName: "Ana",
+                familyName: "Pérez"));
+
+        PatientListResponse withoutAccents = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "jose",
+                    FamilyName: "nunez"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(
+            "MRN-ACCENT-01",
+            Assert.Single(withoutAccents.Patients).Mrn);
+
+        PatientListResponse withAccents = await harness.Service
+            .SearchAsync(
+                new PatientSearchRequest(
+                    Mrn: null,
+                    NationalId: null,
+                    GivenName: "José",
+                    FamilyName: "Núñez"),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal(
+            "MRN-ACCENT-01",
+            Assert.Single(withAccents.Patients).Mrn);
     }
 
     [Fact]
@@ -291,7 +531,7 @@ public sealed class PatientsServiceTests
             .ConfigureAwait(false);
 
         Assert.NotNull(deleted.DeletedAt);
-        IReadOnlyList<PatientDto> hidden = await harness.Service
+        PatientListResponse hidden = await harness.Service
             .SearchAsync(
                 new PatientSearchRequest(
                     Mrn: null,
@@ -301,9 +541,9 @@ public sealed class PatientsServiceTests
                     IncludeDeleted: false),
                 CancellationToken.None)
             .ConfigureAwait(false);
-        Assert.DoesNotContain(hidden, item => item.Id == patient.Id);
+        Assert.DoesNotContain(hidden.Patients, item => item.Id == patient.Id);
 
-        IReadOnlyList<PatientDto> visible = await harness.Service
+        PatientListResponse visible = await harness.Service
             .SearchAsync(
                 new PatientSearchRequest(
                     Mrn: null,
@@ -313,7 +553,7 @@ public sealed class PatientsServiceTests
                     IncludeDeleted: true),
                 CancellationToken.None)
             .ConfigureAwait(false);
-        Assert.Contains(visible, item => item.Id == patient.Id);
+        Assert.Contains(visible.Patients, item => item.Id == patient.Id);
     }
 
     [Fact]

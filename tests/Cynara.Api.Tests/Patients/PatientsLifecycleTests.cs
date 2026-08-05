@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 using Cynara.Api.Tests.Support;
+using Cynara.Application.Modules.Patients;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,6 +126,100 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         Assert.Equal(1, patients.GetArrayLength());
         JsonElement first = patients[0];
         Assert.Equal("MRN-101", first.GetProperty("mrn").GetString());
+        Assert.Equal(1, document.RootElement.GetProperty("totalCount").GetInt32());
+        Assert.Equal(1, document.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(
+            PatientFieldLimits.DefaultPageSize,
+            document.RootElement.GetProperty("pageSize").GetInt32());
+    }
+
+    [Fact]
+    public async Task SearchPatient_PagesResults()
+    {
+        for (int index = 1; index <= 5; index++)
+        {
+            await CreatePatientAsync(
+                mrn: $"MRN-PAGE-{index.ToString("D2", CultureInfo.InvariantCulture)}",
+                givenName: $"Given{index.ToString(CultureInfo.InvariantCulture)}",
+                familyName: $"Family{index.ToString(CultureInfo.InvariantCulture)}").ConfigureAwait(false);
+        }
+
+        using HttpResponseMessage page1Response = await Client
+            .GetAsync(
+                new Uri("/api/patients?page=1&pageSize=2", UriKind.Relative))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, page1Response.StatusCode);
+        using var page1Doc = JsonDocument.Parse(
+            await page1Response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.True(
+            page1Doc.RootElement.GetProperty("totalCount").GetInt32() >= 5);
+        Assert.Equal(2, page1Doc.RootElement.GetProperty("patients").GetArrayLength());
+        Assert.Equal(1, page1Doc.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(2, page1Doc.RootElement.GetProperty("pageSize").GetInt32());
+
+        using HttpResponseMessage page2Response = await Client
+            .GetAsync(
+                new Uri("/api/patients?page=2&pageSize=2", UriKind.Relative))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, page2Response.StatusCode);
+        using var page2Doc = JsonDocument.Parse(
+            await page2Response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(2, page2Doc.RootElement.GetProperty("patients").GetArrayLength());
+        Assert.Equal(2, page2Doc.RootElement.GetProperty("page").GetInt32());
+    }
+
+    [Fact]
+    public async Task SearchPatient_MatchesPartialFamilyName()
+    {
+        await CreatePatientAsync(
+            mrn: "MRN-PARTIAL-01",
+            givenName: "María",
+            familyName: "García López").ConfigureAwait(false);
+        await CreatePatientAsync(
+            mrn: "MRN-PARTIAL-02",
+            givenName: "Ana",
+            familyName: "Martínez").ConfigureAwait(false);
+
+        using HttpResponseMessage response = await Client
+            .GetAsync(
+                new Uri("/api/patients?familyName=garcia", UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(1, document.RootElement.GetProperty("totalCount").GetInt32());
+        Assert.Equal(
+            "MRN-PARTIAL-01",
+            document.RootElement.GetProperty("patients")[0].GetProperty("mrn").GetString());
+    }
+
+    [Fact]
+    public async Task SearchPatient_MatchesTokensAcrossFullName()
+    {
+        await CreatePatientAsync(
+            mrn: "MRN-TOKEN-01",
+            givenName: "Jorge",
+            familyName: "Soto Rodríguez").ConfigureAwait(false);
+        await CreatePatientAsync(
+            mrn: "MRN-TOKEN-02",
+            givenName: "Jorge",
+            familyName: "Pérez").ConfigureAwait(false);
+
+        using HttpResponseMessage response = await Client
+            .GetAsync(
+                new Uri(
+                    "/api/patients?givenName=jorge%20rodri",
+                    UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(1, document.RootElement.GetProperty("totalCount").GetInt32());
+        Assert.Equal(
+            "MRN-TOKEN-01",
+            document.RootElement.GetProperty("patients")[0].GetProperty("mrn").GetString());
     }
 
     [Fact]

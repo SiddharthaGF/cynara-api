@@ -16,4 +16,10 @@ public static class PatientFieldLimits
 
     /// <summary>Maximum length for given and family names.</summary>
     public const int NameMaxLength = 128;
+
+    /// <summary>Default page size for patient search.</summary>
+    public const int DefaultPageSize = 20;
+
+    /// <summary>Maximum page size for patient search.</summary>
+    public const int MaxPageSize = 100;
 }

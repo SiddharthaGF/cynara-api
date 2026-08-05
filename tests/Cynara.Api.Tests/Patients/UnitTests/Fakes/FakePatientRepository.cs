@@ -51,9 +51,11 @@ public sealed class FakePatientRepository : IPatientRepository
         return Task.FromResult(match);
     }
 
-    public Task<IReadOnlyList<Patient>> SearchAsync(
+    public Task<PatientSearchPage> SearchAsync(
         Guid hospitalId,
         PatientSearchCriteria criteria,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         IEnumerable<Patient> query = entries
@@ -82,25 +84,30 @@ public sealed class FakePatientRepository : IPatientRepository
                     StringComparison.Ordinal));
         }
 
-        if (!string.IsNullOrEmpty(criteria.NormalizedGivenName))
+        if (criteria.NameTokens.Count > 0)
         {
-            query = query.Where(
-                item => string.Equals(
-                    item.NormalizedGivenName,
-                    criteria.NormalizedGivenName,
-                    StringComparison.Ordinal));
+            query = query.Where(item =>
+            {
+                string fullName = item.NormalizedGivenName + " " + item.NormalizedFamilyName;
+                return criteria.NameTokens.All(token =>
+                    fullName.Contains(token, StringComparison.Ordinal));
+            });
         }
 
-        if (!string.IsNullOrEmpty(criteria.NormalizedFamilyName))
-        {
-            query = query.Where(
-                item => string.Equals(
-                    item.NormalizedFamilyName,
-                    criteria.NormalizedFamilyName,
-                    StringComparison.Ordinal));
-        }
-
-        return Task.FromResult<IReadOnlyList<Patient>>([.. query]);
+        Patient[] ordered =
+        [
+            .. query
+                .OrderBy(item => item.NormalizedFamilyName, StringComparer.Ordinal)
+                .ThenBy(item => item.NormalizedGivenName, StringComparer.Ordinal)
+                .ThenBy(item => item.NormalizedMrn, StringComparer.Ordinal),
+        ];
+        int totalCount = ordered.Length;
+        int skip = (page - 1) * pageSize;
+        IReadOnlyList<Patient> items =
+        [
+            .. ordered.Skip(skip).Take(pageSize),
+        ];
+        return Task.FromResult(new PatientSearchPage(items, totalCount));
     }
 
     public void Add(Patient patient)

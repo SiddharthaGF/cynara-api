@@ -3,6 +3,7 @@ using Cynara.Domain.Audit;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Components;
 using Cynara.Domain.Documents;
+using Cynara.Domain.Encounters;
 using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
@@ -45,6 +46,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<DocumentDefinition> DocumentDefinitions => Set<DocumentDefinition>();
 
     public DbSet<Patient> Patients => Set<Patient>();
+
+    public DbSet<Encounter> Encounters => Set<Encounter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

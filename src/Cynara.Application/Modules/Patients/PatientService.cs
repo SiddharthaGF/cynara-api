@@ -117,30 +117,41 @@ public sealed class PatientService(
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<PatientDto>> SearchAsync(
+    public async Task<PatientListResponse> SearchAsync(
         PatientSearchRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
 
-        string? normalizedGivenName = string.IsNullOrWhiteSpace(request.GivenName)
-            ? null
-            : PatientWorkflowHelpers.NormalizeName(request.GivenName);
-        string? normalizedFamilyName = string.IsNullOrWhiteSpace(request.FamilyName)
-            ? null
-            : PatientWorkflowHelpers.NormalizeName(request.FamilyName);
+        int page = request.Page < 1 ? 1 : request.Page;
+        int pageSize = request.PageSize < 1
+            ? PatientFieldLimits.DefaultPageSize
+            : Math.Min(request.PageSize, PatientFieldLimits.MaxPageSize);
+
+        IReadOnlyList<string> nameTokens = PatientWorkflowHelpers.TokenizeNameFilter(
+            request.GivenName,
+            request.FamilyName);
         PatientSearchCriteria criteria = new(
             PatientWorkflowHelpers.NormalizeMrnOrNull(request.Mrn),
             PatientWorkflowHelpers.NormalizeNationalId(request.NationalId),
-            normalizedGivenName,
-            normalizedFamilyName,
+            nameTokens,
             request.IncludeDeleted);
 
-        IReadOnlyList<Patient> matches = await repository
-            .SearchAsync(hospitalContext.HospitalId, criteria, cancellationToken)
+        PatientSearchPage pageResult = await repository
+            .SearchAsync(
+                hospitalContext.HospitalId,
+                criteria,
+                page,
+                pageSize,
+                cancellationToken)
             .ConfigureAwait(false);
-        return [.. matches.Select(PatientMappers.ToDto)];
+
+        return new PatientListResponse(
+            [.. pageResult.Items.Select(PatientMappers.ToDto)],
+            page,
+            pageSize,
+            pageResult.TotalCount);
     }
 
     /// <inheritdoc />
