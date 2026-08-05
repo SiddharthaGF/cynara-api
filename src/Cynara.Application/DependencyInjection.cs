@@ -6,6 +6,7 @@ using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Patients;
 
 using FluentValidation;
 
@@ -26,6 +27,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddFormAiModule();
         _ = services.AddClinicalTaxonomyModule();
         _ = services.AddDocumentCatalogModule();
+        _ = services.AddPatientsModule();
         _ = services.AddValidatorsFromAssembly(
             typeof(ApplicationServiceCollectionExtensions).Assembly);
 

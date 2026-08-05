@@ -7,6 +7,7 @@ using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
 using Cynara.Domain.Hospitals;
+using Cynara.Domain.Patients;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -42,6 +43,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<Discipline> Disciplines => Set<Discipline>();
 
     public DbSet<DocumentDefinition> DocumentDefinitions => Set<DocumentDefinition>();
+
+    public DbSet<Patient> Patients => Set<Patient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

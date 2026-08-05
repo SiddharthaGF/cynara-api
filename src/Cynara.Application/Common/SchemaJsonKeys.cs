@@ -28,10 +28,9 @@ public static class FieldTypeNames
     public const string Textarea = "textarea";
     public const string Number = "number";
 
-#pragma warning disable CA1720 // Schema vocabulary id, not a CLR type alias
+#pragma warning disable CA1720 // Identifier contains type name
     public const string Integer = "integer";
-#pragma warning restore CA1720
-
+#pragma warning restore CA1720 // Identifier contains type name
     public const string Boolean = "boolean";
     public const string Date = "date";
     public const string DateTime = "datetime";
@@ -67,4 +66,5 @@ public static class AuditEntityTypes
     public const string ClinicalArea = "clinical-area";
     public const string Discipline = "discipline";
     public const string DocumentDefinition = "document-definition";
+    public const string Patient = "patient";
 }
