@@ -1,9 +1,9 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Forms;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.FormResponses;
-using Cynara.Application.Modules.FormResponses.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
@@ -19,14 +19,15 @@ namespace Cynara.Application.Modules.Documents;
 /// delegates reference resolution (active catalog entry, open encounter,
 /// published form snapshot) to
 /// <see cref="IClinicalDocumentReferenceResolver"/>, creates the bound form
-/// response, and enforces the catalog multiplicity policy per encounter
-/// before emitting audit events that commit in the same unit-of-work
-/// transaction.
+/// response, and enforces the catalog multiplicity policy per encounter.
+/// Transition workflows honor optimistic concurrency, complete the bound
+/// response atomically on completion so recorded content becomes immutable,
+/// and emit audit events that commit in the same unit-of-work transaction.
 /// </summary>
 public sealed class ClinicalDocumentService(
     IClinicalDocumentRepository documents,
     IClinicalDocumentReferenceResolver references,
-    IFormResponseRepository responses,
+    IClinicalDocumentResponseStage responses,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
@@ -172,5 +173,198 @@ public sealed class ClinicalDocumentService(
             .ListAsync(hospitalContext.HospitalId, criteria, cancellationToken)
             .ConfigureAwait(false);
         return [.. matches.Select(ClinicalDocumentMappers.ToDto)];
+    }
+
+    /// <inheritdoc />
+    public async Task<ClinicalDocumentDto> CompleteAsync(
+        Guid id,
+        TransitionClinicalDocumentRequest request,
+        string? actorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
+            .ConfigureAwait(false);
+
+        ClinicalDocument document = await documents
+            .FindByIdAsync(
+                hospitalContext.HospitalId,
+                id,
+                track: true,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(
+                $"Clinical document '{id}' was not found.");
+        ClinicalDocumentWorkflowHelpers.EnsureConcurrency(
+            document.RowVersion, request.RowVersion);
+
+        DocumentDefinition definition = await references
+            .RequireDefinitionAsync(
+                hospitalContext.HospitalId,
+                document.DocumentDefinitionId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (definition.RequiresActorForCompletion
+            && string.IsNullOrWhiteSpace(actorId))
+        {
+            throw new ValidationException(
+                $"Catalog entry '{definition.Code}' requires an "
+                + "authenticated actor to complete documents.");
+        }
+
+        FormResponse response = await responses.RequireResponseAsync(
+                document.FormResponseId,
+                track: true,
+                hospitalContext.HospitalId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        FormResponseWorkflowHelpers.EnsureDraft(response);
+        response.AnswersJson = responses.ValidateAndNormalizeAnswers(
+            response.FormVersion,
+            response.AnswersJson,
+            FormResponseValidationMode.Complete);
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        ClinicalDocumentLifecycle.Fire(
+            document, ClinicalDocumentLifecycle.Trigger.Complete);
+        FormResponseLifecycle.Fire(
+            response, FormResponseLifecycle.Trigger.Complete);
+        response.RevisionNumber++;
+        response.RowVersion++;
+        response.CompletedAt = now;
+        response.UpdatedAt = now;
+        responses.AddRevision(FormResponseWorkflowHelpers.CreateRevision(
+            response, actorId, now));
+
+        document.CompletedAt = now;
+        document.UpdatedAt = now;
+        document.RowVersion = request.RowVersion + 1;
+
+        auditWriter.Append(
+            AuditEntityTypes.ClinicalDocument,
+            document.Id,
+            "document.completed",
+            actorId,
+            now,
+            new
+            {
+                status = ClinicalDocumentWorkflowHelpers.FormatStatus(
+                    document.Status),
+                completedAt = document.CompletedAt,
+                formResponseId = document.FormResponseId,
+                revisionNumber = response.RevisionNumber,
+                rowVersion = request.RowVersion,
+            });
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return ClinicalDocumentMappers.ToDto(document);
+    }
+
+    /// <inheritdoc />
+    public async Task<ClinicalDocumentDto> CancelAsync(
+        Guid id,
+        TransitionClinicalDocumentRequest request,
+        string? actorId,
+        CancellationToken cancellationToken)
+    {
+        return await TransitionAsync(
+            id,
+            request,
+            actorId,
+            ClinicalDocumentLifecycle.Trigger.Cancel,
+            "document.canceled",
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ClinicalDocumentDto> EnterInErrorAsync(
+        Guid id,
+        TransitionClinicalDocumentRequest request,
+        string? actorId,
+        CancellationToken cancellationToken)
+    {
+        return await TransitionAsync(
+            id,
+            request,
+            actorId,
+            ClinicalDocumentLifecycle.Trigger.EnterInError,
+            "document.enteredInError",
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ClinicalDocumentDto> TransitionAsync(
+        Guid id,
+        TransitionClinicalDocumentRequest request,
+        string? actorId,
+        ClinicalDocumentLifecycle.Trigger trigger,
+        string auditAction,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
+            .ConfigureAwait(false);
+
+        ClinicalDocument document = await documents
+            .FindByIdAsync(
+                hospitalContext.HospitalId,
+                id,
+                track: true,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(
+                $"Clinical document '{id}' was not found.");
+        ClinicalDocumentWorkflowHelpers.EnsureConcurrency(
+            document.RowVersion, request.RowVersion);
+
+        bool enteredInError = trigger == ClinicalDocumentLifecycle.Trigger.EnterInError;
+        string? enteredInErrorReason = null;
+        if (enteredInError)
+        {
+            enteredInErrorReason =
+                ClinicalDocumentWorkflowHelpers.EnsureEnteredInErrorReason(
+                    request.Reason);
+            actorId = ClinicalDocumentWorkflowHelpers
+                .EnsureEnteredInErrorActor(actorId);
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        ClinicalDocumentLifecycle.Fire(document, trigger);
+
+        if (enteredInError)
+        {
+            document.EnteredInErrorReason = enteredInErrorReason;
+            document.EnteredInErrorById = actorId;
+            document.EnteredInErrorAt = now;
+        }
+        else
+        {
+            document.CanceledAt = now;
+        }
+
+        document.UpdatedAt = now;
+        document.RowVersion = request.RowVersion + 1;
+
+        auditWriter.Append(
+            AuditEntityTypes.ClinicalDocument,
+            document.Id,
+            auditAction,
+            actorId,
+            now,
+            new
+            {
+                status = ClinicalDocumentWorkflowHelpers.FormatStatus(
+                    document.Status),
+                reason = document.EnteredInErrorReason,
+                rowVersion = request.RowVersion,
+            });
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return ClinicalDocumentMappers.ToDto(document);
     }
 }

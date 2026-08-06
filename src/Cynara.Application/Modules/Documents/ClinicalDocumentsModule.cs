@@ -11,6 +11,9 @@ public static class ClinicalDocumentsModule
         _ = services.AddScoped<
             IClinicalDocumentReferenceResolver,
             ClinicalDocumentReferenceResolver>();
+        _ = services.AddScoped<
+            IClinicalDocumentResponseStage,
+            ClinicalDocumentResponseStage>();
         return services;
     }
 }

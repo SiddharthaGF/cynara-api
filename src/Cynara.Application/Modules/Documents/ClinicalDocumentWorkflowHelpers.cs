@@ -27,6 +27,49 @@ internal static class ClinicalDocumentWorkflowHelpers
         }
     }
 
+    public static void EnsureConcurrency(uint current, uint provided)
+    {
+        if (current != provided)
+        {
+            throw new ConcurrencyException(
+                "The clinical document was modified by another request.");
+        }
+    }
+
+    public static string EnsureEnteredInErrorReason(string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ValidationException(
+                "A reason is required to enter a clinical document in error.");
+        }
+
+        string trimmed = reason.Trim();
+        if (trimmed.Length > ClinicalDocumentFieldLimits.EnteredInErrorReasonMaxLength)
+        {
+            throw new ValidationException(
+                "Clinical document entered-in-error reason must be "
+                + ClinicalDocumentFieldLimits.EnteredInErrorReasonMaxLength
+                    .ToString(CultureInfo.InvariantCulture)
+                + " characters or fewer.");
+        }
+
+        return trimmed;
+    }
+
+    public static string EnsureEnteredInErrorActor(string? actorId)
+    {
+        if (string.IsNullOrWhiteSpace(actorId))
+        {
+            throw new ValidationException(
+                "An authenticated actor is required to enter a clinical "
+                + "document in error.");
+        }
+
+        EnsureValidAuthorId(actorId);
+        return actorId;
+    }
+
     public static ClinicalDocumentStatus? ParseStatusOrNull(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -34,12 +77,20 @@ internal static class ClinicalDocumentWorkflowHelpers
             return null;
         }
 
+        if (string.Equals(value, "enteredInError", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "entered-in-error", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "entered_in_error", StringComparison.OrdinalIgnoreCase))
+        {
+            return ClinicalDocumentStatus.EnteredInError;
+        }
+
         if (!Enum.TryParse(value, ignoreCase: true, out ClinicalDocumentStatus parsed)
             || !Enum.IsDefined(parsed))
         {
             throw new ValidationException(
                 "Clinical document status '" + value
-                + "' is not one of: inProgress, completed.");
+                + "' is not one of: inProgress, completed, canceled, "
+                + "enteredInError.");
         }
 
         return parsed;
@@ -51,6 +102,8 @@ internal static class ClinicalDocumentWorkflowHelpers
         {
             ClinicalDocumentStatus.InProgress => "inProgress",
             ClinicalDocumentStatus.Completed => "completed",
+            ClinicalDocumentStatus.Canceled => "canceled",
+            ClinicalDocumentStatus.EnteredInError => "enteredInError",
             _ => status.ToString().ToLowerInvariant(),
         };
     }

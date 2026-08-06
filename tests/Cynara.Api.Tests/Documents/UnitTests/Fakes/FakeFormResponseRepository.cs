@@ -16,10 +16,18 @@ public sealed class FakeFormResponseRepository : IFormResponseRepository
     private readonly List<(FormResponse Response, FormResponseRevision Revision)>
         added = [];
 
+    private readonly List<FormResponseRevision> revisions = [];
+
     public IReadOnlyCollection<FormResponse> Responses => responses;
 
     public IReadOnlyCollection<FormResponseRevision> AddedRevisions =>
-        [.. added.Select(item => item.Revision)];
+        [.. added.Select(item => item.Revision).Concat(revisions)];
+
+    public void Seed(params FormResponse[] seeded)
+    {
+        ArgumentNullException.ThrowIfNull(seeded);
+        responses.AddRange(seeded);
+    }
 
     public Task<FormVersion?> FindPublishedVersionAsync(
         string code,
@@ -41,6 +49,7 @@ public sealed class FakeFormResponseRepository : IFormResponseRepository
     public void AddRevision(FormResponseRevision revision)
     {
         ArgumentNullException.ThrowIfNull(revision);
+        revisions.Add(revision);
     }
 
     public Task<FormResponse?> FindByIdAsync(
@@ -63,6 +72,7 @@ public sealed class FakeFormResponseRepository : IFormResponseRepository
     {
         FormResponseRevision? match = added
             .Select(item => item.Revision)
+            .Concat(revisions)
             .SingleOrDefault(item => item.FormResponseId == responseId
                 && item.RevisionNumber == revisionNumber
                 && item.HospitalId == hospitalId);
@@ -76,6 +86,7 @@ public sealed class FakeFormResponseRepository : IFormResponseRepository
     {
         List<FormResponseRevision> matches =
             [.. added.Select(item => item.Revision)
+                .Concat(revisions)
                 .Where(item => item.FormResponseId == responseId
                     && item.HospitalId == hospitalId)
                 .OrderBy(item => item.RevisionNumber)];

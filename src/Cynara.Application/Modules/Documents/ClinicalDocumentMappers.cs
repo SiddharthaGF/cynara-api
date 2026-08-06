@@ -22,6 +22,10 @@ internal static class ClinicalDocumentMappers
             ClinicalDocumentWorkflowHelpers.FormatStatus(document.Status),
             document.CreatedAt,
             document.CompletedAt,
+            document.CanceledAt,
+            document.EnteredInErrorReason,
+            document.EnteredInErrorById,
+            document.EnteredInErrorAt,
             document.UpdatedAt,
             document.RowVersion);
     }

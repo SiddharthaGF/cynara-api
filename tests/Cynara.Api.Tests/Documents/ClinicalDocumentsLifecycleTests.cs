@@ -263,6 +263,302 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, otherStart.StatusCode);
     }
 
+    [Fact]
+    public async Task CompleteDocument_CompletesBoundResponseAndLocksEdits()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("complete")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+        var formResponseId = Guid.Parse(
+            GetString(started, "formResponseId"));
+        string fieldCode = "code-complete";
+
+        using HttpResponseMessage update = await UpdateBoundResponseAsync(
+            formResponseId, fieldCode, "Ada", rowVersion: 0)
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        using HttpResponseMessage complete = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        using var completed = JsonDocument.Parse(
+            await complete.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal("completed", GetString(completed, "status"));
+        Assert.NotEqual(
+            JsonValueKind.Null,
+            completed.RootElement.GetProperty("completedAt").ValueKind);
+        Assert.Equal(
+            JsonValueKind.Null,
+            completed.RootElement.GetProperty("canceledAt").ValueKind);
+        Assert.Equal(
+            JsonValueKind.Null,
+            completed.RootElement.GetProperty("enteredInErrorAt").ValueKind);
+        Assert.Equal(1u, completed.RootElement.GetProperty("rowVersion").GetUInt32());
+
+        using JsonDocument fetched = await GetDocumentAsync(documentId)
+            .ConfigureAwait(false);
+        Assert.Equal("completed", GetString(fetched, "status"));
+
+        using HttpResponseMessage editLocked = await PatchBoundResponseAsync(
+            formResponseId, fieldCode, "Changed", rowVersion: 1)
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Conflict, editLocked.StatusCode);
+
+        await AssertAuditAsync(documentId, "document.completed")
+            .ConfigureAwait(false);
+        await AssertBoundResponseCompletedAsync(formResponseId)
+            .ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task CompleteDocument_RejectsStaleConcurrency()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("stale")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage stale = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 99U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+        using JsonDocument fetched = await GetDocumentAsync(documentId)
+            .ConfigureAwait(false);
+        Assert.Equal("inProgress", GetString(fetched, "status"));
+    }
+
+    [Fact]
+    public async Task CompleteDocument_RejectsAlreadyCompleted()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("twice")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage first = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+
+        using HttpResponseMessage second = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 1U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompleteDocument_RequiresActorWhenCatalogDemandsIt()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("complete-actor")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpClient anonymous = Factory.CreateClient();
+        anonymous.AcceptJsonApi();
+        anonymous.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Hospital-Code", PrimaryHospitalCode);
+        using HttpResponseMessage rejected = await anonymous.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+    }
+
+    [Fact]
+    public async Task CancelDocument_CancelsAndKeepsResponseDraft()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("cancel")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+        var formResponseId = Guid.Parse(
+            GetString(started, "formResponseId"));
+
+        using HttpResponseMessage cancel = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/cancel",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
+        using var canceled = JsonDocument.Parse(
+            await cancel.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal("canceled", GetString(canceled, "status"));
+        Assert.NotEqual(
+            JsonValueKind.Null,
+            canceled.RootElement.GetProperty("canceledAt").ValueKind);
+
+        using JsonDocument fetched = await GetDocumentAsync(documentId)
+            .ConfigureAwait(false);
+        Assert.Equal("canceled", GetString(fetched, "status"));
+
+        await AssertAuditAsync(documentId, "document.canceled")
+            .ConfigureAwait(false);
+        await AssertBoundResponseDraftAsync(formResponseId)
+            .ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task EnterInError_FromCompleted_RemainsQueryableWithAttribution()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("eie")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage complete = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+
+        using HttpResponseMessage mark = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/enter-in-error",
+                new { rowVersion = 1U, reason = "Wrong result transcribed" }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, mark.StatusCode);
+        using var marked = JsonDocument.Parse(
+            await mark.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal("enteredInError", GetString(marked, "status"));
+        Assert.Equal(
+            "Wrong result transcribed",
+            GetString(marked, "enteredInErrorReason"));
+        Assert.Equal("clinician", GetString(marked, "enteredInErrorById"));
+        Assert.NotEqual(
+            JsonValueKind.Null,
+            marked.RootElement.GetProperty("enteredInErrorAt").ValueKind);
+
+        using JsonDocument fetched = await GetDocumentAsync(documentId)
+            .ConfigureAwait(false);
+        Assert.Equal("enteredInError", GetString(fetched, "status"));
+
+        using HttpResponseMessage list = await Client
+            .GetAsync(new Uri(
+                "/api/clinicalDocuments?status=enteredInError",
+                UriKind.Relative))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        using var listDoc = JsonDocument.Parse(
+            await list.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Contains(
+            documentId.ToString(),
+            listDoc.RootElement.GetRawText(),
+            StringComparison.Ordinal);
+
+        await AssertAuditAsync(documentId, "document.enteredInError")
+            .ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task EnterInError_RequiresReason()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("eie-reason")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage rejected = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/enter-in-error",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+
+        using JsonDocument fetched = await GetDocumentAsync(documentId)
+            .ConfigureAwait(false);
+        Assert.Equal("inProgress", GetString(fetched, "status"));
+    }
+
+    [Fact]
+    public async Task CrossTenant_CompleteDocument_IsHidden()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("ct-complete")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage otherComplete = await OtherClient
+            .SendAsync(PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/complete",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, otherComplete.StatusCode);
+    }
+
+    [Fact]
+    public async Task List_FiltersByCanceledAndEnteredInError()
+    {
+        DocumentFixture fixture = await SeedFixtureAsync("list-states")
+            .ConfigureAwait(false);
+        using JsonDocument started = await StartDocumentAsync(fixture)
+            .ConfigureAwait(false);
+        var documentId = Guid.Parse(
+            started.RootElement.GetProperty("id").GetString()!);
+
+        using HttpResponseMessage canceled = await Client.SendAsync(
+            PostJsonRequest(
+                $"/api/clinicalDocuments/{documentId}/cancel",
+                new { rowVersion = 0U }))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, canceled.StatusCode);
+
+        using HttpResponseMessage canceledList = await Client
+            .GetAsync(new Uri(
+                "/api/clinicalDocuments?status=canceled", UriKind.Relative))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, canceledList.StatusCode);
+        using var canceledDoc = JsonDocument.Parse(
+            await canceledList.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Contains(
+            documentId.ToString(),
+            canceledDoc.RootElement.GetRawText(),
+            StringComparison.Ordinal);
+
+        using HttpResponseMessage emptyInProgress = await Client
+            .GetAsync(new Uri(
+                "/api/clinicalDocuments?status=inProgress",
+                UriKind.Relative))
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, emptyInProgress.StatusCode);
+        using var inProgressDoc = JsonDocument.Parse(
+            await emptyInProgress.Content.ReadAsStringAsync()
+                .ConfigureAwait(false));
+        Assert.DoesNotContain(
+            documentId.ToString(),
+            inProgressDoc.RootElement.GetRawText(),
+            StringComparison.Ordinal);
+    }
+
     private async Task<DocumentFixture> SeedFixtureAsync(
         string suffix,
         bool allowsMultipleInstancesPerEncounter = false)
@@ -457,6 +753,57 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
         };
     }
 
+    private Task<HttpResponseMessage> UpdateBoundResponseAsync(
+        Guid formResponseId,
+        string fieldCode,
+        string value,
+        uint rowVersion)
+    {
+        return PatchBoundResponseAsync(
+            formResponseId, fieldCode, value, rowVersion);
+    }
+
+    private Task<HttpResponseMessage> PatchBoundResponseAsync(
+        Guid formResponseId,
+        string fieldCode,
+        string value,
+        uint rowVersion)
+    {
+        string answersJson = JsonSerializer.Serialize(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [fieldCode] = value,
+            });
+        var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            new Uri($"/api/formResponses/{formResponseId}", UriKind.Relative))
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    data = new
+                    {
+                        type = "formResponses",
+                        id = formResponseId,
+                        attributes = new
+                        {
+                            answersJson,
+                            rowVersion,
+                        },
+                    },
+                }),
+                Encoding.UTF8)
+            {
+                Headers =
+                {
+                    ContentType =
+                        new System.Net.Http.Headers.MediaTypeHeaderValue(ContentType),
+                },
+            },
+        };
+        return Client.SendAsync(request);
+    }
+
     private static string GetString(JsonDocument document, string name)
     {
         return document.RootElement.GetProperty(name).GetString() ?? string.Empty;
@@ -507,6 +854,39 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
             .CountAsync(item => item.FormResponseId == formResponseId)
             .ConfigureAwait(false);
         Assert.Equal(1, documents);
+    }
+
+    private async Task AssertBoundResponseCompletedAsync(Guid formResponseId)
+    {
+        await using AsyncServiceScope scope = Factory.Services
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateAsyncScope();
+        CynaraDbContext dbContext = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+        FormResponse response = await dbContext.FormResponses
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == formResponseId)
+            .ConfigureAwait(false);
+        Assert.Equal(FormResponseStatus.Completed, response.Status);
+        Assert.NotNull(response.CompletedAt);
+        Assert.Equal(3u, response.RevisionNumber);
+        Assert.Equal(2u, response.RowVersion);
+    }
+
+    private async Task AssertBoundResponseDraftAsync(Guid formResponseId)
+    {
+        await using AsyncServiceScope scope = Factory.Services
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateAsyncScope();
+        CynaraDbContext dbContext = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+        FormResponse response = await dbContext.FormResponses
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == formResponseId)
+            .ConfigureAwait(false);
+        Assert.Equal(FormResponseStatus.Draft, response.Status);
+        Assert.Null(response.CompletedAt);
+        Assert.Equal(1u, response.RevisionNumber);
     }
 
     private CynaraTenantWebApplicationFactory Factory { get; }
