@@ -45,6 +45,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
 
     public DbSet<DocumentDefinition> DocumentDefinitions => Set<DocumentDefinition>();
 
+    public DbSet<ClinicalDocument> ClinicalDocuments => Set<ClinicalDocument>();
+
     public DbSet<Patient> Patients => Set<Patient>();
 
     public DbSet<Encounter> Encounters => Set<Encounter>();

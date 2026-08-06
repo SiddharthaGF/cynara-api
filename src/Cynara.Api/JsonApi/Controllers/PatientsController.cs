@@ -32,24 +32,17 @@ public sealed class PatientsController(
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientListResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<PatientListResponse>> SearchAsync(
-        [FromQuery(Name = "mrn")] string? mrn,
-        [FromQuery(Name = "nationalId")] string? nationalId,
-        [FromQuery(Name = "givenName")] string? givenName,
-        [FromQuery(Name = "familyName")] string? familyName,
-        [FromQuery(Name = "includeDeleted")] bool includeDeleted = false,
-        [FromQuery(Name = "page")] int page = 1,
-        [FromQuery(Name = "pageSize")] int pageSize =
-            PatientFieldLimits.DefaultPageSize,
+        [FromQuery] PatientSearchQuery query,
         CancellationToken cancellationToken = default)
     {
         PatientSearchRequest request = new(
-            mrn,
-            nationalId,
-            givenName,
-            familyName,
-            includeDeleted,
-            page,
-            pageSize);
+            query.Mrn,
+            query.NationalId,
+            query.GivenName,
+            query.FamilyName,
+            query.IncludeDeleted ?? false,
+            query.Page ?? 1,
+            query.PageSize ?? PatientFieldLimits.DefaultPageSize);
         PatientListResponse matches = await patientService
             .SearchAsync(request, cancellationToken)
             .ConfigureAwait(false);
@@ -151,4 +144,33 @@ public sealed class PatientsController(
             .ConfigureAwait(false);
         return Ok(deleted);
     }
+}
+
+/// <summary>
+/// Query filters for the patient search endpoint. Names and defaults mirror
+/// the <see cref="PatientSearchRequest"/> contract so the OpenAPI surface
+/// matches the service semantics exactly.
+/// </summary>
+public sealed class PatientSearchQuery
+{
+    [FromQuery(Name = "mrn")]
+    public string? Mrn { get; init; }
+
+    [FromQuery(Name = "nationalId")]
+    public string? NationalId { get; init; }
+
+    [FromQuery(Name = "givenName")]
+    public string? GivenName { get; init; }
+
+    [FromQuery(Name = "familyName")]
+    public string? FamilyName { get; init; }
+
+    [FromQuery(Name = "includeDeleted")]
+    public bool? IncludeDeleted { get; init; }
+
+    [FromQuery(Name = "page")]
+    public int? Page { get; init; }
+
+    [FromQuery(Name = "pageSize")]
+    public int? PageSize { get; init; }
 }

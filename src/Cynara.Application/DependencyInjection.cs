@@ -28,6 +28,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddFormAiModule();
         _ = services.AddClinicalTaxonomyModule();
         _ = services.AddDocumentCatalogModule();
+        _ = services.AddClinicalDocumentsModule();
         _ = services.AddPatientsModule();
         _ = services.AddEncountersModule();
         _ = services.AddValidatorsFromAssembly(
