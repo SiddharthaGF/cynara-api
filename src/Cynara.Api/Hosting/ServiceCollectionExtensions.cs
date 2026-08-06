@@ -15,6 +15,7 @@ using JsonApiDotNetCore.Configuration;
 using JsonApiDotNetCore.OpenApi.Swashbuckle;
 using JsonApiDotNetCore.Resources.Annotations;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
@@ -60,6 +61,8 @@ internal static class ServiceCollectionExtensions
         {
             _ = options.Filters.Add<CapabilityAuthorizationFilter>();
         });
+
+        services = AddCynaraCapabilityAuthorization(services);
 
         services = services
             .AddJsonApi<CynaraDbContext>(
@@ -154,6 +157,17 @@ internal static class ServiceCollectionExtensions
             CynaraSwaggerGenConfigureOptions>();
 
         return services;
+    }
+
+    private static IServiceCollection AddCynaraCapabilityAuthorization(
+        IServiceCollection services)
+    {
+        return services
+            .AddAuthorization()
+            .AddSingleton<
+                IAuthorizationPolicyProvider,
+                CapabilityPolicyProvider>()
+            .AddScoped<IAuthorizationHandler, CapabilityAuthorizationHandler>();
     }
 
     private static IServiceCollection AddCynaraForwardedHeaders(

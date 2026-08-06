@@ -21,6 +21,7 @@ internal static class Program
 
             var services = new ServiceCollection();
             _ = services.AddSingleton(configuration);
+            _ = services.AddLogging();
             _ = services.AddCynaraApplication();
             _ = services.AddCynaraInfrastructure(
                 connectionString,
