@@ -80,12 +80,28 @@ public static class DemoShowcaseSeeder
         ICapabilityAssignmentService capabilities,
         CancellationToken cancellationToken)
     {
+        CapabilityAssignmentListResponse response = await capabilities
+            .ListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var held = response.Items
+            .Where(item => string.Equals(
+                item.ActorId,
+                ActorId,
+                StringComparison.Ordinal))
+            .Select(item => item.Capability)
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (string capability in new[]
         {
             CapabilityCodes.CatalogRead,
             CapabilityCodes.CatalogWrite,
         })
         {
+            if (held.Contains(capability))
+            {
+                continue;
+            }
+
             _ = await capabilities
                 .GrantAsync(
                     new GrantCapabilityRequest(ActorId, capability),
