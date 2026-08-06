@@ -57,6 +57,27 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "true"
         run: dotnet cake --target=Test --configuration=${{ env.DOTNET_CONFIGURATION }}
 
+  acceptance:
+    name: E2E acceptance suite
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET and restore
+        uses: ./.github/actions/setup-dotnet-and-restore
+
+      - name: Restore Cake runner
+        run: dotnet tool restore
+
+      - name: Verify Docker
+        run: docker info
+
+      - name: E2E acceptance tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: dotnet cake --target=TestE2E --configuration=${{ env.DOTNET_CONFIGURATION }}
+
   neon-upsert:
     name: Provision Neon branch and Render preview
     runs-on: ubuntu-latest
