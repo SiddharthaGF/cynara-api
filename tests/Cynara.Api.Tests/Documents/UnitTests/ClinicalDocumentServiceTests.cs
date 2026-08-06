@@ -172,9 +172,9 @@ public sealed class ClinicalDocumentServiceTests
         DocumentDefinition definition = harness.ActiveDefinition();
         harness.Catalog.Seed(
             harness.BuildDefinition(
-                code: "multi",
                 status: DocumentDefinitionStatus.Active,
                 pinnedVersionId: harness.FormVersion.Id,
+                code: "multi",
                 allowsMultipleInstancesPerEncounter: true));
         harness.Documents.Seed(
             harness.BuildDocument(
@@ -342,9 +342,9 @@ public sealed class ClinicalDocumentServiceTests
     {
         private ServiceHarness(
             FakeClinicalDocumentRepository documents,
+            FakeClinicalDocumentReferenceResolver references,
             FakeDocumentCatalogRepository catalog,
             FakeEncounterRepository encounters,
-            FakeFormRepository forms,
             FakeFormResponseRepository responses,
             RecordingUnitOfWork unitOfWork,
             RecordingAuditWriter auditWriter,
@@ -356,9 +356,9 @@ public sealed class ClinicalDocumentServiceTests
             Encounter encounter)
         {
             Documents = documents;
+            References = references;
             Catalog = catalog;
             Encounters = encounters;
-            Forms = forms;
             Responses = responses;
             UnitOfWork = unitOfWork;
             AuditWriter = auditWriter;
@@ -370,9 +370,7 @@ public sealed class ClinicalDocumentServiceTests
             Encounter = encounter;
             Service = new ClinicalDocumentService(
                 documents,
-                catalog,
-                encounters,
-                forms,
+                references,
                 responses,
                 unitOfWork,
                 auditWriter,
@@ -382,11 +380,11 @@ public sealed class ClinicalDocumentServiceTests
 
         public FakeClinicalDocumentRepository Documents { get; }
 
+        public FakeClinicalDocumentReferenceResolver References { get; }
+
         public FakeDocumentCatalogRepository Catalog { get; }
 
         public FakeEncounterRepository Encounters { get; }
-
-        public FakeFormRepository Forms { get; }
 
         public FakeFormResponseRepository Responses { get; }
 
@@ -575,11 +573,14 @@ public sealed class ClinicalDocumentServiceTests
             FakeDocumentCatalogRepository catalogRepository = new();
             catalogRepository.Seed(definition);
 
+            var references = new FakeClinicalDocumentReferenceResolver(
+                catalogRepository, encounterRepository, formRepository);
+
             return new ServiceHarness(
                 new FakeClinicalDocumentRepository(),
+                references,
                 catalogRepository,
                 encounterRepository,
-                formRepository,
                 new FakeFormResponseRepository(),
                 new RecordingUnitOfWork(),
                 new RecordingAuditWriter(),

@@ -8,6 +8,9 @@ public static class ClinicalDocumentsModule
         this IServiceCollection services)
     {
         _ = services.AddScoped<IClinicalDocumentService, ClinicalDocumentService>();
+        _ = services.AddScoped<
+            IClinicalDocumentReferenceResolver,
+            ClinicalDocumentReferenceResolver>();
         return services;
     }
 }

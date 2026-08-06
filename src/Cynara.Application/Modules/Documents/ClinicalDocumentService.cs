@@ -1,11 +1,8 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Documents.Persistence;
-using Cynara.Application.Modules.Encounters;
-using Cynara.Application.Modules.Encounters.Persistence;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.FormResponses.Persistence;
-using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Documents;
@@ -17,16 +14,16 @@ namespace Cynara.Application.Modules.Documents;
 /// <summary>
 /// Default implementation of <see cref="IClinicalDocumentService"/>. The
 /// start workflow stamps ownership from the resolved hospital context,
-/// rejects retired catalog entries and non-open encounters, resolves the
-/// exact published form snapshot, creates the bound form response, and
-/// enforces the catalog multiplicity policy per encounter before emitting
-/// audit events that commit in the same unit-of-work transaction.
+/// delegates reference resolution (active catalog entry, open encounter,
+/// published form snapshot) to
+/// <see cref="IClinicalDocumentReferenceResolver"/>, creates the bound form
+/// response, and enforces the catalog multiplicity policy per encounter
+/// before emitting audit events that commit in the same unit-of-work
+/// transaction.
 /// </summary>
 public sealed class ClinicalDocumentService(
     IClinicalDocumentRepository documents,
-    IDocumentCatalogRepository catalog,
-    IEncounterRepository encounters,
-    IFormRepository forms,
+    IClinicalDocumentReferenceResolver references,
     IFormResponseRepository responses,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
@@ -43,14 +40,17 @@ public sealed class ClinicalDocumentService(
         Guid hospitalId = hospitalContext.HospitalId;
 
         ClinicalDocumentWorkflowHelpers.EnsureValidAuthorId(actorId);
-        DocumentDefinition definition = await RequireActiveDefinitionAsync(
-                request.DocumentDefinitionId, cancellationToken)
+        DocumentDefinition definition = await references
+            .RequireActiveDefinitionAsync(
+                hospitalId, request.DocumentDefinitionId, cancellationToken)
             .ConfigureAwait(false);
-        Encounter encounter = await RequireOpenEncounterAsync(
-                request.EncounterId, cancellationToken)
+        Encounter encounter = await references
+            .RequireOpenEncounterAsync(
+                hospitalId, request.EncounterId, cancellationToken)
             .ConfigureAwait(false);
-        FormVersion formVersion = await RequirePublishedFormVersionAsync(
-                definition.FormVersionId, cancellationToken)
+        FormVersion formVersion = await references
+            .RequirePublishedFormVersionAsync(
+                hospitalId, definition.FormVersionId, cancellationToken)
             .ConfigureAwait(false);
 
         if (definition.RequiresActorForCreation
@@ -160,78 +160,5 @@ public sealed class ClinicalDocumentService(
             .ListAsync(hospitalContext.HospitalId, criteria, cancellationToken)
             .ConfigureAwait(false);
         return [.. matches.Select(ClinicalDocumentMappers.ToDto)];
-    }
-
-    private async Task<DocumentDefinition> RequireActiveDefinitionAsync(
-        Guid documentDefinitionId,
-        CancellationToken cancellationToken)
-    {
-        DocumentDefinition definition = await catalog
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
-                documentDefinitionId,
-                track: false,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException(
-                $"Document definition '{documentDefinitionId}' was not found.");
-
-        if (definition.Status == DocumentDefinitionStatus.Retired)
-        {
-            throw new InvalidStateException(
-                $"Document definition '{definition.Code}' is retired; new "
-                + "documents cannot be started from a retired catalog entry.");
-        }
-
-        return definition;
-    }
-
-    private async Task<Encounter> RequireOpenEncounterAsync(
-        Guid encounterId,
-        CancellationToken cancellationToken)
-    {
-        Encounter encounter = await encounters
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
-                encounterId,
-                track: false,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException(
-                $"Encounter '{encounterId}' was not found.");
-
-        if (encounter.Status != EncounterStatus.Open)
-        {
-            throw new InvalidStateException(
-                $"Encounter '{encounterId}' is "
-                + EncounterWorkflowHelpers.FormatStatus(encounter.Status)
-                + "; documents can only be started for open encounters.");
-        }
-
-        return encounter;
-    }
-
-    private async Task<FormVersion> RequirePublishedFormVersionAsync(
-        Guid formVersionId,
-        CancellationToken cancellationToken)
-    {
-        List<FormDefinition> definitions = [.. await forms
-            .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
-            .ConfigureAwait(false)];
-
-        FormVersion? formVersion = definitions
-            .SelectMany(definition => definition.Versions)
-            .FirstOrDefault(item => item.Id == formVersionId)
-            ?? throw new NotFoundException(
-                $"Form version '{formVersionId}' was not found.");
-
-        if (formVersion.Status != FormVersionStatus.Published)
-        {
-            throw new ConflictException(
-                $"Form version '{formVersionId}' is not published and cannot "
-                + "accept new document instances.");
-        }
-
-        return formVersion;
     }
 }

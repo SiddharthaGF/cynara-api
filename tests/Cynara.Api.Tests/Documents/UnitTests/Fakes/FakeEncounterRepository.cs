@@ -11,6 +11,8 @@ public sealed class FakeEncounterRepository : IEncounterRepository
 {
     private readonly List<Encounter> encounters = [];
 
+    public IReadOnlyList<Encounter> Entries => encounters;
+
     public void Seed(params Encounter[] seeded)
     {
         ArgumentNullException.ThrowIfNull(seeded);
