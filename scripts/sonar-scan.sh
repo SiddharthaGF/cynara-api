@@ -47,7 +47,7 @@ dotnet tool run dotnet-sonarscanner -- begin \
   /n:"${SONAR_PROJECT_NAME}" \
   /d:sonar.host.url="${SONAR_HOST_URL}" \
   /d:sonar.token="${SONAR_TOKEN}" \
-  /d:sonar.exclusions="**/bin/**,**/obj/**,**/publish/**,**/.sonar/**,**/.sonarqube/**,**/.cursor/**,**/.agents/**,**/appsettings.Development.json" \
+  /d:sonar.exclusions="**/bin/**,**/obj/**,**/publish/**,**/.sonar/**,**/.sonarqube/**,**/.cursor/**,**/.agents/**,**/appsettings.Development.json,**/Migrations/**" \
   /d:sonar.coverage.exclusions="**/tests/**,**/*.Tests/**,**/Cynara.Api.Tests/**,**/Migrations/**,**/*Constants*.cs" \
   /d:sonar.cs.opencover.reportsPaths="${COVERAGE_REPORT}" \
   /d:sonar.test.exclusions="**/bin/**,**/obj/**"

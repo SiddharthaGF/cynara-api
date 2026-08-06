@@ -40,4 +40,16 @@ public interface IClinicalDocumentReferenceResolver
         Guid hospitalId,
         Guid formVersionId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the catalog entry for <paramref name="documentDefinitionId"/>
+    /// or throws when the entry is unknown. Unlike
+    /// <see cref="RequireActiveDefinitionAsync"/>, retired entries remain
+    /// resolvable so lifecycle transitions can honor their completion policy
+    /// after the catalog entry is retired.
+    /// </summary>
+    public Task<DocumentDefinition> RequireDefinitionAsync(
+        Guid hospitalId,
+        Guid documentDefinitionId,
+        CancellationToken cancellationToken);
 }

@@ -82,4 +82,17 @@ public sealed class FakeClinicalDocumentReferenceResolver(
 
         return Task.FromResult(formVersion);
     }
+
+    public Task<DocumentDefinition> RequireDefinitionAsync(
+        Guid hospitalId,
+        Guid documentDefinitionId,
+        CancellationToken cancellationToken)
+    {
+        DocumentDefinition definition = catalog.Entries.SingleOrDefault(
+            item => item.Id == documentDefinitionId
+                && item.HospitalId == hospitalId)
+            ?? throw new NotFoundException(
+                $"Document definition '{documentDefinitionId}' was not found.");
+        return Task.FromResult(definition);
+    }
 }

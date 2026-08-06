@@ -11,6 +11,21 @@ namespace Cynara.Application.Modules.Capabilities;
 /// </summary>
 public sealed class CapabilityForbiddenException : CynaraException
 {
+    public CapabilityForbiddenException()
+        : this(string.Empty)
+    {
+    }
+
+    public CapabilityForbiddenException(string message)
+        : base(message)
+    {
+    }
+
+    public CapabilityForbiddenException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
     public CapabilityForbiddenException(
         string capability,
         string? actorId)
@@ -21,7 +36,7 @@ public sealed class CapabilityForbiddenException : CynaraException
     }
 
     /// <summary>The capability whose absence caused the denial.</summary>
-    public string Capability { get; }
+    public string Capability { get; } = string.Empty;
 
     /// <summary>The actor identity of the denied request, when present.</summary>
     public string? ActorId { get; }

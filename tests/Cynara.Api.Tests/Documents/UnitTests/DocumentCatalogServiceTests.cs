@@ -691,8 +691,7 @@ public sealed class DocumentCatalogServiceTests
                 taxonomyRepository,
                 unitOfWork,
                 auditWriter,
-                hospitalContext,
-                timeProvider,
+                new FakeWorkflowContext(hospitalContext, timeProvider),
                 new FakeCapabilityGuard());
         }
 

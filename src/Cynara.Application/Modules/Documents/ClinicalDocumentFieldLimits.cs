@@ -9,4 +9,7 @@ public static class ClinicalDocumentFieldLimits
 {
     /// <summary>Maximum length for the document author identifier.</summary>
     public const int AuthorIdMaxLength = 128;
+
+    /// <summary>Maximum length for the entered-in-error reason.</summary>
+    public const int EnteredInErrorReasonMaxLength = 1000;
 }

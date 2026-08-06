@@ -97,4 +97,21 @@ public sealed class ClinicalDocumentReferenceResolver(
 
         return formVersion;
     }
+
+    /// <inheritdoc />
+    public async Task<DocumentDefinition> RequireDefinitionAsync(
+        Guid hospitalId,
+        Guid documentDefinitionId,
+        CancellationToken cancellationToken)
+    {
+        return await catalog
+            .FindByIdAsync(
+                hospitalId,
+                documentDefinitionId,
+                track: false,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(
+                $"Document definition '{documentDefinitionId}' was not found.");
+    }
 }

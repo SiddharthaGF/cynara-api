@@ -17,10 +17,16 @@ namespace Cynara.Application.Modules.Documents;
 /// <item><c>FormResponseId</c> – form response carrying the document's
 /// answers; immutable.</item>
 /// <item><c>AuthorId</c> – actor that started the document; optional.</item>
-/// <item><c>Status</c> – one of <c>inProgress</c>, <c>completed</c>.</item>
+/// <item><c>Status</c> – one of <c>inProgress</c>, <c>completed</c>,
+/// <c>canceled</c>, <c>enteredInError</c>.</item>
 /// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
 /// <item><c>CompletedAt</c> – UTC timestamp when completed; null while
 /// in progress.</item>
+/// <item><c>CanceledAt</c> – UTC timestamp when canceled; null unless
+/// canceled.</item>
+/// <item><c>EnteredInErrorReason</c> / <c>EnteredInErrorById</c> /
+/// <c>EnteredInErrorAt</c> – read-only attribution for entered-in-error
+/// records; null otherwise.</item>
 /// <item><c>RowVersion</c> – optimistic concurrency token; required for
 /// future transitions.</item>
 /// </list>
@@ -36,6 +42,10 @@ public sealed record ClinicalDocumentDto(
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    DateTimeOffset? CanceledAt,
+    string? EnteredInErrorReason,
+    string? EnteredInErrorById,
+    DateTimeOffset? EnteredInErrorAt,
     DateTimeOffset UpdatedAt,
     uint RowVersion);
 
@@ -47,6 +57,16 @@ public sealed record ClinicalDocumentDto(
 public sealed record StartClinicalDocumentRequest(
     Guid DocumentDefinitionId,
     Guid EncounterId);
+
+/// <summary>
+/// Transition contract for completing, canceling, or entering a clinical
+/// document in error. The <c>RowVersion</c> must match the latest document
+/// state; <c>Reason</c> is required when entering in error and ignored for
+/// the other transitions.
+/// </summary>
+public sealed record TransitionClinicalDocumentRequest(
+    uint RowVersion,
+    string? Reason = null);
 
 /// <summary>
 /// List filter for clinical document instances. All criteria are optional;

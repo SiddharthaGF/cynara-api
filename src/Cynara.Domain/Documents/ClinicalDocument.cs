@@ -54,6 +54,30 @@ public sealed class ClinicalDocument
     /// </summary>
     public DateTimeOffset? CompletedAt { get; set; }
 
+    /// <summary>
+    /// UTC timestamp when the document was canceled;
+    /// <see langword="null"/> unless canceled.
+    /// </summary>
+    public DateTimeOffset? CanceledAt { get; set; }
+
+    /// <summary>
+    /// UTC timestamp when the document was entered in error;
+    /// <see langword="null"/> unless entered in error.
+    /// </summary>
+    public DateTimeOffset? EnteredInErrorAt { get; set; }
+
+    /// <summary>
+    /// Clinician-supplied reason for entering the document in error.
+    /// <see langword="null"/> unless entered in error.
+    /// </summary>
+    public string? EnteredInErrorReason { get; set; }
+
+    /// <summary>
+    /// Actor that entered the document in error;
+    /// <see langword="null"/> unless entered in error.
+    /// </summary>
+    public string? EnteredInErrorById { get; set; }
+
     /// <summary>UTC timestamp of the last document metadata change.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
 

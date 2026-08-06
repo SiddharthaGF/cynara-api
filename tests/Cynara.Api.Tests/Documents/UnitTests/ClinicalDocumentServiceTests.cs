@@ -339,6 +339,338 @@ public sealed class ClinicalDocumentServiceTests
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task CompleteAsync_RequiresResolvedTenant()
+    {
+        var harness = ServiceHarness.Create();
+        harness.HospitalContext.IsResolved = false;
+
+        await Assert.ThrowsAsync<TenantContextException>(
+            () => harness.Service.CompleteAsync(
+                Guid.NewGuid(),
+                new TransitionClinicalDocumentRequest(0),
+                "actor",
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ThrowsWhenUnknown()
+    {
+        var harness = ServiceHarness.Create();
+
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => harness.Service.CompleteAsync(
+                Guid.NewGuid(),
+                new TransitionClinicalDocumentRequest(0),
+                "actor",
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RequiresActorWhenCatalogDemandsIt()
+    {
+        var harness = ServiceHarness.Create();
+        DocumentDefinition definition = harness.ActiveDefinition();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            definition, ClinicalDocumentStatus.InProgress);
+
+        ValidationException ex = await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.CompleteAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(document.RowVersion),
+                actorId: null,
+                CancellationToken.None));
+
+        Assert.Contains("actor", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClinicalDocumentStatus.InProgress, document.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_CompletesDocumentAndResponseAtomically()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, FormResponse response) =
+            harness.SeedBoundDocument(
+                harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        ClinicalDocumentDto completed = await harness.Service.CompleteAsync(
+            document.Id,
+            new TransitionClinicalDocumentRequest(document.RowVersion),
+            "actor",
+            CancellationToken.None);
+
+        Assert.Equal("completed", completed.Status);
+        Assert.Equal(Now, completed.CompletedAt);
+        Assert.Equal(1u, completed.RowVersion);
+        Assert.Equal(ClinicalDocumentStatus.Completed, document.Status);
+        Assert.Equal(Now, document.CompletedAt);
+        Assert.Equal(1u, document.RowVersion);
+
+        Assert.Equal(FormResponseStatus.Completed, response.Status);
+        Assert.Equal(2u, response.RevisionNumber);
+        Assert.Equal(1u, response.RowVersion);
+        Assert.Equal(Now, response.CompletedAt);
+
+        FormResponseRevision revision = harness.Responses.AddedRevisions
+            .Single(item => item.FormResponseId == response.Id);
+        Assert.Equal(2u, revision.RevisionNumber);
+        Assert.Equal("actor", revision.ActorId);
+
+        RecordingAuditWriter.AuditEntry audit =
+            harness.AuditWriter.Entries.Single(
+                item => string.Equals(
+                    item.Action, "document.completed", StringComparison.Ordinal));
+        Assert.Equal(document.Id, audit.ResourceId);
+        Assert.Equal("actor", audit.ActorId);
+        Assert.Equal(1, harness.UnitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RejectsCompletedDocumentWithoutMutating()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, FormResponse response) =
+            harness.SeedBoundDocument(
+                harness.ActiveDefinition(),
+                ClinicalDocumentStatus.Completed,
+                FormResponseStatus.Completed);
+
+        uint documentRowVersion = document.RowVersion;
+        uint revisionBefore = response.RevisionNumber;
+        uint responseRowVersion = response.RowVersion;
+        string answersBefore = response.AnswersJson;
+
+        await Assert.ThrowsAsync<InvalidStateException>(
+            () => harness.Service.CompleteAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(document.RowVersion),
+                "actor",
+                CancellationToken.None));
+
+        Assert.Equal(ClinicalDocumentStatus.Completed, document.Status);
+        Assert.Equal(documentRowVersion, document.RowVersion);
+        Assert.Equal(FormResponseStatus.Completed, response.Status);
+        Assert.Equal(revisionBefore, response.RevisionNumber);
+        Assert.Equal(responseRowVersion, response.RowVersion);
+        Assert.Equal(answersBefore, response.AnswersJson);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RejectsStaleConcurrency()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, FormResponse response) =
+            harness.SeedBoundDocument(
+                harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        await Assert.ThrowsAsync<ConcurrencyException>(
+            () => harness.Service.CompleteAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(
+                    document.RowVersion + 1),
+                "actor",
+                CancellationToken.None));
+
+        Assert.Equal(ClinicalDocumentStatus.InProgress, document.Status);
+        Assert.Equal(FormResponseStatus.Draft, response.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RejectsNonDraftResponse()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, FormResponse response) =
+            harness.SeedBoundDocument(
+                harness.ActiveDefinition(),
+                ClinicalDocumentStatus.InProgress,
+                FormResponseStatus.Completed);
+
+        InvalidStateException ex = await Assert.ThrowsAsync<InvalidStateException>(
+            () => harness.Service.CompleteAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(document.RowVersion),
+                "actor",
+                CancellationToken.None));
+
+        Assert.Contains("draft", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClinicalDocumentStatus.InProgress, document.Status);
+        Assert.Equal(FormResponseStatus.Completed, response.Status);
+    }
+
+    [Fact]
+    public async Task CancelAsync_CancelsDocumentAndLeavesResponseIntact()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, FormResponse response) =
+            harness.SeedBoundDocument(
+                harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        ClinicalDocumentDto canceled = await harness.Service.CancelAsync(
+            document.Id,
+            new TransitionClinicalDocumentRequest(document.RowVersion),
+            "actor",
+            CancellationToken.None);
+
+        Assert.Equal("canceled", canceled.Status);
+        Assert.Equal(Now, canceled.CanceledAt);
+        Assert.Equal(ClinicalDocumentStatus.Canceled, document.Status);
+        Assert.Equal(FormResponseStatus.Draft, response.Status);
+
+        RecordingAuditWriter.AuditEntry audit = Assert.Single(
+            harness.AuditWriter.Entries);
+        Assert.Equal("document.canceled", audit.Action);
+        Assert.Equal(1, harness.UnitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task CancelAsync_RejectsCompletedDocument()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(), ClinicalDocumentStatus.Completed);
+
+        InvalidStateException ex = await Assert.ThrowsAsync<InvalidStateException>(
+            () => harness.Service.CancelAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(document.RowVersion),
+                "actor",
+                CancellationToken.None));
+
+        Assert.Contains("cancel", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClinicalDocumentStatus.Completed, document.Status);
+    }
+
+    [Fact]
+    public async Task CancelAsync_RejectsStaleConcurrency()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        await Assert.ThrowsAsync<ConcurrencyException>(
+            () => harness.Service.CancelAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(
+                    document.RowVersion + 1),
+                "actor",
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnterInErrorAsync_MarksCompletedDocument()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(),
+            ClinicalDocumentStatus.Completed,
+            FormResponseStatus.Completed);
+
+        ClinicalDocumentDto marked = await harness.Service.EnterInErrorAsync(
+            document.Id,
+            new TransitionClinicalDocumentRequest(
+                document.RowVersion, "Wrong result"),
+            "reviewer",
+            CancellationToken.None);
+
+        Assert.Equal("enteredInError", marked.Status);
+        Assert.Equal("Wrong result", marked.EnteredInErrorReason);
+        Assert.Equal("reviewer", marked.EnteredInErrorById);
+        Assert.Equal(Now, marked.EnteredInErrorAt);
+        Assert.Equal(ClinicalDocumentStatus.EnteredInError, document.Status);
+
+        RecordingAuditWriter.AuditEntry audit = Assert.Single(
+            harness.AuditWriter.Entries);
+        Assert.Equal("document.enteredInError", audit.Action);
+        Assert.Equal("reviewer", audit.ActorId);
+        Assert.Equal(1, harness.UnitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task EnterInErrorAsync_RequiresReason()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        ValidationException ex = await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.EnterInErrorAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(
+                    document.RowVersion, Reason: null),
+                "actor",
+                CancellationToken.None));
+
+        Assert.Contains("reason", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClinicalDocumentStatus.InProgress, document.Status);
+    }
+
+    [Fact]
+    public async Task EnterInErrorAsync_RequiresActor()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        ValidationException ex = await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.EnterInErrorAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(
+                    document.RowVersion, "Wrong result"),
+                actorId: null,
+                CancellationToken.None));
+
+        Assert.Contains("actor", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClinicalDocumentStatus.InProgress, document.Status);
+    }
+
+    [Fact]
+    public async Task EnterInErrorAsync_RejectsStaleConcurrency()
+    {
+        var harness = ServiceHarness.Create();
+        (ClinicalDocument document, _) = harness.SeedBoundDocument(
+            harness.ActiveDefinition(), ClinicalDocumentStatus.InProgress);
+
+        await Assert.ThrowsAsync<ConcurrencyException>(
+            () => harness.Service.EnterInErrorAsync(
+                document.Id,
+                new TransitionClinicalDocumentRequest(
+                    document.RowVersion + 1, "Wrong result"),
+                "actor",
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ListAsync_FiltersByCanceledAndEnteredInError()
+    {
+        var harness = ServiceHarness.Create();
+        DocumentDefinition definition = harness.ActiveDefinition();
+        ClinicalDocument canceled = harness.BuildDocument(
+            definition,
+            formVersionId: harness.FormVersion.Id,
+            status: ClinicalDocumentStatus.Canceled);
+        ClinicalDocument enteredInError = harness.BuildDocument(
+            definition,
+            formVersionId: harness.FormVersion.Id,
+            status: ClinicalDocumentStatus.EnteredInError);
+        harness.Documents.Seed(canceled, enteredInError);
+
+        IReadOnlyList<ClinicalDocumentDto> canceledOnly =
+            await harness.Service.ListAsync(
+                new ClinicalDocumentListRequest(Status: "canceled"),
+                CancellationToken.None);
+
+        Assert.Single(canceledOnly);
+        Assert.Equal(canceled.Id, canceledOnly[0].Id);
+
+        IReadOnlyList<ClinicalDocumentDto> enteredInErrorOnly =
+            await harness.Service.ListAsync(
+                new ClinicalDocumentListRequest(Status: "enteredInError"),
+                CancellationToken.None);
+
+        Assert.Single(enteredInErrorOnly);
+        Assert.Equal(enteredInError.Id, enteredInErrorOnly[0].Id);
+    }
+
     private sealed class ServiceHarness
     {
         private ServiceHarness(
@@ -372,11 +704,11 @@ public sealed class ClinicalDocumentServiceTests
             Service = new ClinicalDocumentService(
                 documents,
                 references,
-                responses,
+                new FakeClinicalDocumentResponseStage(
+                    responses, new FakeFormResponseValidator()),
                 unitOfWork,
                 auditWriter,
-                hospitalContext,
-                timeProvider,
+                new FakeWorkflowContext(hospitalContext, timeProvider),
                 new FakeCapabilityGuard());
         }
 
@@ -490,6 +822,36 @@ public sealed class ClinicalDocumentServiceTests
                 UpdatedAt = Now,
                 RowVersion = 0u,
             };
+        }
+
+        public (ClinicalDocument Document, FormResponse Response) SeedBoundDocument(
+            DocumentDefinition definition,
+            ClinicalDocumentStatus status,
+            FormResponseStatus responseStatus = FormResponseStatus.Draft)
+        {
+            var response = new FormResponse
+            {
+                Id = Guid.NewGuid(),
+                HospitalId = HospitalId,
+                FormVersionId = FormVersion.Id,
+                Status = responseStatus,
+                AnswersJson = "{}",
+                RevisionNumber = 1u,
+                RowVersion = 0u,
+                CreatedAt = Now,
+                UpdatedAt = Now,
+                CompletedAt = responseStatus == FormResponseStatus.Completed
+                    ? Now
+                    : null,
+            };
+            Responses.Seed(response);
+
+            ClinicalDocument document = BuildDocument(
+                definition, FormVersion.Id);
+            document.FormResponseId = response.Id;
+            document.Status = status;
+            Documents.Seed(document);
+            return (document, response);
         }
 
         public static ServiceHarness Create()

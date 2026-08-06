@@ -37,6 +37,11 @@ public sealed class ClinicalDocumentEntityConfiguration
         _ = builder.Property(item => item.FormResponseId).IsRequired();
         _ = builder.Property(item => item.AuthorId)
             .HasMaxLength(ClinicalDocumentFieldLimits.AuthorIdMaxLength);
+        _ = builder.Property(item => item.EnteredInErrorById)
+            .HasMaxLength(ClinicalDocumentFieldLimits.AuthorIdMaxLength);
+        _ = builder.Property(item => item.EnteredInErrorReason)
+            .HasMaxLength(
+                ClinicalDocumentFieldLimits.EnteredInErrorReasonMaxLength);
         _ = builder.Property(item => item.Status)
             .HasConversion<string>()
             .HasMaxLength(32);

@@ -17,7 +17,7 @@ internal sealed class FakeCapabilityGuard(
         CancellationToken cancellationToken)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        if (Allowed is null || Allowed.Contains(capability))
+        if (Allowed?.Contains(capability) != false)
         {
             return;
         }

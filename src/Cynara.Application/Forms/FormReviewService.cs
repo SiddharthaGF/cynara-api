@@ -2,7 +2,6 @@ using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Forms.Persistence;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Domain.Capabilities;
@@ -16,8 +15,7 @@ public sealed class FormReviewService(
     IAuditWriter auditWriter,
     ISchemaValidator schemaValidator,
     IFormCompiler formCompiler,
-    IHospitalContext hospitalContext,
-    TimeProvider timeProvider,
+    IWorkflowContext context,
     ICapabilityGuard capabilityGuard) : IFormReviewService
 {
     public async Task<FormVersionDto> SubmitForReviewAsync(
@@ -28,12 +26,12 @@ public sealed class FormReviewService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, context.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion draft = FormWorkflowHelpers.RequireDraft(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(draft, request.RowVersion);
 
@@ -47,7 +45,7 @@ public sealed class FormReviewService(
             draft.RulesSchemaJson,
             cancellationToken).ConfigureAwait(false);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             draft,
             FormVersionLifecycle.Trigger.SubmitForReview);
@@ -82,16 +80,16 @@ public sealed class FormReviewService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, context.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             review,
             FormVersionLifecycle.Trigger.WithdrawFromReview);
@@ -123,7 +121,7 @@ public sealed class FormReviewService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
@@ -133,11 +131,11 @@ public sealed class FormReviewService(
         }
 
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, context.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             review,
             FormVersionLifecycle.Trigger.RejectReview);
@@ -173,12 +171,12 @@ public sealed class FormReviewService(
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
-            .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
+            .RequireDefinitionAsync(forms, code, track: true, context.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
         FormWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
@@ -199,7 +197,7 @@ public sealed class FormReviewService(
                     && item.Version != null)
                 .Select(item => item.Version!));
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         review.Version = version;
         FormVersionLifecycle.Fire(
             review,
