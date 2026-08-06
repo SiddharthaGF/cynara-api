@@ -2,6 +2,7 @@ using System.Reflection;
 
 using Cynara.Application.Modules.Capabilities;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Cynara.Api.CapabilityAuthorization;
@@ -10,7 +11,10 @@ namespace Cynara.Api.CapabilityAuthorization;
 /// Endpoint-boundary authorization filter. Runs before model binding and
 /// action invocation and enforces the capability declared by
 /// <see cref="RequireCapabilityAttribute"/> (method-level metadata wins over
-/// the controller-level declaration). Denials throw
+/// the controller-level declaration). Evaluation flows through the native
+/// <see cref="IAuthorizationService"/> pipeline — the policy is synthesized
+/// on demand by <see cref="CapabilityPolicyProvider"/> and checked by
+/// <see cref="CapabilityAuthorizationHandler"/>. Denials throw
 /// <see cref="CapabilityForbiddenException"/>; the shared exception handler
 /// turns that into a 403 and records the denied-access audit event. Requests
 /// with no actor identity or no grant resolve to deny, and the filter never
@@ -18,7 +22,7 @@ namespace Cynara.Api.CapabilityAuthorization;
 /// </summary>
 public sealed class CapabilityAuthorizationFilter(
     ICurrentActor currentActor,
-    IEffectiveCapabilityResolver resolver) : IAsyncAuthorizationFilter
+    IAuthorizationService authorizationService) : IAsyncAuthorizationFilter
 {
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
@@ -37,12 +41,13 @@ public sealed class CapabilityAuthorizationFilter(
             return;
         }
 
-        bool granted = await resolver
-            .HasCapabilityAsync(
-                requirement.Capability,
-                context.HttpContext.RequestAborted)
+        AuthorizationResult result = await authorizationService
+            .AuthorizeAsync(
+                context.HttpContext.User,
+                context.HttpContext,
+                requirement.Capability)
             .ConfigureAwait(false);
-        if (granted)
+        if (result.Succeeded)
         {
             return;
         }
