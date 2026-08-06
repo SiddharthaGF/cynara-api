@@ -11,6 +11,7 @@ public static class AuditModule
     {
         _ = services.AddScoped<IAuditService, AuditService>();
         _ = services.AddScoped<IAuditWriter, AuditWriter>();
+        _ = services.AddScoped<ISensitiveReadAuditor, SensitiveReadAuditor>();
         return services;
     }
 }

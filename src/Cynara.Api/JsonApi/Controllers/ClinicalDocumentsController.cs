@@ -1,5 +1,7 @@
 using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.JsonApi.OpenApi;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Documents;
 using Cynara.Domain.Capabilities;
 
@@ -18,6 +20,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Clinical Documents")]
 public sealed class ClinicalDocumentsController(
     IClinicalDocumentService documentService,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     IHttpContextAccessor httpContextAccessor)
     : ClinicalDocumentControllerBase(httpContextAccessor)
 {
@@ -68,6 +71,13 @@ public sealed class ClinicalDocumentsController(
         ClinicalDocumentDto document = await documentService
             .GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+        await sensitiveReadAuditor.RecordAsync(
+            AuditEntityTypes.ClinicalDocument,
+            document.Id,
+            "document.read",
+            ActorId(),
+            HttpContext.Request.Path,
+            cancellationToken).ConfigureAwait(false);
         return Ok(document);
     }
 
