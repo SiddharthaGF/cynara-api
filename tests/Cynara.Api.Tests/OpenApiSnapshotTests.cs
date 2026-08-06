@@ -56,7 +56,7 @@ public sealed class OpenApiSnapshotTests
             RuleSet = ValidationRuleSet.GetDefaultRuleSet(),
         };
 
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
         ReadResult result = await OpenApiDocument.LoadAsync(stream, "json", settings)
             .ConfigureAwait(false);
 

@@ -21,6 +21,16 @@
         "--target=Lint"
       ],
       "include": ["**/*.cs"]
+    },
+    {
+      "name": "openapi-check",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": [
+        "cake",
+        "--target=OpenApiCheck"
+      ],
+      "include": ["**/*.cs", "contracts/openapi.json"]
     }
   ]
 }

@@ -39,7 +39,8 @@ internal static class Program
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"Export failed: {exception.Message}");
+            await Console.Error.WriteLineAsync($"Export failed: {exception.Message}")
+                .ConfigureAwait(false);
             return 1;
         }
     }

@@ -38,8 +38,9 @@ public static class OpenApiDocumentExporter
             {
                 // EF Core registration requires a connection string, but no
                 // database is ever opened while the document is generated.
+                // The values are dummies: the exporter never connects.
                 ["ConnectionStrings:Default"] =
-                    "Host=localhost;Database=cynara;Username=postgres;Password=unused",
+                    "Host=localhost;Database=cynara;Username=postgres",
             });
 
         // When the exporter runs from a console tool the entry assembly is
@@ -49,24 +50,17 @@ public static class OpenApiDocumentExporter
             .AddApplicationPart(typeof(OpenApiDocumentExporter).Assembly);
 
         _ = builder.Services.AddCynaraApi(builder.Configuration);
-        WebApplication app = builder.Build();
+        await using WebApplication app = builder.Build();
 
-        try
-        {
-            ISwaggerProvider provider = app.Services
-                .GetRequiredService<ISwaggerProvider>();
-            OpenApiDocument document = provider.GetSwagger(DocumentName);
+        ISwaggerProvider provider = app.Services
+            .GetRequiredService<ISwaggerProvider>();
+        OpenApiDocument document = provider.GetSwagger(DocumentName);
 
-            using var textWriter = new StringWriter(CultureInfo.InvariantCulture);
-            var settings = new OpenApiJsonWriterSettings { Terse = true };
-            var jsonWriter = new OpenApiJsonWriter(textWriter, settings);
-            document.SerializeAs(OpenApiSpecVersion.OpenApi3_0, jsonWriter);
-            return textWriter.ToString();
-        }
-        finally
-        {
-            await app.DisposeAsync().ConfigureAwait(false);
-        }
+        await using var textWriter = new StringWriter(CultureInfo.InvariantCulture);
+        var settings = new OpenApiJsonWriterSettings { Terse = true };
+        var jsonWriter = new OpenApiJsonWriter(textWriter, settings);
+        document.SerializeAs(OpenApiSpecVersion.OpenApi3_0, jsonWriter);
+        return textWriter.ToString();
     }
 
     /// <summary>
