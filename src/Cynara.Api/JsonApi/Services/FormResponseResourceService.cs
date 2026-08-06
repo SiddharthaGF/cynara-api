@@ -1,4 +1,6 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormResponses;
@@ -33,6 +35,7 @@ public sealed class FormResponseResourceService(
     IFormResponseLifecycleService lifecycle,
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<FormResponse, Guid>(
@@ -160,6 +163,20 @@ public sealed class FormResponseResourceService(
 
         FormResponse? response = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+
+        if (response is not null
+            && httpContextAccessor.HttpContext is { } httpContext
+            && HttpMethods.IsGet(httpContext.Request.Method))
+        {
+            await sensitiveReadAuditor.RecordAsync(
+                AuditEntityTypes.FormResponse,
+                id,
+                "response.read",
+                httpContext.GetActorId(),
+                httpContext.Request.Path,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         return response!;
     }
 

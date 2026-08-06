@@ -1,5 +1,7 @@
 using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.JsonApi.OpenApi;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Encounters;
 using Cynara.Domain.Capabilities;
 
@@ -18,6 +20,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Encounters")]
 public sealed class EncountersController(
     IEncounterService encounterService,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     IHttpContextAccessor httpContextAccessor)
     : EncounterControllerBase(httpContextAccessor)
 {
@@ -64,6 +67,13 @@ public sealed class EncountersController(
         EncounterDto encounter = await encounterService
             .GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+        await sensitiveReadAuditor.RecordAsync(
+            AuditEntityTypes.Encounter,
+            encounter.Id,
+            "encounter.read",
+            ActorId(),
+            HttpContext.Request.Path,
+            cancellationToken).ConfigureAwait(false);
         return Ok(encounter);
     }
 

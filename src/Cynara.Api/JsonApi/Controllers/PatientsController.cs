@@ -1,5 +1,7 @@
 using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.JsonApi.OpenApi;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
 using Cynara.Domain.Capabilities;
@@ -20,6 +22,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Patients")]
 public sealed class PatientsController(
     IPatientService patientService,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     IHttpContextAccessor httpContextAccessor) : PatientControllerBase(httpContextAccessor)
 {
     /// <summary>
@@ -69,6 +72,13 @@ public sealed class PatientsController(
         PatientDto patient = await patientService
             .GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+        await sensitiveReadAuditor.RecordAsync(
+            AuditEntityTypes.Patient,
+            patient.Id,
+            "patient.read",
+            ActorId(),
+            HttpContext.Request.Path,
+            cancellationToken).ConfigureAwait(false);
         return Ok(patient);
     }
 
