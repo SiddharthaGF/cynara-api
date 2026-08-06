@@ -1,3 +1,5 @@
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Capabilities;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace Cynara.Domain.Capabilities;
 /// is what keeps an assignment in one tenant from ever authorizing access in
 /// another: every resolution query filters on <see cref="HospitalId"/> first.
 /// </summary>
+[NoResource]
 public sealed class CapabilityAssignment
 {
     public Guid Id { get; set; }

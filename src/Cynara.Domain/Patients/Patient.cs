@@ -1,5 +1,7 @@
 using System.Data;
 
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Patients;
 
 /// <summary>
@@ -11,6 +13,7 @@ namespace Cynara.Domain.Patients;
 /// <see cref="DeletedAt"/>; the row remains resolvable for historical
 /// form responses and audit continuity.
 /// </summary>
+[NoResource]
 public sealed class Patient
 {
     /// <summary>Surrogate identifier; immutable.</summary>

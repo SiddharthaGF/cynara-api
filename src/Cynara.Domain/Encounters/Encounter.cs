@@ -1,3 +1,5 @@
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Encounters;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace Cynara.Domain.Encounters;
 /// Lifecycle transitions are authoritative on the application layer;
 /// terminal states remain historically queryable.
 /// </summary>
+[NoResource]
 public sealed class Encounter
 {
     /// <summary>Surrogate identifier; immutable.</summary>
