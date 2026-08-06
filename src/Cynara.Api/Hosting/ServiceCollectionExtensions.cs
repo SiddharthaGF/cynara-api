@@ -35,10 +35,14 @@ internal static class ServiceCollectionExtensions
                     policy =>
                     {
                         // Dev/maquette CORS: origins are not yet locked down.
+#pragma warning disable S5122 // Allow-any is deliberate for the maquette
+                        // surface: it carries no credentials and no
+                        // authentication gate.
                         _ = policy
                             .AllowAnyOrigin()
                             .AllowAnyHeader()
                             .AllowAnyMethod();
+#pragma warning restore S5122
                     });
             })
             .AddCynaraForwardedHeaders(configuration)
