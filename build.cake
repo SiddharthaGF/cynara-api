@@ -86,6 +86,21 @@ Task("Test")
         });
     });
 
+Task("TestE2E")
+    .Description("Run the E2E acceptance suite (Category=E2E) against Testcontainers Postgres")
+    .IsDependentOn("Restore")
+    .Does(() =>
+    {
+        DotNetTest(solution, new DotNetTestSettings
+        {
+            NoRestore = true,
+            Configuration = configuration,
+            Verbosity = DotNetVerbosity.Normal,
+            Filter = "Category=E2E",
+            Loggers = new[] { "console;verbosity=normal" }
+        });
+    });
+
 Task("OpenApiExport")
     .Description("Regenerate contracts/openapi.json via tools/Cynara.OpenApiExport")
     .IsDependentOn("Restore")
