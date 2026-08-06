@@ -78,6 +78,13 @@ MA0051.maximum_statements_per_method = 80
 
 # Prefer ≤400 LOC/file (Sonar S104 via make sonar-bootstrap).
 
+# EF Core scaffolded migration artifacts; analyzer and formatting rules do
+# not apply to generated code.
+[src/Cynara.Infrastructure/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.MA0197.severity = none
+dotnet_diagnostic.MA0051.severity = none
+
 # Top-level Program must stay non-static for WebApplicationFactory<Program>.
 [src/Cynara.Api/Program.cs]
 dotnet_diagnostic.MA0036.severity = none

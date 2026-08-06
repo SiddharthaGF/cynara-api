@@ -17,6 +17,9 @@ using Cynara.Infrastructure.Persistence;
 using Cynara.Infrastructure.Schemas;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,6 +28,29 @@ namespace Cynara.Infrastructure;
 
 public static partial class InfrastructureServiceCollectionExtensions
 {
+    // Provisioned only when baselining a legacy database that predates the
+    // capabilities feature; keep this DDL aligned with the InitialCreate
+    // migration so future schema changes apply cleanly.
+    private const string CapabilityAssignmentsTableSql = """
+        CREATE TABLE IF NOT EXISTS "capability_assignments" (
+            "Id" uuid NOT NULL,
+            "HospitalId" uuid NOT NULL,
+            "ActorId" character varying(128) NOT NULL,
+            "Capability" character varying(64) NOT NULL,
+            "AssignedAt" timestamp with time zone NOT NULL,
+            "AssignedBy" character varying(128) NULL,
+            "RowVersion" bigint NOT NULL,
+            CONSTRAINT "PK_capability_assignments" PRIMARY KEY ("Id")
+        );
+
+        CREATE INDEX IF NOT EXISTS "IX_capability_assignments_HospitalId"
+            ON "capability_assignments" ("HospitalId");
+
+        CREATE UNIQUE INDEX IF NOT EXISTS
+            "IX_capability_assignments_HospitalId_ActorId_Capability"
+            ON "capability_assignments" ("HospitalId", "ActorId", "Capability");
+        """;
+
     public static IServiceCollection AddCynaraInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -112,7 +138,7 @@ public static partial class InfrastructureServiceCollectionExtensions
             {
                 CynaraDbContext dbContext = scope.ServiceProvider
                     .GetRequiredService<CynaraDbContext>();
-                _ = await dbContext.Database.EnsureCreatedAsync(cancellationToken)
+                await EnsureDatabaseSchemaAsync(dbContext, cancellationToken)
                     .ConfigureAwait(false);
                 return;
             }
@@ -132,6 +158,65 @@ public static partial class InfrastructureServiceCollectionExtensions
                 await scope.DisposeAsync().ConfigureAwait(false);
             }
         }
+    }
+
+    private static async Task EnsureDatabaseSchemaAsync(
+        CynaraDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        IRelationalDatabaseCreator creator = dbContext.Database
+            .GetService<IRelationalDatabaseCreator>();
+        IHistoryRepository history = dbContext.Database
+            .GetService<IHistoryRepository>();
+
+        bool databaseExists = await creator
+            .ExistsAsync(cancellationToken)
+            .ConfigureAwait(false);
+        bool hasTables = databaseExists
+            && await creator.HasTablesAsync(cancellationToken).ConfigureAwait(false);
+        bool hasHistory = hasTables
+            && await history.ExistsAsync(cancellationToken).ConfigureAwait(false);
+
+        if (hasTables && !hasHistory)
+        {
+            // Databases created before EF migrations existed (EnsureCreated)
+            // have tables but no migration history. Baseline them so
+            // MigrateAsync never recreates existing tables, and provision the
+            // capability_assignments table added after that legacy schema.
+            await BaselineLegacyDatabaseAsync(dbContext, history, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await dbContext.Database.MigrateAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task BaselineLegacyDatabaseAsync(
+        CynaraDbContext dbContext,
+        IHistoryRepository history,
+        CancellationToken cancellationToken)
+    {
+        _ = await history.CreateIfNotExistsAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        string initialMigrationId = dbContext.Database
+            .GetService<IMigrationsAssembly>()
+            .Migrations
+            .Keys
+            .First();
+        _ = await dbContext.Database.ExecuteSqlRawAsync(
+            "INSERT INTO \"__EFMigrationsHistory\" " +
+            "(\"MigrationId\", \"ProductVersion\") VALUES " +
+            "(@p0, '10.0.10') ON CONFLICT DO NOTHING;",
+            [initialMigrationId],
+            cancellationToken).ConfigureAwait(false);
+
+        // capability_assignments is part of the baselined initial migration,
+        // so provision it explicitly for legacy schemas. The DDL is
+        // idempotent and a no-op on schemas that already have the table.
+        _ = await dbContext.Database.ExecuteSqlRawAsync(
+            CapabilityAssignmentsTableSql,
+            cancellationToken).ConfigureAwait(false);
     }
 
     [LoggerMessage(
