@@ -1,3 +1,5 @@
+using Cynara.Application.OpenApi;
+
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
@@ -39,6 +41,7 @@ public sealed record ClinicalDocumentDto(
     Guid FormVersionId,
     Guid FormResponseId,
     string? AuthorId,
+    [property: OpenApiEnumValues("inProgress", "completed", "canceled", "enteredInError")]
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,

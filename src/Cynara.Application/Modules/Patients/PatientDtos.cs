@@ -1,3 +1,5 @@
+using Cynara.Application.OpenApi;
+
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
@@ -29,7 +31,9 @@ public sealed record PatientDto(
     string GivenName,
     string FamilyName,
     DateOnly BirthDate,
+    [property: OpenApiEnumValues("female", "male", "unknown")]
     string Sex,
+    [property: OpenApiEnumValues("active", "retired")]
     string Status,
     uint RowVersion,
     DateTimeOffset? DeletedAt,

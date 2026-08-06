@@ -1,4 +1,5 @@
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.Documents;
 using Cynara.Domain.Capabilities;
 
@@ -59,7 +60,7 @@ public sealed class ClinicalDocumentsController(
         + "remain queryable.")]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ClinicalDocumentDto>> GetAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -84,9 +85,9 @@ public sealed class ClinicalDocumentsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ClinicalDocumentDto>> StartAsync(
         CancellationToken cancellationToken)
     {
@@ -110,9 +111,9 @@ public sealed class ClinicalDocumentsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ClinicalDocumentDto>> CompleteAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -131,9 +132,9 @@ public sealed class ClinicalDocumentsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ClinicalDocumentDto>> CancelAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -156,9 +157,9 @@ public sealed class ClinicalDocumentsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ClinicalDocumentDto>> EnterInErrorAsync(
         Guid id,
         CancellationToken cancellationToken)

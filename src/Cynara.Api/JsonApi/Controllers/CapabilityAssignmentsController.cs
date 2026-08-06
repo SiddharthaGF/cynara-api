@@ -1,5 +1,6 @@
 using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.Common.ActorContext;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Domain.Capabilities;
@@ -68,8 +69,8 @@ public sealed class CapabilityAssignmentsController(
     [ProducesResponseType(
         typeof(CapabilityAssignmentDto),
         StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CapabilityAssignmentDto>> GrantAsync(
         CancellationToken cancellationToken)
     {
@@ -93,8 +94,8 @@ public sealed class CapabilityAssignmentsController(
     [RequireCapability(CapabilityCodes.CapabilitiesWrite)]
     [Produces(ContentType)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeAsync(
         string actorId,
         string capability,

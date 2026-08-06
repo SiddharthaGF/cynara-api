@@ -89,6 +89,7 @@ public sealed class FormAiController(
     [Consumes("application/json")]
     [Produces("text/event-stream")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task ChatStreamAsync(
         Guid formDefinitionId,
         CancellationToken cancellationToken)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 
@@ -29,10 +30,10 @@ public sealed class WorkspaceController(
         + "{ \"errors\": [{ \"status\": \"403\", \"title\": \"Hospital workspace unavailable\", "
         + "\"detail\": \"Hospital 'default' is suspended.\" }] }";
 
-    private const string UnknownHospitalExample =
-        "Example body:\n"
-        + "{ \"errors\": [{ \"status\": \"400\", \"title\": \"Unknown hospital workspace\", "
-        + "\"detail\": \"Hospital 'unknown-tenant' was not found.\" }] }";
+    private const string MalformedBodyExample =
+        "Malformed or unreadable request body. Tenant failures (missing or "
+        + "unknown X-Hospital-Code, inactive hospital) return the JSON:API "
+        + "error document described on GET.";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -58,9 +59,11 @@ public sealed class WorkspaceController(
     [Produces("application/vnd.api+json")]
     [ProducesResponseType(typeof(HospitalWorkspaceDto), StatusCodes.Status200OK)]
     [ProducesResponseType(
+        typeof(JsonApiErrorDocument),
         StatusCodes.Status400BadRequest,
         Description = MissingHeaderExample)]
     [ProducesResponseType(
+        typeof(JsonApiErrorDocument),
         StatusCodes.Status403Forbidden,
         Description = InactiveHospitalExample)]
     public async Task<ActionResult<HospitalWorkspaceDto>> GetAsync(
@@ -90,12 +93,15 @@ public sealed class WorkspaceController(
     [Produces("application/vnd.api+json")]
     [ProducesResponseType(typeof(HospitalWorkspaceDto), StatusCodes.Status200OK)]
     [ProducesResponseType(
+        typeof(ProblemDetails),
         StatusCodes.Status400BadRequest,
-        Description = UnknownHospitalExample)]
+        Description = MalformedBodyExample)]
     [ProducesResponseType(
+        typeof(JsonApiErrorDocument),
         StatusCodes.Status403Forbidden,
         Description = InactiveHospitalExample)]
     [ProducesResponseType(
+        typeof(JsonApiErrorDocument),
         StatusCodes.Status409Conflict,
         Description = "rowVersion does not match the persisted workspace.")]
     public async Task<ActionResult<HospitalWorkspaceDto>> PatchAsync(

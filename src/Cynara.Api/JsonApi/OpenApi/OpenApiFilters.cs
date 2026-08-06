@@ -120,7 +120,192 @@ public sealed class CynaraOpenApiDocumentFilter : IDocumentFilter
 
         SetInfoDescription(swaggerDoc);
         RegisterWorkspaceSchemas(swaggerDoc);
+        RegisterContractSchemas(swaggerDoc);
         RemoveProbePaths(swaggerDoc);
+    }
+
+    private static void RegisterContractSchemas(OpenApiDocument swaggerDoc)
+    {
+        swaggerDoc.Components ??= new OpenApiComponents();
+        swaggerDoc.Components.Schemas ??=
+            new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+
+        // Reusable error/pagination shapes, keyed by the same camelCase ids
+        // Swashbuckle generates for the CLR contract types so there is always
+        // exactly one schema per concept. Swashbuckle normally emits these from
+        // the [ProducesResponseType] references below; these fallbacks guarantee
+        // the shapes exist even if an endpoint stops referencing them directly.
+        IDictionary<string, IOpenApiSchema> schemas = swaggerDoc.Components.Schemas;
+        TryRegister(schemas, "jsonApiErrorDocument", BuildJsonApiErrorDocumentSchema);
+        TryRegister(schemas, "jsonApiError", BuildJsonApiErrorSchema);
+        TryRegister(schemas, "jsonApiErrorSource", BuildJsonApiErrorSourceSchema);
+        TryRegister(schemas, "paginationMeta", BuildPaginationMetaSchema);
+
+        // Share the reusable pagination schema with the patient list response
+        // instead of duplicating the three counters inline. JADNC removes
+        // component schemas with no references, so a real reference keeps the
+        // pagination shape in the committed contract.
+        SharePaginationMetaWithPatientList(schemas);
+    }
+
+    private static void SharePaginationMetaWithPatientList(
+        IDictionary<string, IOpenApiSchema> schemas)
+    {
+        if (!schemas.TryGetValue("patientListResponse", out IOpenApiSchema? schema)
+            || schema is not OpenApiSchema listSchema
+            || listSchema.Properties is null
+            || !listSchema.Properties.TryGetValue("patients", out IOpenApiSchema? patients))
+        {
+            return;
+        }
+
+        OpenApiSchema secondPart = new()
+        {
+            Type = JsonSchemaType.Object,
+            Description = listSchema.Description,
+            AdditionalPropertiesAllowed = false,
+            Required = new HashSet<string>(StringComparer.Ordinal) { "patients" },
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            {
+                ["patients"] = patients,
+            },
+        };
+
+        listSchema.AllOf =
+        [
+            new OpenApiSchemaReference("paginationMeta"),
+            secondPart,
+        ];
+        listSchema.Properties =
+            new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+        listSchema.Type = null;
+        listSchema.Description = null;
+        listSchema.AdditionalPropertiesAllowed = true;
+    }
+
+    private static void TryRegister(
+        IDictionary<string, IOpenApiSchema> schemas,
+        string name,
+        Func<OpenApiSchema> builder)
+    {
+        if (!schemas.ContainsKey(name))
+        {
+            schemas[name] = builder();
+        }
+    }
+
+    private static OpenApiSchema BuildJsonApiErrorDocumentSchema()
+    {
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Description =
+                "JSON:API error document. The top-level errors array carries "
+                + "one object per error; a single response shares one HTTP "
+                + "status code across all items.",
+            Required = new HashSet<string>(StringComparer.Ordinal) { "errors" },
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            {
+                ["errors"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Array,
+                    Description = "One or more error objects.",
+                    Items = new OpenApiSchemaReference("JsonApiError"),
+                },
+            },
+        };
+    }
+
+    private static OpenApiSchema BuildJsonApiErrorSchema()
+    {
+        OpenApiSchema code = new()
+        {
+            Type = JsonSchemaType.String,
+            Description = "Machine-readable error code, when available.",
+        };
+
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Required = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "status", "title", "detail",
+            },
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            {
+                ["status"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "HTTP status code as a string, e.g. \"400\".",
+                },
+                ["code"] = code,
+                ["title"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "Short human-readable summary of the problem.",
+                },
+                ["detail"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description =
+                        "Human-readable explanation specific to this occurrence.",
+                },
+                ["source"] = new OpenApiSchemaReference("jsonApiErrorSource"),
+            },
+        };
+    }
+
+    private static OpenApiSchema BuildJsonApiErrorSourceSchema()
+    {
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            {
+                ["pointer"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "JSON pointer to the offending request field.",
+                },
+            },
+        };
+    }
+
+    private static OpenApiSchema BuildPaginationMetaSchema()
+    {
+        OpenApiSchema page = new()
+        {
+            Type = JsonSchemaType.Integer,
+            Description = "1-based current page number.",
+        };
+        OpenApiSchema pageSize = new()
+        {
+            Type = JsonSchemaType.Integer,
+            Description = "Number of items requested for the page.",
+        };
+        OpenApiSchema totalCount = new()
+        {
+            Type = JsonSchemaType.Integer,
+            Description = "Total number of items matching the query.",
+        };
+
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Description =
+                "Reusable pagination metadata for custom (non-JSON:API) list "
+                + "responses such as the patient search result.",
+            Required = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "page", "pageSize", "totalCount",
+            },
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            {
+                ["page"] = page,
+                ["pageSize"] = pageSize,
+                ["totalCount"] = totalCount,
+            },
+        };
     }
 
     private static void RegisterWorkspaceSchemas(OpenApiDocument swaggerDoc)
@@ -371,6 +556,130 @@ public sealed class WorkspaceOperationFilter : IOperationFilter
             concrete.Content["application/vnd.api+json"] = new OpenApiMediaType
             {
                 Schema = new OpenApiSchemaReference("updateHospitalWorkspaceRequest"),
+            };
+        }
+    }
+}
+
+/// <summary>
+/// Marks the surrogate <c>id</c> property <c>readOnly: true</c> on schemas for
+/// Application response DTOs. Request DTOs never declare an <c>id</c> field
+/// (the identifier comes from the route), so this is safe to apply to every
+/// Application schema that has one; JADNC resource and document schemas live
+/// outside that namespace and keep their own conventions.
+/// </summary>
+public sealed class ReadOnlyIdSchemaFilter : ISchemaFilter
+{
+    private const string ApplicationModulesNamespace = "Cynara.Application.Modules";
+
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.Type is null
+            || schema is not OpenApiSchema openApiSchema
+            || openApiSchema.Properties is null
+            || !context.Type.Namespace?.StartsWith(
+                ApplicationModulesNamespace,
+                StringComparison.Ordinal) == true)
+        {
+            return;
+        }
+
+        foreach ((string name, IOpenApiSchema property) in openApiSchema.Properties)
+        {
+            if (string.Equals(name, "id", StringComparison.Ordinal)
+                && property is OpenApiSchema idSchema)
+            {
+                idSchema.ReadOnly = true;
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Documents the <c>text/event-stream</c> media type on the Form AI SSE
+/// operation. The action writes events straight to the response body, so
+/// Swashbuckle cannot infer a response schema or content type from a typed
+/// result; the streaming contract is still part of the Stage 2 surface.
+/// Error responses are JSON:API error documents (see
+/// <see cref="JsonApiErrorResponseFilter"/>), so the SSE content inferred
+/// from the action-level <c>[Produces]</c> is corrected to the shared error
+/// schema.
+/// </summary>
+public sealed class FormAiStreamOperationFilter : IOperationFilter
+{
+    private const string StreamPath = "/api/ai/forms/{formDefinitionId}/chat/stream";
+    private const string EventStreamMediaType = "text/event-stream";
+    private const string JsonApiMediaType = "application/vnd.api+json";
+
+    private static readonly HashSet<string> ErrorStatusCodes = new(
+        StringComparer.Ordinal)
+    {
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "500",
+    };
+
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(context);
+
+        string? path = context.ApiDescription.RelativePath;
+        if (!string.Equals(
+                path,
+                StreamPath.TrimStart('/'),
+                StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(
+                context.ApiDescription.HttpMethod,
+                "POST",
+                StringComparison.OrdinalIgnoreCase)
+            || operation.Responses is null)
+        {
+            return;
+        }
+
+        if (operation.Responses.TryGetValue("200", out IOpenApiResponse? success)
+            && success is OpenApiResponse successResponse
+            && (successResponse.Content is null || successResponse.Content.Count == 0))
+        {
+            successResponse.Description = "Server-Sent Events stream of Form AI "
+                + "authoring events; one JSON event per SSE data frame.";
+            successResponse.Content = new Dictionary<string, OpenApiMediaType>(
+                StringComparer.Ordinal)
+            {
+                [EventStreamMediaType] = new OpenApiMediaType(),
+            };
+        }
+
+        foreach (string statusCode in ErrorStatusCodes)
+        {
+            if (!operation.Responses.TryGetValue(
+                    statusCode,
+                    out IOpenApiResponse? errorResponse)
+                || errorResponse is not OpenApiResponse openApiResponse
+                || openApiResponse.Content is null
+                || openApiResponse.Content.Count == 0
+                || openApiResponse.Content.Keys.Any(key => !string.Equals(
+                    key,
+                    EventStreamMediaType,
+                    StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            openApiResponse.Content = new Dictionary<string, OpenApiMediaType>(
+                StringComparer.Ordinal)
+            {
+                [JsonApiMediaType] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchemaReference("jsonApiErrorDocument"),
+                },
             };
         }
     }

@@ -86,11 +86,65 @@ Task("Test")
         });
     });
 
+Task("OpenApiExport")
+    .Description("Regenerate contracts/openapi.json via tools/Cynara.OpenApiExport")
+    .IsDependentOn("Restore")
+    .Does(() =>
+    {
+        var args = new ProcessArgumentBuilder();
+        args.Append("--project");
+        args.AppendQuoted("tools/Cynara.OpenApiExport");
+        args.Append("-c");
+        args.Append(configuration);
+        args.Append("--");
+        args.Append("--output");
+        args.Append("contracts/openapi.json");
+        DotNetRun("tools/Cynara.OpenApiExport/Cynara.OpenApiExport.csproj", args, new DotNetRunSettings
+        {
+            NoRestore = true,
+            Configuration = configuration
+        });
+    });
+
+Task("OpenApiCheck")
+    .Description("Fail if a fresh export differs from the committed contract")
+    .IsDependentOn("Restore")
+    .Does(() =>
+    {
+        var temp = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            "cynara-openapi-" + Guid.NewGuid().ToString("N") + ".json");
+        var args = new ProcessArgumentBuilder();
+        args.Append("--project");
+        args.AppendQuoted("tools/Cynara.OpenApiExport");
+        args.Append("-c");
+        args.Append(configuration);
+        args.Append("--");
+        args.Append("--output");
+        args.AppendQuoted(temp);
+        DotNetRun("tools/Cynara.OpenApiExport/Cynara.OpenApiExport.csproj", args, new DotNetRunSettings
+        {
+            NoRestore = true,
+            Configuration = configuration
+        });
+        var committed = System.IO.File.ReadAllText("contracts/openapi.json");
+        var exported = System.IO.File.ReadAllText(temp);
+        System.IO.File.Delete(temp);
+        if (!string.Equals(committed, exported, System.StringComparison.Ordinal))
+        {
+            throw new CakeException(
+                "OpenAPI contract drift detected. Run `dotnet cake --target=OpenApiExport` "
+                + "and commit the regenerated contracts/openapi.json together with the "
+                + "endpoint or schema change.");
+        }
+    });
+
 Task("Check")
-    .Description("Restore + format-check + lint + test")
+    .Description("Restore + format-check + lint + openapi-check + test")
     .IsDependentOn("Restore")
     .IsDependentOn("FormatCheck")
     .IsDependentOn("Lint")
+    .IsDependentOn("OpenApiCheck")
     .IsDependentOn("Test");
 
 Task("Fix")

@@ -1,4 +1,5 @@
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.ClinicalTaxonomy;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
@@ -53,8 +54,8 @@ public sealed class FacilitiesController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FacilityDto>> CreateAsync(
         CancellationToken cancellationToken)
     {
@@ -79,9 +80,9 @@ public sealed class FacilitiesController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FacilityDto>> PatchAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -105,8 +106,8 @@ public sealed class FacilitiesController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FacilityDto>> RetireAsync(
         Guid id,
         CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
 using Cynara.Domain.Capabilities;
@@ -60,7 +61,7 @@ public sealed class PatientsController(
         + "resolved hospital workspace. Soft-deleted patients return 404.")]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PatientDto>> GetAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -83,8 +84,8 @@ public sealed class PatientsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PatientDto>> CreateAsync(
         CancellationToken cancellationToken)
     {
@@ -110,9 +111,9 @@ public sealed class PatientsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PatientDto>> PatchAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -137,8 +138,8 @@ public sealed class PatientsController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PatientDto>> SoftDeleteAsync(
         Guid id,
         CancellationToken cancellationToken)
