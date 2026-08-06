@@ -1,26 +1,34 @@
 # Cynara API
 
-Primary backend for [Cynara](https://github.com/ailuracode/cynara): a configurable clinical platform for hospitals.
+Primary backend for Cynara: a configurable clinical platform for hospitals.
 
-Built with **ASP.NET Core**. Implements the technology-neutral [clinical form schema contract](https://github.com/ailuracode/cynara/blob/main/docs/clinical-form-schema.md) defined in the `cynara` repository.
+Built with **ASP.NET Core**. Implements the technology-neutral clinical form and
+workflow schema contracts, whose meta-schemas live in
+[`src/Cynara.Infrastructure/Schemas/v1/`](src/Cynara.Infrastructure/Schemas/v1/)
+and are served by the API at `/schemas/v1/{contract}.schema.json` so every
+client validates against the same documents the API uses at runtime.
 
 ## Related repositories
 
 | Repository | Role |
 |------------|------|
-| [cynara](https://github.com/ailuracode/cynara) | Schema contract, docs, fixtures |
 | [cynara-web](https://github.com/ailuracode/cynara-web) | React frontend (primary) |
 
 ## Contract conformance
 
 Validation must pass both layers defined in the contract:
 
-1. **Structural** — JSON Schema Draft 2020-12 against `schemas/v1/*.schema.json` from `cynara`
-2. **Semantic** — rules in [`semantic-rules.md`](https://github.com/ailuracode/cynara/blob/main/docs/semantic-rules.md)
+1. **Structural** — JSON Schema Draft 2020-12 against
+   `schemas/v1/*.schema.json` from `src/Cynara.Infrastructure/Schemas/v1/`
+2. **Semantic** — the semantic rules (unique ids, cross-schema references,
+   graph connectivity for workflows) enforced by the reference validator and
+   integration tests
 
 Recommended libraries: `JsonSchema.Net` or `NJsonSchema` with `System.Text.Json`.
 
-Use the fixture suite in [`cynara/tests/fixtures/`](https://github.com/ailuracode/cynara/tree/main/tests/fixtures) as the conformance baseline.
+The contract documents are served over HTTP for external tooling:
+`GET /schemas/v1/clinical-schema.schema.json`, `ui-schema.schema.json`,
+`rules-schema.schema.json`, and `workflow-schema.schema.json`.
 
 ## Getting started
 
@@ -224,6 +232,7 @@ adapters.
 | `Components` | Reusable component definitions and versions |
 | `FormResponses` | Response drafts, completion, validation, and revisions |
 | `Audit` | Audit event writing and filtered audit queries |
+| `Schemas` | Serves the versioned clinical schema contract over HTTP |
 | `Health` | Service health endpoint |
 
 ### Feature structure

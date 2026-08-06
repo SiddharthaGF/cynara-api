@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynara.dev/schemas/v1/workflow-schema.schema.json",
+  "title": "Cynara Workflow Schema",
+  "description": "Canonical, versioned schema for describing configurable clinical workflow graphs. Defines nodes, edges, transition conditions, actor/role/discipline assignments, and entry/exit points. Technology-neutral: no runtime, language, or framework is required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "nodes", "edges"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of this meta-schema for tooling."
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Semantic version of the workflow schema contract (e.g. 1.0.0)."
+    },
+    "inputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dataCode" },
+      "description": "Read-only data context codes (e.g. clinical field codes of the forms the workflow references) that transition conditions may reference."
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" },
+      "description": "Workflow graph nodes. Semantic rules require exactly one start node and at least one end node."
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" },
+      "description": "Directed transitions between nodes. Transition conditions are allowed only on outgoing edges of decision nodes."
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "description": "Semantic version string."
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Stable identifier unique within the workflow. Lowercase kebab-case."
+    },
+    "dataCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable code referencing a data context value (e.g. a clinical field code or form code)."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "nodeDescription": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Human-readable documentation for the node."
+    },
+    "assignee": {
+      "type": "object",
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["actor"] },
+        { "required": ["role"] },
+        { "required": ["discipline"] }
+      ],
+      "description": "Who performs a task. At least one of actor, role, or discipline is required when present.",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Specific actor or automated system (e.g. 'triage-service')."
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Functional role (e.g. 'attending-physician')."
+        },
+        "discipline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Clinical discipline (e.g. 'nursing')."
+        }
+      }
+    },
+    "startNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "const": "start" },
+        "id": { "$ref": "#/$defs/nodeId" },
+        "name": { "$ref": "#/$defs/displayName" },
+        "description": { "$ref": "#/$defs/nodeDescription" }
+      }
+    },
+    "endNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "const": "end" },
+        "id": { "$ref": "#/$defs/nodeId" },
+        "name": { "$ref": "#/$defs/displayName" },
+        "description": { "$ref": "#/$defs/nodeDescription" }
+      }
+    },
+    "taskNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "const": "task" },
+        "id": { "$ref": "#/$defs/nodeId" },
+        "name": { "$ref": "#/$defs/displayName" },
+        "description": { "$ref": "#/$defs/nodeDescription" },
+        "assignee": {
+          "$ref": "#/$defs/assignee",
+          "description": "Who performs the task. Omitted for automated or externally routed tasks."
+        },
+        "formCode": {
+          "$ref": "#/$defs/dataCode",
+          "description": "Code of the form (or clinical document type) used to complete the task."
+        },
+        "formVersion": {
+          "$ref": "#/$defs/semver",
+          "description": "Pinned version of the referenced form. Required for published workflows; optional in drafts."
+        }
+      }
+    },
+    "decisionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "const": "decision" },
+        "id": { "$ref": "#/$defs/nodeId" },
+        "name": { "$ref": "#/$defs/displayName" },
+        "description": { "$ref": "#/$defs/nodeDescription" }
+      }
+    },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/startNode" },
+        { "$ref": "#/$defs/endNode" },
+        { "$ref": "#/$defs/taskNode" },
+        { "$ref": "#/$defs/decisionNode" }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/nodeId",
+          "description": "Source node id."
+        },
+        "to": {
+          "$ref": "#/$defs/nodeId",
+          "description": "Target node id."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Human-readable transition label (e.g. 'Low risk')."
+        },
+        "condition": {
+          "$ref": "#/$defs/booleanExpressionOnly",
+          "description": "Optional transition condition. Allowed on outgoing edges of decision nodes only; on a decision, at most one outgoing edge may omit it (the default branch)."
+        }
+      }
+    },
+    "literal": {
+      "description": "Literal JSON value. Use type number for numeric literals (covers integers).",
+      "anyOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ]
+    },
+    "fieldRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/dataCode",
+          "description": "Workflow input code to read at evaluation time."
+        }
+      }
+    },
+    "literalNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lit"],
+      "properties": {
+        "lit": { "$ref": "#/$defs/literal" }
+      }
+    },
+    "comparisonOp": {
+      "type": "string",
+      "enum": ["eq", "neq", "gt", "gte", "lt", "lte"]
+    },
+    "booleanOp": {
+      "type": "string",
+      "enum": ["and", "or", "not"]
+    },
+    "utilityOp": {
+      "type": "string",
+      "enum": ["empty", "coalesce"]
+    },
+    "expression": {
+      "description": "Restricted declarative expression AST node.",
+      "oneOf": [
+        { "$ref": "#/$defs/fieldRef" },
+        { "$ref": "#/$defs/literalNode" },
+        { "$ref": "#/$defs/comparisonExpression" },
+        { "$ref": "#/$defs/booleanExpression" },
+        { "$ref": "#/$defs/utilityExpression" }
+      ]
+    },
+    "comparisonExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/comparisonOp" },
+        "args": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      }
+    },
+    "booleanExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/booleanOp" },
+        "args": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "const": "not" } },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "args": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "utilityExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "args"],
+      "properties": {
+        "op": { "$ref": "#/$defs/utilityOp" },
+        "args": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "const": "empty" } },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "args": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "booleanExpressionOnly": {
+      "description": "Expression that must evaluate to boolean at runtime.",
+      "oneOf": [
+        { "$ref": "#/$defs/comparisonExpression" },
+        { "$ref": "#/$defs/booleanExpression" },
+        { "$ref": "#/$defs/utilityExpression" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/fieldRef" },
+            {
+              "not": {
+                "required": ["lit", "op"]
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/literalNode" },
+            {
+              "properties": {
+                "lit": { "type": "boolean" }
+              },
+              "required": ["lit"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

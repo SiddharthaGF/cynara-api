@@ -51,6 +51,7 @@ public sealed class HospitalCodeOperationFilter : IOperationFilter
         StringComparer.OrdinalIgnoreCase)
     {
         "/health",
+        "/schemas",
         "/swagger",
         "/scalar",
     };
