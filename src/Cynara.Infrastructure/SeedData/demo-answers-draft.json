@@ -1,0 +1,8 @@
+{
+  "patient.name": "Juan Pérez",
+  "patient.dob": "1990-11-02",
+  "patient.sex": "male",
+  "encounter.chief-complaint": "Fiebre y tos desde anoche",
+  "assessment.consciousness": "alert",
+  "history.smoker": true
+}

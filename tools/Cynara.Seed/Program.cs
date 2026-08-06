@@ -37,7 +37,7 @@ internal static class Program
                 await serviceProvider
                     .EnsureBootstrapHospitalAsync(hospitalOptions)
                     .ConfigureAwait(false);
-                await serviceProvider.SeedDemoShowcaseAsync()
+                await serviceProvider.SeedFullDatabaseAsync()
                     .ConfigureAwait(false);
             }
             finally
@@ -48,6 +48,8 @@ internal static class Program
             Console.WriteLine($"→ Seeded '{DemoShowcaseSeeder.ComponentCode}' "
                 + $"and '{DemoShowcaseSeeder.FormCode}'.");
             Console.WriteLine("→ Open: /forms/demo-showcase/designer");
+            Console.WriteLine("→ Full demo dataset: taxonomy, patients, "
+                + "encounters, documents, responses.");
             return 0;
         }
         catch (Exception exception)

@@ -1,0 +1,26 @@
+{
+  "patient.name": "María González",
+  "patient.dob": "1985-03-14",
+  "patient.sex": "female",
+  "encounter.chief-complaint": "Dolor abdominal persistente desde hace 48 horas",
+  "encounter.notes": "Paciente estable, orientada en tiempo y espacio.",
+  "encounter.onset-date": "2026-08-04",
+  "encounter.recorded-at": "2026-08-06T09:30:00Z",
+  "encounter.callback-time": "14:30",
+  "vital.bp.systolic": 120,
+  "vital.bp.diastolic": 78,
+  "vital.heart-rate": 76,
+  "vital.temperature": 36.8,
+  "body.weight.kg": 65.4,
+  "body.height.m": 1.62,
+  "assessment.consciousness": "alert",
+  "history.smoker": false,
+  "history.sex-at-intake": "female",
+  "medication.list": [
+    {
+      "medication.name": "Paracetamol",
+      "medication.dose": "500 mg",
+      "medication.route": "oral"
+    }
+  ]
+}
