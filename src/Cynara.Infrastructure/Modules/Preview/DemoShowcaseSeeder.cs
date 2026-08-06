@@ -3,8 +3,10 @@ using System.Text.Json;
 using Cynara.Application;
 using Cynara.Application.Components;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Persistence;
@@ -38,6 +40,15 @@ public static class DemoShowcaseSeeder
                 .GetRequiredService<HospitalContext>();
             hospitalContext.SetWorkspace(hospital.Id, hospital.Code, hospital.Name);
 
+            CurrentActorOverride actorOverride = scope.ServiceProvider
+                .GetRequiredService<CurrentActorOverride>();
+            actorOverride.ActorId = ActorId;
+
+            ICapabilityAssignmentService capabilities = scope.ServiceProvider
+                .GetRequiredService<ICapabilityAssignmentService>();
+            await EnsureCapabilitiesAsync(capabilities, cancellationToken)
+                .ConfigureAwait(false);
+
             IComponentQueryService componentQueries = scope.ServiceProvider
                 .GetRequiredService<IComponentQueryService>();
             IComponentLifecycleService componentLifecycle = scope.ServiceProvider
@@ -63,6 +74,25 @@ public static class DemoShowcaseSeeder
         CancellationToken cancellationToken = default)
     {
         return services.SeedDemoShowcaseAsync(cancellationToken);
+    }
+
+    private static async Task EnsureCapabilitiesAsync(
+        ICapabilityAssignmentService capabilities,
+        CancellationToken cancellationToken)
+    {
+        foreach (string capability in new[]
+        {
+            CapabilityCodes.CatalogRead,
+            CapabilityCodes.CatalogWrite,
+        })
+        {
+            _ = await capabilities
+                .GrantAsync(
+                    new GrantCapabilityRequest(ActorId, capability),
+                    ActorId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private static async Task<Hospital> ResolveHospitalAsync(

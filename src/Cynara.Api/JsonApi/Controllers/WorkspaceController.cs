@@ -1,6 +1,8 @@
 using System.Text.Json;
 
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,6 +50,7 @@ public sealed class WorkspaceController(
     /// response descriptions for concrete payloads).
     /// </remarks>
     [HttpGet(Name = "getWorkspace")]
+    [RequireCapability(CapabilityCodes.WorkspaceRead)]
     [EndpointDescription(
         "Returns the hospital workspace resolved from the "
         + "X-Hospital-Code header. The endpoint is bound to the request "
@@ -82,6 +85,7 @@ public sealed class WorkspaceController(
     /// the 400/403 response codes.
     /// </remarks>
     [HttpPatch(Name = "patchWorkspace")]
+    [RequireCapability(CapabilityCodes.WorkspaceWrite)]
     [Consumes("application/vnd.api+json")]
     [Produces("application/vnd.api+json")]
     [ProducesResponseType(typeof(HospitalWorkspaceDto), StatusCodes.Status200OK)]

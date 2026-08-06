@@ -1,4 +1,6 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.Documents;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,6 +25,7 @@ public sealed class ClinicalDocumentsController(
     /// Terminal states remain included so historical records stay readable.
     /// </summary>
     [HttpGet(Name = "listClinicalDocuments")]
+    [RequireCapability(CapabilityCodes.ClinicalDocumentsRead)]
     [EndpointDescription(
         "Lists clinical document instances for the resolved hospital "
         + "workspace. Filter by encounterId, patientId, "
@@ -49,6 +52,7 @@ public sealed class ClinicalDocumentsController(
     /// Returns the document instance matching the supplied identifier.
     /// </summary>
     [HttpGet("{id:guid}", Name = "getClinicalDocument")]
+    [RequireCapability(CapabilityCodes.ClinicalDocumentsRead)]
     [EndpointDescription(
         "Returns the clinical document matching the supplied identifier "
         + "within the resolved hospital workspace. Completed documents "
@@ -76,6 +80,7 @@ public sealed class ClinicalDocumentsController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "startClinicalDocument")]
+    [RequireCapability(CapabilityCodes.ClinicalDocumentsWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalDocumentDto), StatusCodes.Status201Created)]

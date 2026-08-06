@@ -1,5 +1,7 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.ClinicalTaxonomy;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,6 +25,7 @@ public sealed class FacilitiesController(
     /// Lists facility definitions owned by the resolved hospital workspace.
     /// </summary>
     [HttpGet(Name = "listFacilities")]
+    [RequireCapability(CapabilityCodes.CatalogRead)]
     [EndpointDescription(
         "Lists facility definitions owned by the resolved hospital workspace. "
         + "Tenant failures (missing X-Hospital-Code, unknown code, inactive "
@@ -46,6 +49,7 @@ public sealed class FacilitiesController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "createFacility")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status201Created)]
@@ -71,6 +75,7 @@ public sealed class FacilitiesController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPatch("{id:guid}", Name = "patchFacility")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status200OK)]
@@ -96,6 +101,7 @@ public sealed class FacilitiesController(
     /// for historical records.
     /// </summary>
     [HttpPost("{id:guid}/retire", Name = "retireFacility")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(FacilityDto), StatusCodes.Status200OK)]

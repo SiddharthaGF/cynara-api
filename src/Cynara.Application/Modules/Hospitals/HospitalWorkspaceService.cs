@@ -1,6 +1,8 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 
 namespace Cynara.Application.Modules.Hospitals;
 
@@ -14,12 +16,16 @@ public sealed class HospitalWorkspaceService(
     IHospitalRepository hospitals,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
-    TimeProvider timeProvider) : IHospitalWorkspaceService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IHospitalWorkspaceService
 {
     public async Task<HospitalWorkspaceDto> GetCurrentAsync(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceRead, cancellationToken)
+            .ConfigureAwait(false);
         Domain.Hospitals.Hospital hospital = await hospitals
             .FindByIdAsync(hospitalContext.HospitalId, track: false, cancellationToken)
             .ConfigureAwait(false)
@@ -35,6 +41,9 @@ public sealed class HospitalWorkspaceService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {

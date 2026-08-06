@@ -1,6 +1,8 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
 using Cynara.Infrastructure.Persistence;
 
@@ -34,6 +36,7 @@ public sealed class DocumentDefinitionResourceService(
     IDocumentCatalogService catalog,
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<DocumentDefinition, Guid>(
         repositoryAccessor,
@@ -51,6 +54,9 @@ public sealed class DocumentDefinitionResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         Guid formVersionId = resource.FormVersionId != Guid.Empty
             ? resource.FormVersionId
@@ -97,6 +103,9 @@ public sealed class DocumentDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.DocumentDefinitions
             .IgnoreQueryFilters()
@@ -120,6 +129,10 @@ public sealed class DocumentDefinitionResourceService(
     public override async Task<IReadOnlyCollection<DocumentDefinition>> GetAsync(
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         bool includeRetired = httpContextAccessor.HttpContext?.Request.Query
             .TryGetValue("includeRetired", out Microsoft.Extensions.Primitives.StringValues values) == true
             && bool.TryParse(values.ToString(), out bool parsed)
@@ -143,6 +156,11 @@ public sealed class DocumentDefinitionResourceService(
         string relationshipName,
         CancellationToken cancellationToken)
     {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
+
         if (await base.GetSecondaryAsync(
                 id,
                 relationshipName,
@@ -168,6 +186,9 @@ public sealed class DocumentDefinitionResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         UpdateDocumentDefinitionRequest updateRequest = new(
             resource.Name,

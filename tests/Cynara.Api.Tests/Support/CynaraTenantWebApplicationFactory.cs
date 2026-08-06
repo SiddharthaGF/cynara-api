@@ -9,23 +9,30 @@ namespace Cynara.Api.Tests.Support;
 
 internal sealed class CynaraTenantWebApplicationFactory(
     TestDatabaseSettings database,
-    HospitalBootstrapOptions? bootstrapOptions = null)
-    : CynaraWebApplicationFactory(database, bootstrapOptions)
+    HospitalBootstrapOptions? bootstrapOptions = null,
+    bool grantAllCapabilities = true)
+    : CynaraWebApplicationFactory(
+        database,
+        bootstrapOptions ?? DefaultPrimaryBootstrapOptions(),
+        grantAllCapabilities: grantAllCapabilities)
 {
     public const string PrimaryCode = "primary";
     public const string OtherCode = "secondary";
 
     public CynaraTenantWebApplicationFactory(TestDatabaseSettings database)
-        : this(
-            database,
-            new HospitalBootstrapOptions
-            {
-                BootstrapCode = PrimaryCode,
-                BootstrapName = "primary workspace",
-                HeaderName = "X-Hospital-Code",
-                AllowAutoBootstrap = true,
-            })
+        : this(database, bootstrapOptions: null, grantAllCapabilities: true)
     {
+    }
+
+    private static HospitalBootstrapOptions DefaultPrimaryBootstrapOptions()
+    {
+        return new HospitalBootstrapOptions
+        {
+            BootstrapCode = PrimaryCode,
+            BootstrapName = "primary workspace",
+            HeaderName = "X-Hospital-Code",
+            AllowAutoBootstrap = true,
+        };
     }
 
     public FactoryScope CreateScope()

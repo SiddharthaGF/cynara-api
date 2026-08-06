@@ -1,8 +1,10 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
@@ -18,13 +20,17 @@ public sealed partial class ClinicalTaxonomyService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IClinicalTaxonomyService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IClinicalTaxonomyService
 {
     public async Task<IReadOnlyList<FacilityDto>> ListFacilitiesAsync(
         bool includeRetired,
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         IReadOnlyList<Facility> facilities = await repository
             .ListFacilitiesAsync(
                 hospitalContext.HospitalId,
@@ -41,6 +47,9 @@ public sealed partial class ClinicalTaxonomyService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         ClinicalTaxonomyWorkflowHelpers.EnsureValidCode(request.Code, "Facility");
         if (string.IsNullOrWhiteSpace(request.Name))
         {

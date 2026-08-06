@@ -1,5 +1,7 @@
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.FormAi;
 
 using JsonApiDotNetCore.Configuration;
@@ -26,7 +28,8 @@ public sealed class AiProviderSettingsResourceService(
     IResourceChangeTracker<AiProviderSettings> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IAiProviderSettingsService settingsService,
-    IHospitalContext hospitalContext)
+    IHospitalContext hospitalContext,
+    ICapabilityGuard capabilityGuard)
     : JsonApiResourceService<AiProviderSettings, string>(
         repositoryAccessor,
         queryLayerComposer,
@@ -43,6 +46,21 @@ public sealed class AiProviderSettingsResourceService(
     {
         throw new Application.InvalidStateException(
             "AI provider settings are a singleton. PATCH id 'default' instead.");
+    }
+
+    public override async Task<IReadOnlyCollection<AiProviderSettings>> GetAsync(
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceRead, cancellationToken)
+            .ConfigureAwait(false);
+
+        return
+        [
+            await GetAsync(AiProviderSettings.DefaultId, cancellationToken)
+                .ConfigureAwait(false),
+        ];
     }
 
     public override async Task<AiProviderSettings> GetAsync(
@@ -69,6 +87,9 @@ public sealed class AiProviderSettingsResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceWrite, cancellationToken)
+            .ConfigureAwait(false);
         if (!string.Equals(id, AiProviderSettings.DefaultId, StringComparison.Ordinal))
         {
             throw new Application.NotFoundException(

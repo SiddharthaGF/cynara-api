@@ -1,10 +1,12 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Components;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Components;
 
 namespace Cynara.Application.Modules.Components;
@@ -15,7 +17,8 @@ public sealed class ComponentLifecycleService(
     IAuditWriter auditWriter,
     ISchemaValidator schemaValidator,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IComponentLifecycleService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IComponentLifecycleService
 {
     private const string DefaultClinicalSchema =
         /*lang=json,strict*/ """
@@ -38,6 +41,9 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         CodeRules.EnsureValid(request.Code, "Component");
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -101,6 +107,9 @@ public sealed class ComponentLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         schemaValidator.ValidateComponentDraft(
             request.ClinicalSchemaJson,
             request.UiSchemaJson);
@@ -141,6 +150,9 @@ public sealed class ComponentLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         ComponentDefinition definition = await ComponentWorkflowHelpers
             .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
@@ -192,6 +204,9 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         ComponentDefinition definition = await ComponentWorkflowHelpers
             .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         if (definition.Versions.Any(
@@ -245,6 +260,9 @@ public sealed class ComponentLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         SemverRules.EnsureValid(version);
         ComponentDefinition definition = await ComponentWorkflowHelpers
             .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
@@ -283,6 +301,9 @@ public sealed class ComponentLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         ComponentDefinition definition = await ComponentWorkflowHelpers
             .RequireDefinitionAsync(components, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);

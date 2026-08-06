@@ -1,9 +1,11 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 
 namespace Cynara.Application.Forms;
@@ -15,7 +17,8 @@ public sealed class FormReviewService(
     ISchemaValidator schemaValidator,
     IFormCompiler formCompiler,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IFormReviewService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IFormReviewService
 {
     public async Task<FormVersionDto> SubmitForReviewAsync(
         string code,
@@ -26,6 +29,9 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
             .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion draft = FormWorkflowHelpers.RequireDraft(definition);
@@ -77,6 +83,9 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
             .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);
@@ -115,6 +124,9 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(request.Comment))
         {
             throw new ValidationException("Review rejection comment is required.");
@@ -162,6 +174,9 @@ public sealed class FormReviewService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers
             .RequireDefinitionAsync(forms, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormVersion review = FormWorkflowHelpers.RequireReviewVersion(definition);

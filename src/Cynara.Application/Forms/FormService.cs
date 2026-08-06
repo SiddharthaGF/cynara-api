@@ -1,9 +1,11 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 
 namespace Cynara.Application.Forms;
@@ -14,7 +16,8 @@ public sealed class FormService(
     IAuditWriter auditWriter,
     ISchemaValidator schemaValidator,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IFormService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IFormService
 {
     private const string DefaultClinicalSchema =
         /*lang=json,strict*/ """
@@ -35,6 +38,9 @@ public sealed class FormService(
         ArgumentNullException.ThrowIfNull(request);
         CodeRules.EnsureValid(request.Code, "Form");
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -85,6 +91,9 @@ public sealed class FormService(
     public async Task<IReadOnlyList<FormSummaryDto>> ListAsync(CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         IReadOnlyList<FormDefinition> items = await forms
             .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
             .ConfigureAwait(false);
@@ -95,6 +104,9 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
@@ -108,6 +120,9 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
@@ -123,6 +138,9 @@ public sealed class FormService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         SemverRules.EnsureValid(version);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
@@ -145,6 +163,9 @@ public sealed class FormService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         schemaValidator.ValidateFormDraft(request.ClinicalSchemaJson, request.UiSchemaJson, request.RulesSchemaJson);
 
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
@@ -176,6 +197,9 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,
@@ -226,6 +250,9 @@ public sealed class FormService(
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(version);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         SemverRules.EnsureValid(version);
 
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
@@ -263,6 +290,9 @@ public sealed class FormService(
     {
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormDefinition definition = await FormWorkflowHelpers.RequireDefinitionAsync(
             forms,
             code,

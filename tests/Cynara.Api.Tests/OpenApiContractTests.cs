@@ -118,6 +118,22 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.False(
             string.IsNullOrWhiteSpace(byIdHead.GetProperty("summary").GetString()));
         Assert.True(byId.TryGetProperty("patch", out _));
+
+        Assert.True(
+            paths.TryGetProperty("/api/me/capabilities", out JsonElement myCaps));
+        Assert.True(myCaps.TryGetProperty("get", out _));
+
+        Assert.True(
+            paths.TryGetProperty("/api/capabilities", out JsonElement caps));
+        Assert.True(caps.TryGetProperty("get", out _));
+        Assert.True(caps.TryGetProperty("post", out _));
+        Assert.True(
+            paths.TryGetProperty(
+                "/api/capabilities/{actorId}/{capability}",
+                out JsonElement capsByKey));
+        Assert.True(capsByKey.TryGetProperty("delete", out _));
+
+        Assert.Contains("Capabilities", tagNames);
     }
 
     [Fact]

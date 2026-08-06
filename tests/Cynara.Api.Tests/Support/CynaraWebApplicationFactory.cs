@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Api.Hosting;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Persistence;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Cynara.Api.Tests.Support;
@@ -16,7 +18,8 @@ namespace Cynara.Api.Tests.Support;
 internal class CynaraWebApplicationFactory(
     TestDatabaseSettings database,
     HospitalBootstrapOptions? bootstrapOptions = null,
-    bool emulateRenderProxy = false)
+    bool emulateRenderProxy = false,
+    bool grantAllCapabilities = true)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
@@ -40,6 +43,18 @@ internal class CynaraWebApplicationFactory(
     {
         _ = builder.UseEnvironment("Development");
         _ = builder.UseCynaraTestDatabase(database);
+
+        if (grantAllCapabilities)
+        {
+            _ = builder.ConfigureServices(services =>
+            {
+                services.Replace(ServiceDescriptor.Scoped<
+                    IEffectiveCapabilityResolver,
+                    GrantAllCapabilityResolver>());
+                services.Replace(ServiceDescriptor.Scoped<
+                    ICapabilityGuard>(_ => new FakeCapabilityGuard()));
+            });
+        }
     }
 
     protected override IHost CreateHost(IHostBuilder builder)

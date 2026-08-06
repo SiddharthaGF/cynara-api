@@ -1,7 +1,9 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Components;
 using Cynara.Infrastructure.Persistence;
 
@@ -31,6 +33,7 @@ public sealed class ComponentDefinitionResourceService(
     IComponentLifecycleService lifecycle,
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<ComponentDefinition, Guid>(
         repositoryAccessor,
@@ -48,6 +51,9 @@ public sealed class ComponentDefinitionResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         string clinical = string.IsNullOrWhiteSpace(
             resource.InitialClinicalSchemaJson)
@@ -88,6 +94,9 @@ public sealed class ComponentDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.ComponentDefinitions
             .IgnoreQueryFilters()
@@ -105,5 +114,20 @@ public sealed class ComponentDefinitionResourceService(
         }
 
         return await base.GetAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    public override async Task<IReadOnlyCollection<ComponentDefinition>> GetAsync(
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
+
+        IReadOnlyCollection<ComponentDefinition> definitions = await base
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return [.. definitions.Where(
+            item => item.HospitalId == hospitalContext.HospitalId)];
     }
 }

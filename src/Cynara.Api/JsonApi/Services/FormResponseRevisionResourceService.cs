@@ -1,4 +1,6 @@
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -28,6 +30,7 @@ public sealed class FormResponseRevisionResourceService(
     IResourceChangeTracker<FormResponseRevision> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IHospitalContext hospitalContext,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<FormResponseRevision, Guid>(
         repositoryAccessor,
@@ -69,6 +72,9 @@ public sealed class FormResponseRevisionResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.FormResponseRevisions
             .AsNoTracking()
@@ -92,6 +98,9 @@ public sealed class FormResponseRevisionResourceService(
         GetAsync(CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesRead, cancellationToken)
+            .ConfigureAwait(false);
 
         IReadOnlyCollection<FormResponseRevision> revisions = await base
             .GetAsync(cancellationToken)

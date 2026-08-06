@@ -1,5 +1,7 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,6 +27,7 @@ public sealed class PatientsController(
     /// <c>includeDeleted=true</c> is supplied.
     /// </summary>
     [HttpGet(Name = "searchPatients")]
+    [RequireCapability(CapabilityCodes.PatientsRead)]
     [EndpointDescription(
         "Searches the patient roster for the resolved hospital workspace. "
         + "Tenant failures (missing X-Hospital-Code, unknown code, inactive "
@@ -51,6 +54,7 @@ public sealed class PatientsController(
 
     /// <summary>Returns the patient matching the supplied identifier.</summary>
     [HttpGet("{id:guid}", Name = "getPatient")]
+    [RequireCapability(CapabilityCodes.PatientsRead)]
     [EndpointDescription(
         "Returns the patient matching the supplied identifier within the "
         + "resolved hospital workspace. Soft-deleted patients return 404.")]
@@ -75,6 +79,7 @@ public sealed class PatientsController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "createPatient")]
+    [RequireCapability(CapabilityCodes.PatientsWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status201Created)]
@@ -101,6 +106,7 @@ public sealed class PatientsController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPatch("{id:guid}", Name = "patchPatient")]
+    [RequireCapability(CapabilityCodes.PatientsWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]
@@ -127,6 +133,7 @@ public sealed class PatientsController(
     /// form responses and audit continuity.
     /// </summary>
     [HttpPost("{id:guid}/soft-delete", Name = "softDeletePatient")]
+    [RequireCapability(CapabilityCodes.PatientsWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status200OK)]

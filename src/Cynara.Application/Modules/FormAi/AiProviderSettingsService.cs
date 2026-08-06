@@ -1,5 +1,7 @@
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.FormAi;
 
 namespace Cynara.Application.Modules.FormAi;
@@ -9,7 +11,8 @@ public sealed class AiProviderSettingsService(
     IOpenAiConfiguration environmentConfiguration,
     IUnitOfWork unitOfWork,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IAiProviderSettingsService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IAiProviderSettingsService
 {
     private static readonly string DefaultOpenAiBaseUrl =
         HttpsApi("api.openai.com", "v1");
@@ -40,6 +43,9 @@ public sealed class AiProviderSettingsService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceRead, cancellationToken)
+            .ConfigureAwait(false);
         AiProviderSettings? row = await repository
             .GetAsync(hospitalContext.HospitalId, cancellationToken)
             .ConfigureAwait(false);
@@ -56,6 +62,9 @@ public sealed class AiProviderSettingsService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceRead, cancellationToken)
+            .ConfigureAwait(false);
         AiProviderSettings? row = await repository
             .GetAsync(hospitalContext.HospitalId, cancellationToken)
             .ConfigureAwait(false);
@@ -91,6 +100,9 @@ public sealed class AiProviderSettingsService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkspaceWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         AiProviderSettings? existing = await repository
             .GetAsync(hospitalContext.HospitalId, cancellationToken)

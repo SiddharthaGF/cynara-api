@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 
 using Cynara.Api.Tests.Documents.UnitTests.Fakes;
+using Cynara.Api.Tests.Support;
 
 using Cynara.Application;
 using Cynara.Application.Common;
@@ -691,7 +692,8 @@ public sealed class DocumentCatalogServiceTests
                 unitOfWork,
                 auditWriter,
                 hospitalContext,
-                timeProvider);
+                timeProvider,
+                new FakeCapabilityGuard());
         }
 
         public FakeDocumentCatalogRepository Repository { get; }

@@ -1,10 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.Common.ActorContext;
 using Cynara.Api.JsonApi;
 using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Api.JsonApi.Services;
 using Cynara.Application;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Persistence;
 
@@ -50,9 +53,13 @@ internal static class ServiceCollectionExtensions
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
             .AddSingleton(TimeProvider.System)
-            .AddHttpContextAccessor();
+            .AddHttpContextAccessor()
+            .AddScoped<ICurrentActor, CurrentActor>();
 
-        _ = services.AddControllers();
+        _ = services.AddControllers(options =>
+        {
+            _ = options.Filters.Add<CapabilityAuthorizationFilter>();
+        });
 
         services = services
             .AddJsonApi<CynaraDbContext>(
@@ -88,13 +95,18 @@ internal static class ServiceCollectionExtensions
                     Description =
                         "JSON:API contract for Cynara clinical form "
                         + "lifecycle, responses, components, patients, "
-                        + "encounters, clinical taxonomy, audit, and "
-                        + "AI provider settings. Send `X-Actor-Id` on "
-                        + "mutating requests for audit attribution and "
-                        + "`X-Hospital-Code` on every request to select "
-                        + "the hospital workspace. The tenant context is "
-                        + "resolved by the API host and cannot be "
-                        + "overridden by client-supplied identifiers. "
+                        + "encounters, clinical taxonomy, audit, capability "
+                        + "assignment, and AI provider settings. Send "
+                        + "`X-Actor-Id` on every request: it is the actor "
+                        + "identity for both audit attribution and capability "
+                        + "resolution. Send `X-Hospital-Code` on every "
+                        + "request to select the hospital workspace; the "
+                        + "tenant context is resolved by the API host and "
+                        + "cannot be overridden by client-supplied "
+                        + "identifiers. Stage 2 protected endpoints require "
+                        + "a capability the actor holds in the resolved "
+                        + "hospital; denied requests return 403 and never "
+                        + "reveal whether the protected resource exists. "
                         + "Media type: application/vnd.api+json. Workflow "
                         + "actions use rowVersion query parameters. "
                         + "Form AI status/chat use application/json; "
@@ -105,8 +117,11 @@ internal static class ServiceCollectionExtensions
                 new OpenApiSecurityScheme
                 {
                     Description =
-                        "Optional actor identity for audit attribution. "
-                        + "Not an authentication gate in this maquette.",
+                        "Actor identity used for both audit attribution and "
+                        + "capability resolution. Protected endpoints require "
+                        + "the actor to hold the needed capability in the "
+                        + "resolved hospital; missing or ungranted actors "
+                        + "receive 403.",
                     Name = "X-Actor-Id",
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,

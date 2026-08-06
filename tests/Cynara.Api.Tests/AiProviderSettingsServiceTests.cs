@@ -1,3 +1,5 @@
+using Cynara.Api.Tests.Support;
+
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormAi.Persistence;
 using Cynara.Application.Modules.Hospitals;
@@ -45,7 +47,8 @@ public sealed class AiProviderSettingsServiceTests
             environment,
             new StubUnitOfWork(),
             hospitalContext,
-            TimeProvider.System);
+            TimeProvider.System,
+            new FakeCapabilityGuard());
 
         OpenAiConfig config = await service.ResolveActiveConfigAsync(CancellationToken.None);
 

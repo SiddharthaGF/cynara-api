@@ -1,5 +1,7 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.Documents;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
 
 using JsonApiDotNetCore.Configuration;
@@ -32,6 +34,7 @@ public sealed class DocumentDefinitionsController(
     /// remain resolvable.
     /// </summary>
     [HttpPost("{id:guid}/retire")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [EndpointDescription(
         "Retires a document catalog entry. Pass rowVersion as a query "
         + "parameter for optimistic concurrency.")]

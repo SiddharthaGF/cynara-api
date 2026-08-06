@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application;
 using Cynara.Application.Failures;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 
 using Microsoft.AspNetCore.Diagnostics;
@@ -24,6 +25,18 @@ internal static class ExceptionHandlingExtensions
 
                 if (error is CynaraException cynaraException)
                 {
+                    if (error is CapabilityForbiddenException forbidden)
+                    {
+                        await context.RequestServices
+                            .GetRequiredService<IDeniedAccessAuditor>()
+                            .RecordAsync(
+                                forbidden.Capability,
+                                forbidden.ActorId,
+                                context.Request.Path,
+                                context.RequestAborted)
+                            .ConfigureAwait(false);
+                    }
+
                     IResult result = ProblemDetailsMapping.FromException(
                         cynaraException);
                     await result.ExecuteAsync(context).ConfigureAwait(false);

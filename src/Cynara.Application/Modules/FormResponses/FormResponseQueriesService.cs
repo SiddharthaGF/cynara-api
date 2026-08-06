@@ -1,13 +1,16 @@
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormResponses.Persistence;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 
 namespace Cynara.Application.Modules.FormResponses;
 
 public sealed class FormResponseQueriesService(
     IFormResponseRepository responses,
-    IHospitalContext hospitalContext) : IFormResponseQueryService
+    IHospitalContext hospitalContext,
+    ICapabilityGuard capabilityGuard) : IFormResponseQueryService
 {
     public async Task<FormResponseDto> GetAsync(
         Guid id,
@@ -15,6 +18,9 @@ public sealed class FormResponseQueriesService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesRead, cancellationToken)
+            .ConfigureAwait(false);
         FormResponse response = await FormResponseWorkflowHelpers
             .RequireResponseAsync(
                 responses,
@@ -31,6 +37,9 @@ public sealed class FormResponseQueriesService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesRead, cancellationToken)
+            .ConfigureAwait(false);
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,
@@ -50,6 +59,9 @@ public sealed class FormResponseQueriesService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesRead, cancellationToken)
+            .ConfigureAwait(false);
         _ = await FormResponseWorkflowHelpers.RequireResponseAsync(
             responses,
             id,

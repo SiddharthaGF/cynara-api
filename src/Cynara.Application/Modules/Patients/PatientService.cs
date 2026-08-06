@@ -1,8 +1,10 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients.Persistence;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Patients;
 
 namespace Cynara.Application.Modules.Patients;
@@ -21,7 +23,8 @@ public sealed class PatientService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IPatientService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IPatientService
 {
     /// <inheritdoc />
     public async Task<PatientDto> CreateAsync(
@@ -31,6 +34,9 @@ public sealed class PatientService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.PatientsWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         PatientWorkflowHelpers.EnsureValidMrn(request.Mrn);
         PatientWorkflowHelpers.EnsureValidNationalId(request.NationalId);
@@ -103,6 +109,9 @@ public sealed class PatientService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.PatientsRead, cancellationToken)
+            .ConfigureAwait(false);
         Patient patient = await repository
             .FindByIdAsync(hospitalContext.HospitalId, id, track: false, cancellationToken)
             .ConfigureAwait(false)
@@ -123,6 +132,9 @@ public sealed class PatientService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.PatientsRead, cancellationToken)
+            .ConfigureAwait(false);
 
         int page = request.Page < 1 ? 1 : request.Page;
         int pageSize = request.PageSize < 1
@@ -163,6 +175,9 @@ public sealed class PatientService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.PatientsWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         PatientWorkflowHelpers.EnsureValidNationalId(request.NationalId);
         PatientWorkflowHelpers.EnsureValidName(request.GivenName, "given name");
@@ -219,6 +234,9 @@ public sealed class PatientService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.PatientsWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         Patient patient = await repository
             .FindByIdAsync(hospitalContext.HospitalId, id, track: true, cancellationToken)
