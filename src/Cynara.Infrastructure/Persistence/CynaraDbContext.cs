@@ -10,6 +10,7 @@ using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
 using Cynara.Domain.Hospitals;
 using Cynara.Domain.Patients;
+using Cynara.Domain.Workflows;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -53,6 +54,10 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<Encounter> Encounters => Set<Encounter>();
 
     public DbSet<CapabilityAssignment> CapabilityAssignments => Set<CapabilityAssignment>();
+
+    public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
+
+    public DbSet<WorkflowVersion> WorkflowVersions => Set<WorkflowVersion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

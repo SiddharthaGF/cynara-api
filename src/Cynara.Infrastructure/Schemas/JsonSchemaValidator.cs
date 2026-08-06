@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Cynara.Application;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Workflows;
 using Cynara.Application.Schemas;
 
 using Json.Schema;
@@ -13,6 +14,7 @@ public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValida
     private readonly JsonSchema clinicalSchema = JsonSchema.FromFile(options.ClinicalSchemaPath);
     private readonly JsonSchema uiSchema = JsonSchema.FromFile(options.UiSchemaPath);
     private readonly JsonSchema rulesSchema = JsonSchema.FromFile(options.RulesSchemaPath);
+    private readonly JsonSchema workflowSchema = JsonSchema.FromFile(options.WorkflowSchemaPath);
 
     public void ValidateComponentDraft(string clinicalSchemaJson, string? uiSchemaJson)
     {
@@ -22,6 +24,16 @@ public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValida
     public void ValidateFormDraft(string clinicalSchemaJson, string? uiSchemaJson, string? rulesSchemaJson = null)
     {
         ValidateDraft(clinicalSchemaJson, uiSchemaJson, rulesSchemaJson);
+    }
+
+    public void ValidateWorkflowDraft(string workflowSchemaJson)
+    {
+        ValidateWorkflow(workflowSchemaJson, published: false);
+    }
+
+    public void ValidateWorkflowForPublish(string workflowSchemaJson)
+    {
+        ValidateWorkflow(workflowSchemaJson, published: true);
     }
 
     private static void ValidateJson(JsonSchema schema, string json, string label)
@@ -82,6 +94,12 @@ public sealed class JsonSchemaValidator(SchemaFilePaths options) : ISchemaValida
             ValidateJson(rulesSchema, rulesSchemaJson, "rules schema");
             FormRuleAnalyzer.ValidateDependencies(clinicalSchemaJson, rulesSchemaJson);
         }
+    }
+
+    private void ValidateWorkflow(string workflowSchemaJson, bool published)
+    {
+        ValidateJson(workflowSchema, workflowSchemaJson, "workflow schema");
+        WorkflowSemanticValidator.Validate(workflowSchemaJson, published);
     }
 }
 
