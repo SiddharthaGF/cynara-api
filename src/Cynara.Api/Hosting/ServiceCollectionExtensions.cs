@@ -57,10 +57,8 @@ internal static class ServiceCollectionExtensions
             .AddHttpContextAccessor()
             .AddScoped<ICurrentActor, CurrentActor>();
 
-        _ = services.AddControllers(options =>
-        {
-            _ = options.Filters.Add<CapabilityAuthorizationFilter>();
-        });
+        _ = services.AddControllers(
+            options => options.Filters.Add<CapabilityAuthorizationFilter>());
 
         services = AddCynaraCapabilityAuthorization(services);
 

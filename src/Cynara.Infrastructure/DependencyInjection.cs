@@ -28,9 +28,11 @@ namespace Cynara.Infrastructure;
 
 public static partial class InfrastructureServiceCollectionExtensions
 {
-    // Provisioned only when baselining a legacy database that predates the
-    // capabilities feature; keep this DDL aligned with the InitialCreate
-    // migration so future schema changes apply cleanly.
+    /// <summary>
+    /// Provisioned only when baselining a legacy database that predates the
+    /// capabilities feature; keep this DDL aligned with the InitialCreate
+    /// migration so future schema changes apply cleanly.
+    /// </summary>
     private const string CapabilityAssignmentsTableSql = """
         CREATE TABLE IF NOT EXISTS "capability_assignments" (
             "Id" uuid NOT NULL,
