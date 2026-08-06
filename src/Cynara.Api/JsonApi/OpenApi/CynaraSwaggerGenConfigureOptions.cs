@@ -43,6 +43,10 @@ internal sealed class CynaraSwaggerGenConfigureOptions
         options.OperationFilter<ActorIdOperationFilter>();
         options.OperationFilter<HospitalCodeOperationFilter>();
         options.OperationFilter<WorkspaceOperationFilter>();
+        options.OperationFilter<JsonApiErrorResponseFilter>();
+        options.OperationFilter<FormAiStreamOperationFilter>();
         options.SchemaFilter<WorkspaceSchemaFilter>();
+        options.SchemaFilter<CynaraEnumSchemaFilter>();
+        options.SchemaFilter<ReadOnlyIdSchemaFilter>();
     }
 }

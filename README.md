@@ -43,6 +43,31 @@ The HTTP contract is **JSON:API** (`application/vnd.api+json`) via
 publish/review/complete remain custom routes on those resources. Sample
 requests live in [`http/cynara.http`](http/cynara.http).
 
+## OpenAPI contract
+
+The OpenAPI 3.0 document is generated deterministically from source and
+committed at [`contracts/openapi.json`](contracts/openapi.json). Client
+generators consume the committed artifact, so the contract is reviewable in
+pull requests and CI fails on unintended drift.
+
+Regenerate it after any endpoint or schema change:
+
+```bash
+dotnet cake --target=OpenApiExport   # writes contracts/openapi.json
+dotnet cake --target=OpenApiCheck    # fails if a fresh export differs from the committed file
+```
+
+`OpenApiCheck` runs as part of `dotnet cake --target=Check`. The snapshot
+suite (`tests/Cynara.Api.Tests/OpenApiSnapshotTests.cs`) regenerates the
+document in-process and compares it byte-for-byte against the committed file,
+verifies output is deterministic across runs, and validates the document under
+the OpenAPI 3.0 rule set. `OpenApiContractTests` keeps an inventory of the
+Stage 2 route map (every path/method, documented status codes, and supported
+media types: `application/vnd.api+json`, `application/json`,
+`text/event-stream`).
+
+`cynara-web` (CYN-56) generates its client from `contracts/openapi.json`.
+
 ### Notable libraries
 
 | Library | Role |
@@ -99,10 +124,12 @@ dotnet cake --target=Format        # write formatting changes
 dotnet cake --target=FormatCheck   # verify only (--verify-no-changes)
 dotnet cake --target=Lint          # dotnet build --no-restore -warnaserror
 dotnet cake --target=Test          # PostgreSQL suite via Testcontainers (needs Docker; excludes Category=E2E)
-dotnet cake --target=Check         # restore + format-check + lint + test
+dotnet cake --target=Check         # restore + format-check + lint + openapi-check + test
 dotnet cake --target=Fix           # format + apply safe analyzer fixes
 dotnet cake --target=Sonar         # local SonarQube Community Build analysis
 dotnet cake --target=Seed          # seed demo showcase into configured DB (no HTTP)
+dotnet cake --target=OpenApiExport # regenerate contracts/openapi.json from source
+dotnet cake --target=OpenApiCheck  # fail if the committed contract is stale
 ```
 
 Para correr la API localmente usa `dotnet run --project src/Cynara.Api` (ver "Getting started").
@@ -270,6 +297,8 @@ src/Cynara.Domain/               Entities and domain status models
 src/Cynara.Infrastructure/      EF Core, repositories, schemas, SeedData
 tests/Cynara.Api.Tests/         Integration and workflow tests
 tools/Cynara.Seed/              In-process demo showcase seeder CLI
+tools/Cynara.OpenApiExport/     In-process OpenAPI exporter CLI (writes contracts/openapi.json)
+contracts/openapi.json          Committed OpenAPI 3.0 contract (client-generation source)
 docker/                         Compose stacks, API Dockerfile, Postgres init SQL
   ├─ Dockerfile                  Cynara API image
   ├─ stack.yml                   Shared Postgres + pgAdmin

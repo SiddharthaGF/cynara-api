@@ -90,6 +90,11 @@ dotnet_diagnostic.MA0051.severity = none
 dotnet_diagnostic.MA0036.severity = none
 dotnet_diagnostic.CA1052.severity = none
 
+# await using cannot express ConfigureAwait(false), and RCS1261 requires
+# await using for IAsyncDisposable resources in async methods.
+[src/Cynara.Api/JsonApi/OpenApi/OpenApiDocumentExporter.cs]
+dotnet_diagnostic.MA0004.severity = none
+
 [tests/**/*.cs]
 dotnet_style_require_accessibility_modifiers = omit_if_default:silent
 dotnet_diagnostic.IDE0008.severity = none

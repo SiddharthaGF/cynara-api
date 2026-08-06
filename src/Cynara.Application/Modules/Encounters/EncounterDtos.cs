@@ -1,3 +1,5 @@
+using Cynara.Application.OpenApi;
+
 namespace Cynara.Application.Modules.Encounters;
 
 /// <summary>
@@ -25,8 +27,10 @@ public sealed record EncounterDto(
     Guid PatientId,
     Guid FacilityId,
     Guid ClinicalAreaId,
+    [property: OpenApiEnumValues("ambulatory", "emergency", "inpatient", "observation", "virtual")]
     string Type,
     string ResponsibleProfessionalId,
+    [property: OpenApiEnumValues("open", "completed", "canceled", "enteredInError")]
     string Status,
     DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt,

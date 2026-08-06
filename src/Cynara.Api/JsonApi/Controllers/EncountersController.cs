@@ -1,4 +1,5 @@
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.Encounters;
 using Cynara.Domain.Capabilities;
 
@@ -55,7 +56,7 @@ public sealed class EncountersController(
         + "resolved hospital workspace. Terminal states remain queryable.")]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EncounterDto>> GetAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -78,9 +79,9 @@ public sealed class EncountersController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EncounterDto>> CreateAsync(
         CancellationToken cancellationToken)
     {
@@ -100,9 +101,9 @@ public sealed class EncountersController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EncounterDto>> CompleteAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -121,9 +122,9 @@ public sealed class EncountersController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EncounterDto>> CancelAsync(
         Guid id,
         CancellationToken cancellationToken)
@@ -145,9 +146,9 @@ public sealed class EncountersController(
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(JsonApiErrorDocument), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EncounterDto>> EnterInErrorAsync(
         Guid id,
         CancellationToken cancellationToken)

@@ -1,3 +1,5 @@
+using Cynara.Application.OpenApi;
+
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
 
 /// <summary>
@@ -23,6 +25,7 @@ public sealed record FacilityDto(
     Guid Id,
     string Code,
     string Name,
+    [property: OpenApiEnumValues("active", "retired")]
     string Status,
     uint RowVersion,
     DateTimeOffset? RetiredAt,
@@ -69,6 +72,7 @@ public sealed record ClinicalAreaDto(
     string Code,
     string Name,
     Guid FacilityId,
+    [property: OpenApiEnumValues("active", "retired")]
     string Status,
     uint RowVersion,
     DateTimeOffset? RetiredAt,
@@ -116,6 +120,7 @@ public sealed record DisciplineDto(
     string Code,
     string Name,
     Guid ClinicalAreaId,
+    [property: OpenApiEnumValues("active", "retired")]
     string Status,
     uint RowVersion,
     DateTimeOffset? RetiredAt,
