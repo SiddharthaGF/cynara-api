@@ -4,7 +4,6 @@ using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.Forms.Persistence;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
@@ -26,20 +25,19 @@ public sealed class DocumentCatalogService(
     IClinicalTaxonomyRepository taxonomy,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
-    IHospitalContext hospitalContext,
-    TimeProvider timeProvider,
+    IWorkflowContext context,
     ICapabilityGuard capabilityGuard) : IDocumentCatalogService
 {
     public async Task<IReadOnlyList<DocumentDefinitionDto>> ListAsync(
         bool includeRetired,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogRead, cancellationToken)
             .ConfigureAwait(false);
         IReadOnlyList<DocumentDefinition> entries = await repository
-            .ListAsync(hospitalContext.HospitalId, includeRetired, cancellationToken)
+            .ListAsync(context.HospitalId, includeRetired, cancellationToken)
             .ConfigureAwait(false);
         return [.. entries.Select(DocumentCatalogMappers.ToDto)];
     }
@@ -50,7 +48,7 @@ public sealed class DocumentCatalogService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
@@ -66,7 +64,7 @@ public sealed class DocumentCatalogService(
 
         Domain.ClinicalTaxonomy.Facility facility = await taxonomy
             .FindFacilityByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 request.FacilityId,
                 track: false,
                 cancellationToken)
@@ -76,7 +74,7 @@ public sealed class DocumentCatalogService(
 
         Domain.ClinicalTaxonomy.ClinicalArea clinicalArea = await taxonomy
             .FindClinicalAreaByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 request.ClinicalAreaId,
                 track: false,
                 cancellationToken)
@@ -93,7 +91,7 @@ public sealed class DocumentCatalogService(
 
         Domain.ClinicalTaxonomy.Discipline discipline = await taxonomy
             .FindDisciplineByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 request.DisciplineId,
                 track: false,
                 cancellationToken)
@@ -109,7 +107,7 @@ public sealed class DocumentCatalogService(
         }
 
         if (await repository.CodeExistsAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 request.Code,
                 cancellationToken)
             .ConfigureAwait(false))
@@ -118,11 +116,11 @@ public sealed class DocumentCatalogService(
                 $"Document definition '{request.Code}' already exists.");
         }
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         DocumentDefinition documentDefinition = new()
         {
             Id = Guid.NewGuid(),
-            HospitalId = hospitalContext.HospitalId,
+            HospitalId = context.HospitalId,
             Code = request.Code.Trim(),
             Name = request.Name.Trim(),
             Status = DocumentDefinitionStatus.Active,
@@ -166,7 +164,7 @@ public sealed class DocumentCatalogService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
@@ -177,7 +175,7 @@ public sealed class DocumentCatalogService(
         }
 
         DocumentDefinition documentDefinition = await repository
-            .FindByIdAsync(hospitalContext.HospitalId, id, track: true, cancellationToken)
+            .FindByIdAsync(context.HospitalId, id, track: true, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(
                 $"Document definition '{id}' was not found.");
@@ -191,7 +189,7 @@ public sealed class DocumentCatalogService(
             "Document definition",
             documentDefinition.Code);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         documentDefinition.Name = request.Name.Trim();
         documentDefinition.AllowsMultipleInstancesPerEncounter =
             request.AllowsMultipleInstancesPerEncounter;
@@ -224,13 +222,13 @@ public sealed class DocumentCatalogService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.CatalogWrite, cancellationToken)
             .ConfigureAwait(false);
 
         DocumentDefinition documentDefinition = await repository
-            .FindByIdAsync(hospitalContext.HospitalId, id, track: true, cancellationToken)
+            .FindByIdAsync(context.HospitalId, id, track: true, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(
                 $"Document definition '{id}' was not found.");
@@ -244,7 +242,7 @@ public sealed class DocumentCatalogService(
             "Document definition",
             documentDefinition.Code);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         documentDefinition.Status = DocumentDefinitionStatus.Retired;
         documentDefinition.RetiredAt = now;
         documentDefinition.UpdatedAt = now;
@@ -273,7 +271,7 @@ public sealed class DocumentCatalogService(
         CancellationToken cancellationToken)
     {
         List<FormDefinition> definitions = [.. await forms
-            .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
+            .ListDefinitionsAsync(context.HospitalId, cancellationToken)
             .ConfigureAwait(false)];
 
         FormVersion? formVersion = definitions

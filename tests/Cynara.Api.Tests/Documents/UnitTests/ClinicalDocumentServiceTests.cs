@@ -708,8 +708,7 @@ public sealed class ClinicalDocumentServiceTests
                     responses, new FakeFormResponseValidator()),
                 unitOfWork,
                 auditWriter,
-                hospitalContext,
-                timeProvider,
+                new FakeWorkflowContext(hospitalContext, timeProvider),
                 new FakeCapabilityGuard());
         }
 

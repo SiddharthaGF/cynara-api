@@ -3,7 +3,6 @@ using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Encounters.Persistence;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
@@ -25,8 +24,7 @@ public sealed class EncounterService(
     IClinicalTaxonomyRepository taxonomy,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
-    IHospitalContext hospitalContext,
-    TimeProvider timeProvider,
+    IWorkflowContext context,
     ICapabilityGuard capabilityGuard) : IEncounterService
 {
     /// <inheritdoc />
@@ -36,7 +34,7 @@ public sealed class EncounterService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.EncountersWrite, cancellationToken)
             .ConfigureAwait(false);
@@ -55,12 +53,12 @@ public sealed class EncounterService(
                 request.ClinicalAreaId, request.FacilityId, cancellationToken)
             .ConfigureAwait(false);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         DateTimeOffset startedAt = request.StartedAt ?? now;
         Encounter encounter = new()
         {
             Id = Guid.NewGuid(),
-            HospitalId = hospitalContext.HospitalId,
+            HospitalId = context.HospitalId,
             PatientId = patient.Id,
             FacilityId = facility.Id,
             ClinicalAreaId = clinicalArea.Id,
@@ -100,13 +98,13 @@ public sealed class EncounterService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.EncountersRead, cancellationToken)
             .ConfigureAwait(false);
         Encounter encounter = await encounters
             .FindByIdAsync(
-                hospitalContext.HospitalId, id, track: false, cancellationToken)
+                context.HospitalId, id, track: false, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException($"Encounter '{id}' was not found.");
         return EncounterMappers.ToDto(encounter);
@@ -118,7 +116,7 @@ public sealed class EncounterService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.EncountersRead, cancellationToken)
             .ConfigureAwait(false);
@@ -130,7 +128,7 @@ public sealed class EncounterService(
             EncounterWorkflowHelpers.ParseStatusOrNull(request.Status));
 
         IReadOnlyList<Encounter> matches = await encounters
-            .ListAsync(hospitalContext.HospitalId, criteria, cancellationToken)
+            .ListAsync(context.HospitalId, criteria, cancellationToken)
             .ConfigureAwait(false);
         return [.. matches.Select(EncounterMappers.ToDto)];
     }
@@ -201,18 +199,18 @@ public sealed class EncounterService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
 
         Encounter encounter = await encounters
             .FindByIdAsync(
-                hospitalContext.HospitalId, id, track: true, cancellationToken)
+                context.HospitalId, id, track: true, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException($"Encounter '{id}' was not found.");
 
         EncounterWorkflowHelpers.EnsureConcurrency(
             encounter.RowVersion, request.RowVersion);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         DateTimeOffset endedAt = request.EndedAt ?? now;
         EncounterWorkflowHelpers.EnsureEndedAtNotBeforeStart(
             encounter.StartedAt, endedAt);
@@ -246,7 +244,7 @@ public sealed class EncounterService(
     {
         Patient patient = await patients
             .FindByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 patientId,
                 track: false,
                 cancellationToken)
@@ -270,7 +268,7 @@ public sealed class EncounterService(
     {
         Facility facility = await taxonomy
             .FindFacilityByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 facilityId,
                 track: false,
                 cancellationToken)
@@ -295,7 +293,7 @@ public sealed class EncounterService(
     {
         ClinicalArea clinicalArea = await taxonomy
             .FindClinicalAreaByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 clinicalAreaId,
                 track: false,
                 cancellationToken)

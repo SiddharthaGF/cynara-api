@@ -4,7 +4,6 @@ using Cynara.Application.Forms;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.FormResponses;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
@@ -30,8 +29,7 @@ public sealed class ClinicalDocumentService(
     IClinicalDocumentResponseStage responses,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
-    IHospitalContext hospitalContext,
-    TimeProvider timeProvider,
+    IWorkflowContext context,
     ICapabilityGuard capabilityGuard) : IClinicalDocumentService
 {
     public async Task<ClinicalDocumentDto> StartAsync(
@@ -40,11 +38,11 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
-        Guid hospitalId = hospitalContext.HospitalId;
+        Guid hospitalId = context.HospitalId;
 
         ClinicalDocumentWorkflowHelpers.EnsureValidAuthorId(actorId);
         DocumentDefinition definition = await references
@@ -81,7 +79,7 @@ public sealed class ClinicalDocumentService(
                 + $"'{encounter.Id}'.");
         }
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         var response = new FormResponse
         {
             Id = Guid.NewGuid(),
@@ -139,13 +137,13 @@ public sealed class ClinicalDocumentService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
             .ConfigureAwait(false);
         ClinicalDocument document = await documents
             .FindByIdAsync(
-                hospitalContext.HospitalId, id, track: false, cancellationToken)
+                context.HospitalId, id, track: false, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(
                 $"Clinical document '{id}' was not found.");
@@ -158,7 +156,7 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
             .ConfigureAwait(false);
@@ -170,7 +168,7 @@ public sealed class ClinicalDocumentService(
             ClinicalDocumentWorkflowHelpers.ParseStatusOrNull(request.Status));
 
         IReadOnlyList<ClinicalDocument> matches = await documents
-            .ListAsync(hospitalContext.HospitalId, criteria, cancellationToken)
+            .ListAsync(context.HospitalId, criteria, cancellationToken)
             .ConfigureAwait(false);
         return [.. matches.Select(ClinicalDocumentMappers.ToDto)];
     }
@@ -183,14 +181,14 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
 
         ClinicalDocument document = await documents
             .FindByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 id,
                 track: true,
                 cancellationToken)
@@ -202,7 +200,7 @@ public sealed class ClinicalDocumentService(
 
         DocumentDefinition definition = await references
             .RequireDefinitionAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 document.DocumentDefinitionId,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -217,7 +215,7 @@ public sealed class ClinicalDocumentService(
         FormResponse response = await responses.RequireResponseAsync(
                 document.FormResponseId,
                 track: true,
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
@@ -226,7 +224,7 @@ public sealed class ClinicalDocumentService(
             response.AnswersJson,
             FormResponseValidationMode.Complete);
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         ClinicalDocumentLifecycle.Fire(
             document, ClinicalDocumentLifecycle.Trigger.Complete);
         FormResponseLifecycle.Fire(
@@ -304,14 +302,14 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        hospitalContext.RequireResolved();
+        context.RequireResolved();
         await capabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
 
         ClinicalDocument document = await documents
             .FindByIdAsync(
-                hospitalContext.HospitalId,
+                context.HospitalId,
                 id,
                 track: true,
                 cancellationToken)
@@ -332,7 +330,7 @@ public sealed class ClinicalDocumentService(
                 .EnsureEnteredInErrorActor(actorId);
         }
 
-        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset now = context.GetUtcNow();
         ClinicalDocumentLifecycle.Fire(document, trigger);
 
         if (enteredInError)

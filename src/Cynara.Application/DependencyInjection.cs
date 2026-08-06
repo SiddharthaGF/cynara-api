@@ -1,3 +1,4 @@
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Audit;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy;
@@ -33,6 +34,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddPatientsModule();
         _ = services.AddEncountersModule();
         _ = services.AddCapabilitiesModule();
+        _ = services.AddScoped<IWorkflowContext, WorkflowContext>();
         _ = services.AddValidatorsFromAssembly(
             typeof(ApplicationServiceCollectionExtensions).Assembly);
 
