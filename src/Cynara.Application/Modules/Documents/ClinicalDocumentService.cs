@@ -1,10 +1,12 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.FormResponses.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Encounters;
 using Cynara.Domain.Forms;
@@ -28,7 +30,8 @@ public sealed class ClinicalDocumentService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IClinicalDocumentService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IClinicalDocumentService
 {
     public async Task<ClinicalDocumentDto> StartAsync(
         StartClinicalDocumentRequest request,
@@ -37,6 +40,9 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
+            .ConfigureAwait(false);
         Guid hospitalId = hospitalContext.HospitalId;
 
         ClinicalDocumentWorkflowHelpers.EnsureValidAuthorId(actorId);
@@ -133,6 +139,9 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
+            .ConfigureAwait(false);
         ClinicalDocument document = await documents
             .FindByIdAsync(
                 hospitalContext.HospitalId, id, track: false, cancellationToken)
@@ -149,6 +158,9 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
+            .ConfigureAwait(false);
 
         ClinicalDocumentListCriteria criteria = new(
             request.EncounterId,

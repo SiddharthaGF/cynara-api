@@ -1,10 +1,12 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Forms;
 
@@ -25,13 +27,17 @@ public sealed class DocumentCatalogService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IDocumentCatalogService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IDocumentCatalogService
 {
     public async Task<IReadOnlyList<DocumentDefinitionDto>> ListAsync(
         bool includeRetired,
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         IReadOnlyList<DocumentDefinition> entries = await repository
             .ListAsync(hospitalContext.HospitalId, includeRetired, cancellationToken)
             .ConfigureAwait(false);
@@ -45,6 +51,9 @@ public sealed class DocumentCatalogService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         DocumentCatalogWorkflowHelpers.EnsureValidCode(request.Code, "Document definition");
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -158,6 +167,9 @@ public sealed class DocumentCatalogService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -213,6 +225,9 @@ public sealed class DocumentCatalogService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         DocumentDefinition documentDefinition = await repository
             .FindByIdAsync(hospitalContext.HospitalId, id, track: true, cancellationToken)

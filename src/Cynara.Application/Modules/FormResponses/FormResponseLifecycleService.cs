@@ -3,9 +3,11 @@ using System.Text.Json;
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormResponses.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 
 namespace Cynara.Application.Modules.FormResponses;
@@ -16,7 +18,8 @@ public sealed class FormResponseLifecycleService(
     IFormResponseValidator responseValidator,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IFormResponseLifecycleService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IFormResponseLifecycleService
 {
     public async Task<FormResponseDto> CreateAsync(
         string code,
@@ -30,6 +33,9 @@ public sealed class FormResponseLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         SemverRules.EnsureValid(version);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormVersion formVersion = await responses.FindPublishedVersionAsync(
                 code,
                 version,
@@ -92,6 +98,9 @@ public sealed class FormResponseLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormResponse response = await FormResponseWorkflowHelpers
             .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
@@ -136,6 +145,9 @@ public sealed class FormResponseLifecycleService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormResponse response = await FormResponseWorkflowHelpers
             .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);
@@ -181,6 +193,9 @@ public sealed class FormResponseLifecycleService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.FormResponsesWrite, cancellationToken)
+            .ConfigureAwait(false);
         FormResponse response = await FormResponseWorkflowHelpers
             .RequireResponseAsync(responses, id, track: true, includeDeleted: false, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
         FormResponseWorkflowHelpers.EnsureDraft(response);

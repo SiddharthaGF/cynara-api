@@ -1,10 +1,12 @@
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Encounters.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients.Persistence;
 using Cynara.Application.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Encounters;
 using Cynara.Domain.Patients;
@@ -24,7 +26,8 @@ public sealed class EncounterService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider) : IEncounterService
+    TimeProvider timeProvider,
+    ICapabilityGuard capabilityGuard) : IEncounterService
 {
     /// <inheritdoc />
     public async Task<EncounterDto> CreateAsync(
@@ -34,6 +37,9 @@ public sealed class EncounterService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         EncounterType type = EncounterWorkflowHelpers.ParseType(request.Type);
         EncounterWorkflowHelpers.EnsureValidResponsibleProfessionalId(
@@ -95,6 +101,9 @@ public sealed class EncounterService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersRead, cancellationToken)
+            .ConfigureAwait(false);
         Encounter encounter = await encounters
             .FindByIdAsync(
                 hospitalContext.HospitalId, id, track: false, cancellationToken)
@@ -110,6 +119,9 @@ public sealed class EncounterService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersRead, cancellationToken)
+            .ConfigureAwait(false);
 
         EncounterListCriteria criteria = new(
             request.PatientId,
@@ -124,51 +136,60 @@ public sealed class EncounterService(
     }
 
     /// <inheritdoc />
-    public Task<EncounterDto> CompleteAsync(
+    public async Task<EncounterDto> CompleteAsync(
         Guid id,
         TransitionEncounterRequest request,
         string? actorId,
         CancellationToken cancellationToken)
     {
-        return TransitionAsync(
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersWrite, cancellationToken)
+            .ConfigureAwait(false);
+        return await TransitionAsync(
             id,
             request,
             actorId,
             EncounterLifecycle.Trigger.Complete,
             "encounter.completed",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public Task<EncounterDto> CancelAsync(
+    public async Task<EncounterDto> CancelAsync(
         Guid id,
         TransitionEncounterRequest request,
         string? actorId,
         CancellationToken cancellationToken)
     {
-        return TransitionAsync(
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersWrite, cancellationToken)
+            .ConfigureAwait(false);
+        return await TransitionAsync(
             id,
             request,
             actorId,
             EncounterLifecycle.Trigger.Cancel,
             "encounter.canceled",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public Task<EncounterDto> EnterInErrorAsync(
+    public async Task<EncounterDto> EnterInErrorAsync(
         Guid id,
         TransitionEncounterRequest request,
         string? actorId,
         CancellationToken cancellationToken)
     {
-        return TransitionAsync(
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.EncountersWrite, cancellationToken)
+            .ConfigureAwait(false);
+        return await TransitionAsync(
             id,
             request,
             actorId,
             EncounterLifecycle.Trigger.EnterInError,
             "encounter.enteredInError",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<EncounterDto> TransitionAsync(

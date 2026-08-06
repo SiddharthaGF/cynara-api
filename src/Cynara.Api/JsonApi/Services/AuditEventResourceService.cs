@@ -1,5 +1,7 @@
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Audit;
+using Cynara.Domain.Capabilities;
 using Cynara.Infrastructure.Persistence;
 
 using JsonApiDotNetCore.Configuration;
@@ -28,6 +30,7 @@ public sealed class AuditEventResourceService(
     IResourceChangeTracker<AuditEvent> resourceChangeTracker,
     IResourceDefinitionAccessor resourceDefinitionAccessor,
     IHospitalContext hospitalContext,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<AuditEvent, Guid>(
         repositoryAccessor,
@@ -69,6 +72,9 @@ public sealed class AuditEventResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.AuditRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.AuditEvents
             .AsNoTracking()
@@ -92,6 +98,9 @@ public sealed class AuditEventResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.AuditRead, cancellationToken)
+            .ConfigureAwait(false);
 
         IReadOnlyCollection<AuditEvent> events = await base
             .GetAsync(cancellationToken)

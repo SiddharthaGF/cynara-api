@@ -1,5 +1,6 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Api.Hosting;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Persistence;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Cynara.Api.Tests.Support;
@@ -16,7 +18,8 @@ namespace Cynara.Api.Tests.Support;
 internal class CynaraWebApplicationFactory(
     TestDatabaseSettings database,
     HospitalBootstrapOptions? bootstrapOptions = null,
-    bool emulateRenderProxy = false)
+    bool emulateRenderProxy = false,
+    bool grantAllCapabilities = true)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
@@ -40,6 +43,18 @@ internal class CynaraWebApplicationFactory(
     {
         _ = builder.UseEnvironment("Development");
         _ = builder.UseCynaraTestDatabase(database);
+
+        if (grantAllCapabilities)
+        {
+            _ = builder.ConfigureServices(services =>
+            {
+                services.Replace(ServiceDescriptor.Scoped<
+                    IEffectiveCapabilityResolver,
+                    GrantAllCapabilityResolver>());
+                services.Replace(ServiceDescriptor.Scoped<
+                    ICapabilityGuard>(_ => new FakeCapabilityGuard()));
+            });
+        }
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
@@ -108,6 +123,9 @@ internal class CynaraWebApplicationFactory(
         await resetLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            // Exclude the EF migrations history table so the schema is reset
+            // without invalidating applied migration stamps.
+            const string MigrationHistoryTable = "__EFMigrationsHistory";
             const string TruncateSql = @"
 DO $$
 DECLARE
@@ -116,7 +134,8 @@ BEGIN
     SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
         INTO tables_to_truncate
         FROM pg_tables
-        WHERE schemaname = current_schema();
+        WHERE schemaname = current_schema()
+          AND tablename <> '" + MigrationHistoryTable + @"';
 
     IF tables_to_truncate IS NOT NULL THEN
         EXECUTE 'TRUNCATE TABLE ' || tables_to_truncate || ' RESTART IDENTITY CASCADE';

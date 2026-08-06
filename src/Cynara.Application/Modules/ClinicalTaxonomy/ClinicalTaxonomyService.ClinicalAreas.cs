@@ -1,4 +1,5 @@
 using Cynara.Application.Common;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
@@ -16,6 +17,9 @@ public sealed partial class ClinicalTaxonomyService
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
         IReadOnlyList<ClinicalArea> areas = await repository
             .ListClinicalAreasAsync(
                 hospitalContext.HospitalId,
@@ -33,6 +37,9 @@ public sealed partial class ClinicalTaxonomyService
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
         ClinicalTaxonomyWorkflowHelpers.EnsureValidCode(request.Code, "Clinical area");
         if (string.IsNullOrWhiteSpace(request.Name))
         {

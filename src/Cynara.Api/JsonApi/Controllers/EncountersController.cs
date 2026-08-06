@@ -1,4 +1,6 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.Encounters;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,6 +25,7 @@ public sealed class EncountersController(
     /// states remain included so historical records stay readable.
     /// </summary>
     [HttpGet(Name = "listEncounters")]
+    [RequireCapability(CapabilityCodes.EncountersRead)]
     [EndpointDescription(
         "Lists encounters for the resolved hospital workspace. Filter by "
         + "patientId, facilityId, clinicalAreaId, or status. Completed, "
@@ -46,6 +49,7 @@ public sealed class EncountersController(
 
     /// <summary>Returns the encounter matching the supplied identifier.</summary>
     [HttpGet("{id:guid}", Name = "getEncounter")]
+    [RequireCapability(CapabilityCodes.EncountersRead)]
     [EndpointDescription(
         "Returns the encounter matching the supplied identifier within the "
         + "resolved hospital workspace. Terminal states remain queryable.")]
@@ -70,6 +74,7 @@ public sealed class EncountersController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "createEncounter")]
+    [RequireCapability(CapabilityCodes.EncountersWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status201Created)]
@@ -91,6 +96,7 @@ public sealed class EncountersController(
 
     /// <summary>Completes an open encounter.</summary>
     [HttpPost("{id:guid}/complete", Name = "completeEncounter")]
+    [RequireCapability(CapabilityCodes.EncountersWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
@@ -111,6 +117,7 @@ public sealed class EncountersController(
 
     /// <summary>Cancels an open encounter.</summary>
     [HttpPost("{id:guid}/cancel", Name = "cancelEncounter")]
+    [RequireCapability(CapabilityCodes.EncountersWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
@@ -134,6 +141,7 @@ public sealed class EncountersController(
     /// historically queryable.
     /// </summary>
     [HttpPost("{id:guid}/enter-in-error", Name = "enterEncounterInError")]
+    [RequireCapability(CapabilityCodes.EncountersWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]

@@ -69,4 +69,6 @@ public static class AuditEntityTypes
     public const string ClinicalDocument = "clinical-document";
     public const string Patient = "patient";
     public const string Encounter = "encounter";
+    public const string CapabilityAssignment = "capability-assignment";
+    public const string Access = "access";
 }

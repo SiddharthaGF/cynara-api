@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.Audit;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy;
 using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.Documents;
@@ -31,6 +32,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddClinicalDocumentsModule();
         _ = services.AddPatientsModule();
         _ = services.AddEncountersModule();
+        _ = services.AddCapabilitiesModule();
         _ = services.AddValidatorsFromAssembly(
             typeof(ApplicationServiceCollectionExtensions).Assembly);
 

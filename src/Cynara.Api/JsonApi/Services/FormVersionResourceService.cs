@@ -1,6 +1,8 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 using Cynara.Infrastructure.Persistence;
 
@@ -30,6 +32,7 @@ public sealed class FormVersionResourceService(
     IFormService formService,
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<FormVersion, Guid>(
         repositoryAccessor,
@@ -55,6 +58,9 @@ public sealed class FormVersionResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.FormVersions
             .AsNoTracking()
@@ -73,6 +79,21 @@ public sealed class FormVersionResourceService(
         return version!;
     }
 
+    public override async Task<IReadOnlyCollection<FormVersion>> GetAsync(
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
+
+        IReadOnlyCollection<FormVersion> versions = await base
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return [.. versions.Where(
+            item => item.HospitalId == hospitalContext.HospitalId)];
+    }
+
     public override async Task<FormVersion?> UpdateAsync(
         Guid id,
         FormVersion resource,
@@ -80,6 +101,9 @@ public sealed class FormVersionResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         FormVersion existing = await dbContext.FormVersions
             .Include(item => item.FormDefinition)

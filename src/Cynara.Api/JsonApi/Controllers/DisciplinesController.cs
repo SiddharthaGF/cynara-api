@@ -1,4 +1,6 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.ClinicalTaxonomy;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +19,7 @@ public sealed class DisciplinesController(
 {
     /// <summary>Lists discipline definitions owned by the resolved hospital workspace.</summary>
     [HttpGet(Name = "listDisciplines")]
+    [RequireCapability(CapabilityCodes.CatalogRead)]
     [EndpointDescription(
         "Lists discipline definitions owned by the resolved hospital "
         + "workspace. Pass clinicalAreaId as a query parameter to filter by "
@@ -40,6 +43,7 @@ public sealed class DisciplinesController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "createDiscipline")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(DisciplineDto), StatusCodes.Status201Created)]
@@ -64,6 +68,7 @@ public sealed class DisciplinesController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPatch("{id:guid}", Name = "patchDiscipline")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(DisciplineDto), StatusCodes.Status200OK)]
@@ -89,6 +94,7 @@ public sealed class DisciplinesController(
     /// resolvable for historical references.
     /// </summary>
     [HttpPost("{id:guid}/retire", Name = "retireDiscipline")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(DisciplineDto), StatusCodes.Status200OK)]

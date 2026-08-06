@@ -1,5 +1,6 @@
 using Cynara.Application.Persistence;
 using Cynara.Domain.Audit;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Components;
 using Cynara.Domain.Documents;
@@ -50,6 +51,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<Patient> Patients => Set<Patient>();
 
     public DbSet<Encounter> Encounters => Set<Encounter>();
+
+    public DbSet<CapabilityAssignment> CapabilityAssignments => Set<CapabilityAssignment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

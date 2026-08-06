@@ -1,4 +1,5 @@
 using Cynara.Application.Common;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
@@ -18,6 +19,9 @@ public sealed partial class ClinicalTaxonomyService
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -69,6 +73,9 @@ public sealed partial class ClinicalTaxonomyService
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         Discipline discipline = await repository
             .FindDisciplineByIdAsync(

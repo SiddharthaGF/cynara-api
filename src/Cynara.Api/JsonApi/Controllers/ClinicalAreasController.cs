@@ -1,4 +1,6 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Application.Modules.ClinicalTaxonomy;
+using Cynara.Domain.Capabilities;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +20,7 @@ public sealed class ClinicalAreasController(
 {
     /// <summary>Lists clinical area definitions owned by the resolved hospital workspace.</summary>
     [HttpGet(Name = "listClinicalAreas")]
+    [RequireCapability(CapabilityCodes.CatalogRead)]
     [EndpointDescription(
         "Lists clinical area definitions owned by the resolved hospital "
         + "workspace. Pass facilityId as a query parameter to filter by the "
@@ -40,6 +43,7 @@ public sealed class ClinicalAreasController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPost(Name = "createClinicalArea")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalAreaDto), StatusCodes.Status201Created)]
@@ -64,6 +68,7 @@ public sealed class ClinicalAreasController(
     /// Thrown when the request body is missing or fails validation.
     /// </exception>
     [HttpPatch("{id:guid}", Name = "patchClinicalArea")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalAreaDto), StatusCodes.Status200OK)]
@@ -89,6 +94,7 @@ public sealed class ClinicalAreasController(
     /// resolvable for historical references.
     /// </summary>
     [HttpPost("{id:guid}/retire", Name = "retireClinicalArea")]
+    [RequireCapability(CapabilityCodes.CatalogWrite)]
     [Consumes(ContentType)]
     [Produces(ContentType)]
     [ProducesResponseType(typeof(ClinicalAreaDto), StatusCodes.Status200OK)]

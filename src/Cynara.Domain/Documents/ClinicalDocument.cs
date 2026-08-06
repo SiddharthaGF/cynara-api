@@ -1,3 +1,5 @@
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Documents;
 
 /// <summary>
@@ -7,6 +9,7 @@ namespace Cynara.Domain.Documents;
 /// the snapshot they captured even after the catalog entry is updated or
 /// retired.
 /// </summary>
+[NoResource]
 public sealed class ClinicalDocument
 {
     /// <summary>Surrogate identifier; immutable.</summary>

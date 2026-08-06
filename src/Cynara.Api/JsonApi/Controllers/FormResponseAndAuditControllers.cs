@@ -1,6 +1,8 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
 using Cynara.Application.Modules.FormResponses;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
 
 using JsonApiDotNetCore.Configuration;
@@ -28,6 +30,7 @@ public sealed class FormResponsesController(
     /// form version schemas and rules.
     /// </summary>
     [HttpPost("{id}/complete", Name = "completeFormResponse")]
+    [RequireCapability(CapabilityCodes.FormResponsesWrite)]
     [EndpointDescription(
         "Completes a draft form response. Pass rowVersion as a query parameter "
         + "and runs complete-mode validation. No request body.")]

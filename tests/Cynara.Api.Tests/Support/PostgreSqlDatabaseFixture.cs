@@ -34,6 +34,9 @@ public sealed class PostgreSqlDatabaseFixture : IAsyncLifetime
     /// </summary>
     public async Task ResetAsync()
     {
+        // Exclude the EF migrations history table so the schema is reset
+        // without invalidating applied migration stamps.
+        const string MigrationHistoryTable = "__EFMigrationsHistory";
         const string TruncateSql = @"
 DO $$
 DECLARE
@@ -42,7 +45,8 @@ BEGIN
     SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
         INTO tables_to_truncate
         FROM pg_tables
-        WHERE schemaname = current_schema();
+        WHERE schemaname = current_schema()
+          AND tablename <> '" + MigrationHistoryTable + @"';
 
     IF tables_to_truncate IS NOT NULL THEN
         EXECUTE 'TRUNCATE TABLE ' || tables_to_truncate || ' RESTART IDENTITY CASCADE';

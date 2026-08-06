@@ -1,0 +1,54 @@
+using System.Reflection;
+
+using Cynara.Application.Modules.Capabilities;
+
+using Microsoft.AspNetCore.Mvc.Filters;
+
+namespace Cynara.Api.CapabilityAuthorization;
+
+/// <summary>
+/// Endpoint-boundary authorization filter. Runs before model binding and
+/// action invocation and enforces the capability declared by
+/// <see cref="RequireCapabilityAttribute"/> (method-level metadata wins over
+/// the controller-level declaration). Denials throw
+/// <see cref="CapabilityForbiddenException"/>; the shared exception handler
+/// turns that into a 403 and records the denied-access audit event. Requests
+/// with no actor identity or no grant resolve to deny, and the filter never
+/// reveals whether the protected resource exists.
+/// </summary>
+public sealed class CapabilityAuthorizationFilter(
+    ICurrentActor currentActor,
+    IEffectiveCapabilityResolver resolver) : IAsyncAuthorizationFilter
+{
+    public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.ActionDescriptor is not Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor descriptor)
+        {
+            return;
+        }
+
+        RequireCapabilityAttribute? requirement =
+            descriptor.MethodInfo.GetCustomAttribute<RequireCapabilityAttribute>(inherit: true)
+            ?? descriptor.ControllerTypeInfo.GetCustomAttribute<RequireCapabilityAttribute>(inherit: true);
+        if (requirement is null)
+        {
+            return;
+        }
+
+        bool granted = await resolver
+            .HasCapabilityAsync(
+                requirement.Capability,
+                context.HttpContext.RequestAborted)
+            .ConfigureAwait(false);
+        if (granted)
+        {
+            return;
+        }
+
+        throw new CapabilityForbiddenException(
+            requirement.Capability,
+            currentActor.ActorId);
+    }
+}

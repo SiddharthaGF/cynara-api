@@ -1,7 +1,9 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
+using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Components;
 using Cynara.Infrastructure.Persistence;
 
@@ -31,6 +33,7 @@ public sealed class ComponentVersionResourceService(
     IComponentLifecycleService lifecycle,
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
+    ICapabilityGuard capabilityGuard,
     CynaraDbContext dbContext)
     : JsonApiResourceService<ComponentVersion, Guid>(
         repositoryAccessor,
@@ -56,6 +59,9 @@ public sealed class ComponentVersionResourceService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
 
         var ownership = await dbContext.ComponentVersions
             .AsNoTracking()
@@ -74,6 +80,21 @@ public sealed class ComponentVersionResourceService(
         return version!;
     }
 
+    public override async Task<IReadOnlyCollection<ComponentVersion>> GetAsync(
+        CancellationToken cancellationToken)
+    {
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogRead, cancellationToken)
+            .ConfigureAwait(false);
+
+        IReadOnlyCollection<ComponentVersion> versions = await base
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return [.. versions.Where(
+            item => item.HospitalId == hospitalContext.HospitalId)];
+    }
+
     public override async Task<ComponentVersion?> UpdateAsync(
         Guid id,
         ComponentVersion resource,
@@ -81,6 +102,9 @@ public sealed class ComponentVersionResourceService(
     {
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.CatalogWrite, cancellationToken)
+            .ConfigureAwait(false);
 
         ComponentVersion existing = await dbContext.ComponentVersions
             .Include(item => item.ComponentDefinition)
