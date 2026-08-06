@@ -10,6 +10,7 @@ using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
+using Cynara.Application.Modules.Workflows;
 
 using FluentValidation;
 
@@ -34,6 +35,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddPatientsModule();
         _ = services.AddEncountersModule();
         _ = services.AddCapabilitiesModule();
+        _ = services.AddWorkflowsModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();
         _ = services.AddValidatorsFromAssembly(
             typeof(ApplicationServiceCollectionExtensions).Assembly);

@@ -16,6 +16,8 @@ internal static class JsonApiResourceServiceRegistration
         _ = services.AddResourceService<AuditEventResourceService>();
         _ = services.AddResourceService<AiProviderSettingsResourceService>();
         _ = services.AddResourceService<DocumentDefinitionResourceService>();
+        _ = services.AddResourceService<WorkflowDefinitionResourceService>();
+        _ = services.AddResourceService<WorkflowVersionResourceService>();
 
         return services;
     }

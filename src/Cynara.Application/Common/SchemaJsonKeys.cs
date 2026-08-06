@@ -71,4 +71,6 @@ public static class AuditEntityTypes
     public const string Encounter = "encounter";
     public const string CapabilityAssignment = "capability-assignment";
     public const string Access = "access";
+    public const string WorkflowDefinition = "workflow-definition";
+    public const string WorkflowVersion = "workflow-version";
 }
