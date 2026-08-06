@@ -93,6 +93,8 @@ public sealed class SchemaFilePaths
 
     public required string RulesSchemaPath { get; init; }
 
+    public required string WorkflowSchemaPath { get; init; }
+
     public static SchemaFilePaths FromBaseDirectory(string? baseDirectory = null)
     {
         string schemaRoot = Path.Combine(
@@ -112,6 +114,10 @@ public sealed class SchemaFilePaths
                 schemaRoot,
                 "v1",
                 "rules-schema.schema.json"),
+            WorkflowSchemaPath = Path.Combine(
+                schemaRoot,
+                "v1",
+                "workflow-schema.schema.json"),
         };
     }
 }

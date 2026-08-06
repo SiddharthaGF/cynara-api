@@ -9,7 +9,7 @@ internal static class HealthEndpoints
         {
             service = "cynara-api",
             status = "ok",
-            contract = "https://github.com/ailuracode/cynara",
+            contract = "/schemas/v1",
         });
 
         _ = endpoints.MapGet("/", () => Results.Text("Hello, Cynara"))

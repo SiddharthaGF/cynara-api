@@ -3,9 +3,10 @@
 ## Project Type
 
 This repository is the primary ASP.NET Core backend for Cynara, a configurable
-clinical platform. It implements the technology-neutral clinical form schema
-contract defined in the `cynara` repository and is consumed by `cynara-web`
-(and other clients) over HTTP.
+clinical platform. It implements the technology-neutral clinical form and
+workflow schema contract (meta-schemas under
+`src/Cynara.Infrastructure/Schemas/v1/`, served over HTTP at `/schemas/v1`) and
+is consumed by `cynara-web` (and other clients) over HTTP.
 
 Treat form/component lifecycle, schema validation, compilation, response
 validation, review workflows, concurrency, and audit events as business-critical
@@ -119,8 +120,8 @@ audit emission on mutating workflows.
   handler map them to Problem Details. Do not invent ad-hoc status codes in
   services.
 - Preserve structural JSON Schema validation and semantic compilation/rule
-  checks. Schema files under Infrastructure must stay aligned with the `cynara`
-  contract.
+  checks. Schema files under Infrastructure are the canonical contract; keep
+  them aligned with the served `/schemas/v1` documents.
 - Treat draft → review → publish and response draft → complete as explicit state
   machines. Reject illegal transitions with `InvalidStateException` (or the
   existing equivalent), never by silently no-oping.
@@ -160,8 +161,7 @@ dotnet cake --target=Check
 
 | Repository | Role |
 |------------|------|
-| `cynara` | Schema contract, docs, fixtures |
 | `cynara-web` | Primary React frontend |
 
-When authoring form schema triples (clinical / UI / rules), use the
-`form-schema-authoring` skill.
+When authoring form schema triples (clinical / UI / rules) or workflow
+schemas, use the `form-schema-authoring` skill.

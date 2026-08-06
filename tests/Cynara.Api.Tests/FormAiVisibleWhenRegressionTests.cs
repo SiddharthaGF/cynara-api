@@ -321,6 +321,10 @@ public sealed class FormAiVisibleWhenRegressionTests
                     schemaRoot,
                     "v1",
                     "rules-schema.schema.json"),
+                WorkflowSchemaPath = Path.Combine(
+                    schemaRoot,
+                    "v1",
+                    "workflow-schema.schema.json"),
             });
     }
 

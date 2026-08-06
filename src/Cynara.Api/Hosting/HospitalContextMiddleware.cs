@@ -133,6 +133,11 @@ internal sealed partial class HospitalContextMiddleware
             return true;
         }
 
+        if (path.StartsWithSegments("/schemas", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         if (path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
         {
             return true;
