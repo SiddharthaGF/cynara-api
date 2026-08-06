@@ -274,7 +274,7 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
             started.RootElement.GetProperty("id").GetString()!);
         var formResponseId = Guid.Parse(
             GetString(started, "formResponseId"));
-        string fieldCode = "code-complete";
+        const string fieldCode = "code-complete";
 
         using HttpResponseMessage update = await UpdateBoundResponseAsync(
             formResponseId, fieldCode, "Ada", rowVersion: 0)
