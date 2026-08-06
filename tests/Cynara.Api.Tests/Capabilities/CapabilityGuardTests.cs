@@ -28,9 +28,12 @@ public sealed class CapabilityGuardTests
                 new FakeHospitalContext(hospitalId),
                 repository));
 
-        await guard.RequireAsync(
+        Task granted = guard.RequireAsync(
             CapabilityCodes.PatientsWrite,
             CancellationToken.None);
+
+        await granted.ConfigureAwait(false);
+        Assert.True(granted.IsCompletedSuccessfully);
     }
 
     [Fact]
