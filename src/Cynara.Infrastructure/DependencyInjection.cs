@@ -88,6 +88,7 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddFormAiPersistenceModule();
         _ = services.AddClinicalTaxonomyPersistenceModule();
         _ = services.AddDocumentCatalogPersistenceModule();
+        _ = services.AddClinicalDocumentsPersistenceModule();
         _ = services.AddPatientsPersistenceModule();
         _ = services.AddEncountersPersistenceModule();
         _ = services.AddSingleton<IFailureLogWriter, FailureLogWriter>();

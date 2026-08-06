@@ -1,0 +1,84 @@
+using Cynara.Application.Modules.FormResponses.Persistence;
+using Cynara.Domain.Forms;
+
+namespace Cynara.Api.Tests.Documents.UnitTests.Fakes;
+
+/// <summary>
+/// In-memory fake of <see cref="IFormResponseRepository"/> limited to the
+/// surface the document start workflow actually calls. The fake records
+/// added responses so tests can assert the bound response was created with
+/// the published snapshot and an initial revision.
+/// </summary>
+public sealed class FakeFormResponseRepository : IFormResponseRepository
+{
+    private readonly List<FormResponse> responses = [];
+
+    private readonly List<(FormResponse Response, FormResponseRevision Revision)>
+        added = [];
+
+    public IReadOnlyCollection<FormResponse> Responses => responses;
+
+    public IReadOnlyCollection<FormResponseRevision> AddedRevisions =>
+        [.. added.Select(item => item.Revision)];
+
+    public Task<FormVersion?> FindPublishedVersionAsync(
+        string code,
+        string version,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        return Task.FromResult<FormVersion?>(null);
+    }
+
+    public void Add(FormResponse response, FormResponseRevision revision)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(revision);
+        added.Add((response, revision));
+        responses.Add(response);
+    }
+
+    public void AddRevision(FormResponseRevision revision)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+    }
+
+    public Task<FormResponse?> FindByIdAsync(
+        Guid id,
+        bool track,
+        bool includeDeleted,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        FormResponse? match = responses.SingleOrDefault(
+            item => item.Id == id && item.HospitalId == hospitalId);
+        return Task.FromResult(match);
+    }
+
+    public Task<FormResponseRevision?> FindRevisionAsync(
+        Guid responseId,
+        uint revisionNumber,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        FormResponseRevision? match = added
+            .Select(item => item.Revision)
+            .SingleOrDefault(item => item.FormResponseId == responseId
+                && item.RevisionNumber == revisionNumber
+                && item.HospitalId == hospitalId);
+        return Task.FromResult(match);
+    }
+
+    public Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
+        Guid responseId,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        List<FormResponseRevision> matches =
+            [.. added.Select(item => item.Revision)
+                .Where(item => item.FormResponseId == responseId
+                    && item.HospitalId == hospitalId)
+                .OrderBy(item => item.RevisionNumber)];
+        return Task.FromResult<IReadOnlyList<FormResponseRevision>>(matches);
+    }
+}

@@ -66,6 +66,7 @@ public static class AuditEntityTypes
     public const string ClinicalArea = "clinical-area";
     public const string Discipline = "discipline";
     public const string DocumentDefinition = "document-definition";
+    public const string ClinicalDocument = "clinical-document";
     public const string Patient = "patient";
     public const string Encounter = "encounter";
 }
