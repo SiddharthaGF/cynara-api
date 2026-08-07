@@ -1,7 +1,9 @@
+using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows;
 using Cynara.Application.Workflows;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Workflows;
 using Cynara.Infrastructure.Persistence;
 
@@ -16,10 +18,14 @@ namespace Cynara.Api.JsonApi.Controllers;
 
 /// <summary>
 /// JSON:API controller for workflow versions plus review/publish/retire
-/// actions. Workflow commands use query parameters so JsonApiDotNetCore does
-/// not attempt to deserialize a JSON:API resource document body.
+/// actions. Reads require <c>workflows.read</c>; every lifecycle mutation
+/// (submit/withdraw/reject review, publish, retire, patch) requires
+/// <c>workflows.write</c>. Workflow commands use query parameters so
+/// JsonApiDotNetCore does not attempt to deserialize a JSON:API resource
+/// document body.
 /// </summary>
 [Route("api/workflowVersions")]
+[RequireCapability(CapabilityCodes.WorkflowsRead)]
 public sealed class WorkflowVersionsController(
     IJsonApiOptions options,
     IResourceGraph resourceGraph,
@@ -39,6 +45,7 @@ public sealed class WorkflowVersionsController(
     /// withdraw or reject.
     /// </summary>
     [HttpPost("{id}/submit-review", Name = "submitWorkflowReview")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
     [EndpointDescription(
         "Transitions a draft workflow version to review. Pass rowVersion as a "
         + "query parameter for optimistic concurrency.")]
@@ -64,6 +71,7 @@ public sealed class WorkflowVersionsController(
     /// Withdraws a version from review back to draft.
     /// </summary>
     [HttpPost("{id}/withdraw-review", Name = "withdrawWorkflowReview")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
     [EndpointDescription(
         "Returns a workflow version from review to draft. Pass rowVersion as query.")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -88,6 +96,7 @@ public sealed class WorkflowVersionsController(
     /// Rejects a review with a required comment and returns to draft.
     /// </summary>
     [HttpPost("{id}/reject-review", Name = "rejectWorkflowReview")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
     [EndpointDescription(
         "Rejects a workflow version in review. Requires comment and rowVersion "
         + "query parameters.")]
@@ -115,6 +124,7 @@ public sealed class WorkflowVersionsController(
     /// Publishes a workflow version after review, assigning a semver and hash.
     /// </summary>
     [HttpPost("{id}/publish", Name = "publishWorkflowVersion")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
     [EndpointDescription(
         "Publishes a workflow version after review approval. Pass rowVersion "
         + "as query.")]
@@ -144,6 +154,7 @@ public sealed class WorkflowVersionsController(
     /// Thrown when the version is not published.
     /// </exception>
     [HttpPost("{id}/retire", Name = "retireWorkflowVersion")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
     [EndpointDescription(
         "Retires a published workflow version. Retired versions remain readable.")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -167,6 +178,46 @@ public sealed class WorkflowVersionsController(
             httpContextAccessor.HttpContext?.GetActorId(),
             cancellationToken).ConfigureAwait(false);
         return await GetAsync(retired.Id, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Direct creation is rejected by the resource service; the endpoint
+    /// still requires <c>workflows.write</c>.
+    /// </summary>
+    [HttpPost]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
+    public override Task<IActionResult> PostAsync(
+        WorkflowVersion resource,
+        CancellationToken cancellationToken)
+    {
+        return base.PostAsync(resource, cancellationToken);
+    }
+
+    /// <summary>
+    /// Patches a draft workflow version through the lifecycle. Requires
+    /// <c>workflows.write</c>.
+    /// </summary>
+    [HttpPatch("{id}")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
+    public override Task<IActionResult> PatchAsync(
+        Guid id,
+        WorkflowVersion resource,
+        CancellationToken cancellationToken)
+    {
+        return base.PatchAsync(id, resource, cancellationToken);
+    }
+
+    /// <summary>
+    /// Hard delete is rejected by the resource service; the endpoint still
+    /// requires <c>workflows.write</c>.
+    /// </summary>
+    [HttpDelete("{id}")]
+    [RequireCapability(CapabilityCodes.WorkflowsWrite)]
+    public override Task<IActionResult> DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        return base.DeleteAsync(id, cancellationToken);
     }
 
     private async Task<IActionResult> RunAsync(

@@ -1,9 +1,14 @@
 namespace Cynara.Domain.Capabilities;
 
 /// <summary>
-/// Stage 2 capability codes. Each code gates a coherent read or mutation
-/// surface; a read and write pair is defined per resource family so a tenant
-/// can grant read-only access without conferring mutation rights. The codes
+/// Stage 2 and Stage 3 capability codes. Each code gates a coherent read or
+/// mutation surface; a read and write pair is defined per resource family so
+/// a tenant can grant read-only access without conferring mutation rights.
+/// Stage 3 adds the workflow family: <see cref="WorkflowsRead"/> /
+/// <see cref="WorkflowsWrite"/> gate workflow configuration (define, review,
+/// publish, retire), while <see cref="PipelinesRead"/> /
+/// <see cref="PipelinesWrite"/> and <see cref="TasksRead"/> /
+/// <see cref="TasksWrite"/> gate the pipeline and task runtimes. The codes
 /// are the stable wire contract for capability assignment (see
 /// <c>Cynara.Api.JsonApi.Controllers.CapabilityAssignmentsController</c>)
 /// and must not be renamed once persisted.
@@ -40,6 +45,10 @@ public static class CapabilityCodes
 
     public const string TasksWrite = "tasks.write";
 
+    public const string WorkflowsRead = "workflows.read";
+
+    public const string WorkflowsWrite = "workflows.write";
+
     public const string WorkspaceRead = "workspace.read";
 
     public const string WorkspaceWrite = "workspace.write";
@@ -69,6 +78,8 @@ public static class CapabilityCodes
         PipelinesWrite,
         TasksRead,
         TasksWrite,
+        WorkflowsRead,
+        WorkflowsWrite,
         WorkspaceRead,
         WorkspaceWrite,
         CapabilitiesRead,

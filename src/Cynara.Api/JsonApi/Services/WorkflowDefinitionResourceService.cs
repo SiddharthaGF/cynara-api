@@ -71,7 +71,7 @@ public sealed class WorkflowDefinitionResourceService(
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
 
         string workflowSchema = string.IsNullOrWhiteSpace(
@@ -105,7 +105,7 @@ public sealed class WorkflowDefinitionResourceService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
 
         var ownership = await dbContext.WorkflowDefinitions
@@ -125,6 +125,7 @@ public sealed class WorkflowDefinitionResourceService(
 
         WorkflowDefinition? definition = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+
         return definition!;
     }
 
@@ -133,7 +134,7 @@ public sealed class WorkflowDefinitionResourceService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
 
         IReadOnlyCollection<WorkflowDefinition> definitions = await base
@@ -141,6 +142,21 @@ public sealed class WorkflowDefinitionResourceService(
             .ConfigureAwait(false);
         return [.. definitions.Where(
             item => item.HospitalId == hospitalContext.HospitalId)];
+    }
+
+    public override async Task<WorkflowDefinition?> UpdateAsync(
+        Guid id,
+        WorkflowDefinition resource,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        hospitalContext.RequireResolved();
+        await capabilityGuard.RequireAsync(
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
+            .ConfigureAwait(false);
+
+        return await base.UpdateAsync(id, resource, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public override Task DeleteAsync(

@@ -62,7 +62,7 @@ public sealed class WorkflowVersionResourceService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
 
         var ownership = await dbContext.WorkflowVersions
@@ -79,6 +79,7 @@ public sealed class WorkflowVersionResourceService(
 
         WorkflowVersion? version = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+
         return version!;
     }
 
@@ -87,7 +88,7 @@ public sealed class WorkflowVersionResourceService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
 
         IReadOnlyCollection<WorkflowVersion> versions = await base
@@ -105,7 +106,7 @@ public sealed class WorkflowVersionResourceService(
         ArgumentNullException.ThrowIfNull(resource);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
 
         WorkflowVersion existing = await dbContext.WorkflowVersions
