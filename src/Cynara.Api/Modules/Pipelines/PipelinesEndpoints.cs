@@ -1,4 +1,6 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Workflows;
 using Cynara.Domain.Capabilities;
 
@@ -143,7 +145,9 @@ internal static class PipelinesEndpoints
     private static async Task<IResult> GetPipelineJourneyAsync(
         Guid? patientId,
         Guid? encounterId,
+        ISensitiveReadAuditor sensitiveReadAuditor,
         IPipelineService pipelines,
+        HttpContext http,
         CancellationToken cancellationToken)
     {
         if (patientId is not null && encounterId is not null)
@@ -159,6 +163,13 @@ internal static class PipelinesEndpoints
                     resolvedPatientId,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await sensitiveReadAuditor.RecordAsync(
+                AuditEntityTypes.Patient,
+                resolvedPatientId,
+                "pipeline.journey.read",
+                http.GetActorId(),
+                http.Request.Path,
+                cancellationToken).ConfigureAwait(false);
             return Results.Ok(response);
         }
 
@@ -169,6 +180,13 @@ internal static class PipelinesEndpoints
                     resolvedEncounterId,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await sensitiveReadAuditor.RecordAsync(
+                AuditEntityTypes.Encounter,
+                resolvedEncounterId,
+                "pipeline.journey.read",
+                http.GetActorId(),
+                http.Request.Path,
+                cancellationToken).ConfigureAwait(false);
             return Results.Ok(response);
         }
 

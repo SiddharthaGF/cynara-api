@@ -17,7 +17,10 @@ public sealed class AuditWriter(
         string action,
         string? actorId,
         DateTimeOffset occurredAt,
-        object metadata)
+        object metadata,
+        Guid? patientId = null,
+        Guid? encounterId = null,
+        Guid? workflowDefinitionId = null)
     {
         hospitalContext.RequireResolved();
         audit.Add(new AuditEvent
@@ -29,6 +32,9 @@ public sealed class AuditWriter(
             Action = action,
             ActorId = actorId,
             OccurredAt = occurredAt,
+            PatientId = patientId,
+            EncounterId = encounterId,
+            WorkflowDefinitionId = workflowDefinitionId,
             MetadataJson = JsonSerializer.Serialize(
                 metadata,
                 CanonicalJsonOptions.Instance),

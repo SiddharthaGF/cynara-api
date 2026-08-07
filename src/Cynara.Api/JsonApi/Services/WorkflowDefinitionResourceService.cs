@@ -1,4 +1,6 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows;
@@ -38,6 +40,7 @@ public sealed class WorkflowDefinitionResourceService(
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     ICapabilityGuard capabilityGuard,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<WorkflowDefinition, Guid>(
         repositoryAccessor,
@@ -125,6 +128,19 @@ public sealed class WorkflowDefinitionResourceService(
 
         WorkflowDefinition? definition = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+
+        if (definition is not null
+            && httpContextAccessor.HttpContext is { } httpContext
+            && HttpMethods.IsGet(httpContext.Request.Method))
+        {
+            await sensitiveReadAuditor.RecordAsync(
+                AuditEntityTypes.WorkflowDefinition,
+                definition.Id,
+                "workflow.read",
+                httpContext.GetActorId(),
+                httpContext.Request.Path,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         return definition!;
     }

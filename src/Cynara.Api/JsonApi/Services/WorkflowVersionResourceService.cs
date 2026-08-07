@@ -1,4 +1,6 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Application.Audit;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows;
@@ -35,6 +37,7 @@ public sealed class WorkflowVersionResourceService(
     IHospitalContext hospitalContext,
     IHttpContextAccessor httpContextAccessor,
     ICapabilityGuard capabilityGuard,
+    ISensitiveReadAuditor sensitiveReadAuditor,
     CynaraDbContext dbContext)
     : JsonApiResourceService<WorkflowVersion, Guid>(
         repositoryAccessor,
@@ -79,6 +82,19 @@ public sealed class WorkflowVersionResourceService(
 
         WorkflowVersion? version = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
+
+        if (version is not null
+            && httpContextAccessor.HttpContext is { } httpContext
+            && HttpMethods.IsGet(httpContext.Request.Method))
+        {
+            await sensitiveReadAuditor.RecordAsync(
+                AuditEntityTypes.WorkflowVersion,
+                version.Id,
+                "workflow.version.read",
+                httpContext.GetActorId(),
+                httpContext.Request.Path,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         return version!;
     }
