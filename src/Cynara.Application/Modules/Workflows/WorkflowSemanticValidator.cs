@@ -102,11 +102,17 @@ public static class WorkflowSemanticValidator
                 }
                 else
                 {
+                    int? dueDays = node.TryGetProperty("dueDays", out JsonElement dueDaysElement)
+                            && dueDaysElement.ValueKind == JsonValueKind.Number
+                            && dueDaysElement.TryGetInt32(out int dueDaysValue)
+                        ? dueDaysValue
+                        : null;
                     nodes.Add(new NodeInfo(
                         id,
                         type,
                         HasFormCode: node.TryGetProperty("formCode", out JsonElement _),
-                        HasFormVersion: node.TryGetProperty("formVersion", out JsonElement _)));
+                        HasFormVersion: node.TryGetProperty("formVersion", out JsonElement _),
+                        DueDays: dueDays));
                 }
 
                 index++;
@@ -354,6 +360,14 @@ public static class WorkflowSemanticValidator
                     nodePath + "/formVersion",
                     $"Task node '{node.Id}' must pin formVersion when formCode is set.");
             }
+
+            if (node.DueDays is int dueDays && dueDays < 1)
+            {
+                Add(
+                    "TASK_DUE_DAYS_INVALID",
+                    nodePath + "/dueDays",
+                    $"Task node '{node.Id}' dueDays must be a positive integer.");
+            }
         }
 
         private void ValidateDecisionNode(
@@ -572,7 +586,8 @@ public static class WorkflowSemanticValidator
         string Id,
         string Type,
         bool HasFormCode,
-        bool HasFormVersion);
+        bool HasFormVersion,
+        int? DueDays);
 
     private sealed record EdgeInfo(string From, string To, bool HasCondition);
 }

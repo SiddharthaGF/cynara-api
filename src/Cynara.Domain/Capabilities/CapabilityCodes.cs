@@ -32,6 +32,14 @@ public static class CapabilityCodes
 
     public const string CatalogWrite = "catalog.write";
 
+    public const string PipelinesRead = "pipelines.read";
+
+    public const string PipelinesWrite = "pipelines.write";
+
+    public const string TasksRead = "tasks.read";
+
+    public const string TasksWrite = "tasks.write";
+
     public const string WorkspaceRead = "workspace.read";
 
     public const string WorkspaceWrite = "workspace.write";
@@ -57,6 +65,10 @@ public static class CapabilityCodes
         AuditRead,
         CatalogRead,
         CatalogWrite,
+        PipelinesRead,
+        PipelinesWrite,
+        TasksRead,
+        TasksWrite,
         WorkspaceRead,
         WorkspaceWrite,
         CapabilitiesRead,

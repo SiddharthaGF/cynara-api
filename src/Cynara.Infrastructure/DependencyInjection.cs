@@ -13,6 +13,7 @@ using Cynara.Infrastructure.Modules.FormResponses;
 using Cynara.Infrastructure.Modules.Forms;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Patients;
+using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
 using Cynara.Infrastructure.Persistence;
 using Cynara.Infrastructure.Schemas;
@@ -123,6 +124,7 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddEncountersPersistenceModule();
         _ = services.AddCapabilitiesPersistenceModule();
         _ = services.AddWorkflowsPersistenceModule();
+        _ = services.AddTasksPersistenceModule();
         _ = services.AddSingleton<IFailureLogWriter, FailureLogWriter>();
 
         return services;

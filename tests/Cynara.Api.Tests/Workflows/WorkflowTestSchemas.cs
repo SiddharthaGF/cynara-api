@@ -109,6 +109,38 @@ internal static class WorkflowTestSchemas
                 """;
     }
 
+    public static string WithTaskNode()
+    {
+        return /*lang=json,strict*/ """
+            {
+              "$schema": "https://cynara.dev/schemas/v1/workflow-schema.schema.json",
+              "schemaVersion": "1.0.0",
+              "nodes": [
+                { "id": "start", "type": "start", "name": "Begin" },
+                {
+                  "id": "admit-task",
+                  "type": "task",
+                  "name": "Admission assessment",
+                  "description": "Complete the admission assessment for this patient.",
+                  "assignee": {
+                    "actor": "triage-service",
+                    "role": "nurse",
+                    "discipline": "nursing"
+                  },
+                  "formCode": "admission-assessment",
+                  "formVersion": "1.0.0",
+                  "dueDays": 3
+                },
+                { "id": "end", "type": "end", "name": "Done" }
+              ],
+              "edges": [
+                { "from": "start", "to": "admit-task" },
+                { "from": "admit-task", "to": "end" }
+              ]
+            }
+            """;
+    }
+
     public static string WithMissingStart()
     {
         return /*lang=json,strict*/ """

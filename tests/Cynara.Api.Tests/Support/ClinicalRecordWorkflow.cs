@@ -58,8 +58,9 @@ internal sealed class ClinicalRecordWorkflow(
                 rulesSchemaJson: rulesSchemaJson)
             .ConfigureAwait(false);
 
+        string documentDefinitionCode = $"cr-def-{suffix}";
         Guid documentDefinitionId = await CreateDocumentDefinitionAsync(
-            $"cr-def-{suffix}",
+            documentDefinitionCode,
             $"Document {suffix}",
             Guid.Parse(formDefinitionId),
             Guid.Parse(formVersionId),
@@ -67,7 +68,6 @@ internal sealed class ClinicalRecordWorkflow(
             clinicalAreaId,
             disciplineId,
             allowsMultipleInstancesPerEncounter).ConfigureAwait(false);
-
         Guid patientId = await CreatePatientAsync(
             $"MRN-{suffix}",
             "Ada",
@@ -88,6 +88,7 @@ internal sealed class ClinicalRecordWorkflow(
             Guid.Parse(formDefinitionId),
             Guid.Parse(formVersionId),
             documentDefinitionId,
+            documentDefinitionCode,
             patientId,
             encounterId);
     }
@@ -555,5 +556,6 @@ internal sealed record ClinicalWorkspace(
     Guid FormDefinitionId,
     Guid FormVersionId,
     Guid DocumentDefinitionId,
+    string DocumentDefinitionCode,
     Guid PatientId,
     Guid EncounterId);

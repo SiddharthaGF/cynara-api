@@ -135,6 +135,11 @@
         "formVersion": {
           "$ref": "#/$defs/semver",
           "description": "Pinned version of the referenced form. Required for published workflows; optional in drafts."
+        },
+        "dueDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional calendar days from task creation to the due date."
         }
       }
     },
