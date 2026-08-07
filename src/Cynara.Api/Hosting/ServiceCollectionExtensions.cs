@@ -97,7 +97,8 @@ internal static class ServiceCollectionExtensions
                         "JSON:API contract for Cynara clinical form "
                         + "lifecycle, responses, components, patients, "
                         + "encounters, clinical taxonomy, audit, capability "
-                        + "assignment, and AI provider settings. Send "
+                        + "assignment, AI provider settings, workflow "
+                        + "pipelines and journeys, and clinical tasks. Send "
                         + "`X-Actor-Id` on every request: it is the actor "
                         + "identity for both audit attribution and capability "
                         + "resolution. Send `X-Hospital-Code` on every "
@@ -107,10 +108,13 @@ internal static class ServiceCollectionExtensions
                         + "identifiers. Protected endpoints require a "
                         + "capability the actor holds in the resolved "
                         + "hospital; denied requests return 403 and never "
-                        + "reveal whether the protected resource exists. " + "Media type: application/vnd.api+json. Workflow "
-                        + "actions use rowVersion query parameters. "
-                        + "Form AI status/chat use application/json; "
-                        + "chat/stream uses text/event-stream (SSE).",
+                        + "reveal whether the protected resource exists. "
+                        + "Media type: application/vnd.api+json. Workflow "
+                        + "actions use rowVersion query parameters; pipeline "
+                        + "and task transitions carry the concurrency token "
+                        + "in the request body. Form AI status/chat use "
+                        + "application/json; chat/stream uses "
+                        + "text/event-stream (SSE).",
                 });
             swagger.AddSecurityDefinition(
                 "ActorId",
