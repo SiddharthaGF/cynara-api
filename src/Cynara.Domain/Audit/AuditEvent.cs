@@ -27,6 +27,31 @@ public sealed class AuditEvent : Identifiable<Guid>
     [Attr(PublicName = "actorId", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
     public string? ActorId { get; set; }
 
+    /// <summary>
+    /// Patient the audited activity belongs to, when the resource is patient
+    /// or pipeline scoped. Stamped by the audit writer so reviewers can query
+    /// events by patient without reading metadata JSON.
+    /// </summary>
+    [Attr(PublicName = "patientId", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
+    public Guid? PatientId { get; set; }
+
+    /// <summary>
+    /// Encounter the audited activity belongs to, when the resource is
+    /// encounter or pipeline scoped. Stamped by the audit writer so reviewers
+    /// can query events by encounter without reading metadata JSON.
+    /// </summary>
+    [Attr(PublicName = "encounterId", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
+    public Guid? EncounterId { get; set; }
+
+    /// <summary>
+    /// Workflow definition the audited activity belongs to, for workflow
+    /// configuration, pipeline, and task events. Stamped by the audit writer
+    /// so reviewers can query all events for a workflow definition without
+    /// reading metadata JSON.
+    /// </summary>
+    [Attr(PublicName = "workflowDefinitionId", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
+    public Guid? WorkflowDefinitionId { get; set; }
+
     [Attr(PublicName = "occurredAt", Capabilities = AttrCapabilities.AllowView | AttrCapabilities.AllowFilter | AttrCapabilities.AllowSort)]
     public DateTimeOffset OccurredAt { get; set; }
 

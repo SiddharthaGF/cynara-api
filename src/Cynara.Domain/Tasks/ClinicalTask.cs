@@ -34,6 +34,12 @@ public sealed class ClinicalTask
     /// </summary>
     public Guid WorkflowVersionId { get; set; }
 
+    /// <summary>
+    /// Owning workflow definition, denormalized from the generating pipeline
+    /// so task audit events can be queried by workflow without a join.
+    /// </summary>
+    public Guid WorkflowDefinitionId { get; set; }
+
     /// <summary>Id of the workflow node that generated this task.</summary>
     public string NodeId { get; set; } = null!;
 

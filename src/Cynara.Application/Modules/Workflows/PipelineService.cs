@@ -124,7 +124,10 @@ public sealed class PipelineService(
                 subjectId = request.SubjectId,
                 patientId = pipeline.PatientId,
                 encounterId = pipeline.EncounterId,
-            });
+            },
+            patientId: pipeline.PatientId,
+            encounterId: pipeline.EncounterId,
+            workflowDefinitionId: version.WorkflowDefinitionId);
 
         pipelines.Add(pipeline);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -344,7 +347,10 @@ public sealed class PipelineService(
                     fromNodeId = edge.From,
                     toNodeId = next.Id,
                     currentNodeId = next.Id,
-                });
+                },
+                patientId: pipeline.PatientId,
+                encounterId: pipeline.EncounterId,
+                workflowDefinitionId: pipeline.WorkflowVersion.WorkflowDefinitionId);
         }
         else
         {
@@ -377,7 +383,10 @@ public sealed class PipelineService(
                     fromNodeId = edge.From,
                     toNodeId = next.Id,
                     currentNodeId = next.Id,
-                });
+                },
+                patientId: pipeline.PatientId,
+                encounterId: pipeline.EncounterId,
+                workflowDefinitionId: pipeline.WorkflowVersion.WorkflowDefinitionId);
         }
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -490,7 +499,10 @@ public sealed class PipelineService(
             {
                 reason,
                 currentNodeId = pipeline.CurrentNodeId,
-            });
+            },
+            patientId: pipeline.PatientId,
+            encounterId: pipeline.EncounterId,
+            workflowDefinitionId: pipeline.WorkflowVersion.WorkflowDefinitionId);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return PipelineMappers.ToDto(pipeline);
@@ -524,6 +536,7 @@ public sealed class PipelineService(
             HospitalId = pipeline.HospitalId,
             PipelineId = pipeline.Id,
             WorkflowVersionId = pipeline.WorkflowVersionId,
+            WorkflowDefinitionId = pipeline.WorkflowVersion.WorkflowDefinitionId,
             NodeId = node.Id,
             Name = node.Name ?? node.Id,
             Description = node.Description,
@@ -558,7 +571,10 @@ public sealed class PipelineService(
                 assignedRole = task.AssignedRole,
                 assignedDiscipline = task.AssignedDiscipline,
                 dueAt = task.DueAt,
-            });
+            },
+            patientId: task.PatientId,
+            encounterId: task.EncounterId,
+            workflowDefinitionId: task.WorkflowDefinitionId);
     }
 
     private async Task CancelOpenTasksAsync(
@@ -588,7 +604,10 @@ public sealed class PipelineService(
                     reason = "Pipeline terminated",
                     pipelineId = pipeline.Id,
                     nodeId = task.NodeId,
-                });
+                },
+                patientId: task.PatientId,
+                encounterId: task.EncounterId,
+                workflowDefinitionId: task.WorkflowDefinitionId);
         }
     }
 

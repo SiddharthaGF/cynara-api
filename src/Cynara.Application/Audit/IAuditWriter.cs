@@ -8,5 +8,8 @@ public interface IAuditWriter
         string action,
         string? actorId,
         DateTimeOffset occurredAt,
-        object metadata);
+        object metadata,
+        Guid? patientId = null,
+        Guid? encounterId = null,
+        Guid? workflowDefinitionId = null);
 }

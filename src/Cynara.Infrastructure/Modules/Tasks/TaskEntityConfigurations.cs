@@ -28,9 +28,11 @@ public sealed class ClinicalTaskConfiguration
         _ = builder.HasIndex(item => new { item.HospitalId, item.PatientId });
         _ = builder.HasIndex(item => new { item.HospitalId, item.EncounterId });
         _ = builder.HasIndex(item => new { item.HospitalId, item.PipelineId });
+        _ = builder.HasIndex(item => new { item.HospitalId, item.WorkflowDefinitionId });
         _ = builder.HasIndex(item => new { item.HospitalId, item.EncounterId, item.Status });
         _ = builder.Property(item => item.PipelineId).IsRequired();
         _ = builder.Property(item => item.WorkflowVersionId).IsRequired();
+        _ = builder.Property(item => item.WorkflowDefinitionId).IsRequired();
         _ = builder.Property(item => item.NodeId)
             .HasMaxLength(64)
             .IsRequired();

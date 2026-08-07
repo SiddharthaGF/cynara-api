@@ -97,7 +97,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 draftVersionId = draft.Id,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         workflows.AddDefinition(definition, draft);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -136,7 +138,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 rowVersion = request.RowVersion,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, draft);
@@ -182,7 +186,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 rowVersion = request.RowVersion,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, draft);
@@ -223,7 +229,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 rowVersion = request.RowVersion,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, review);
@@ -273,7 +281,9 @@ public sealed class WorkflowLifecycleService(
                 code = definition.Code,
                 rowVersion = request.RowVersion,
                 comment = review.LastReviewComment,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, review);
@@ -334,7 +344,9 @@ public sealed class WorkflowLifecycleService(
                 version,
                 schemaVersion = review.PublishedSchemaVersion,
                 contentHash = review.ContentHash,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, review);
@@ -387,7 +399,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 sourceVersion = source?.Version,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         workflows.AddVersion(draft);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -431,7 +445,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 version,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return WorkflowMappers.ToVersionDto(definition, published);
@@ -471,7 +487,9 @@ public sealed class WorkflowLifecycleService(
             {
                 code = definition.Code,
                 draftVersionId = draft.Id,
-            });
+                workflowDefinitionId = definition.Id,
+            },
+            workflowDefinitionId: definition.Id);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
