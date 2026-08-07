@@ -103,7 +103,10 @@ public sealed class TaskService(
             {
                 pipelineId = task.PipelineId,
                 nodeId = task.NodeId,
-            });
+            },
+            patientId: task.PatientId,
+            encounterId: task.EncounterId,
+            workflowDefinitionId: task.WorkflowDefinitionId);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return TaskMappers.ToDto(task);
@@ -144,7 +147,10 @@ public sealed class TaskService(
                 reason,
                 pipelineId = task.PipelineId,
                 nodeId = task.NodeId,
-            });
+            },
+            patientId: task.PatientId,
+            encounterId: task.EncounterId,
+            workflowDefinitionId: task.WorkflowDefinitionId);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return TaskMappers.ToDto(task);
@@ -185,7 +191,10 @@ public sealed class TaskService(
                 reason,
                 pipelineId = task.PipelineId,
                 nodeId = task.NodeId,
-            });
+            },
+            patientId: task.PatientId,
+            encounterId: task.EncounterId,
+            workflowDefinitionId: task.WorkflowDefinitionId);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return TaskMappers.ToDto(task);

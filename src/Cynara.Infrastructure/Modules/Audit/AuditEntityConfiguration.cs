@@ -20,5 +20,8 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         _ = builder.HasIndex(item => new { item.HospitalId, item.ResourceType, item.ResourceId });
         _ = builder.HasIndex(item => new { item.HospitalId, item.ActorId });
         _ = builder.HasIndex(item => new { item.HospitalId, item.OccurredAt });
+        _ = builder.HasIndex(item => new { item.HospitalId, item.PatientId });
+        _ = builder.HasIndex(item => new { item.HospitalId, item.EncounterId });
+        _ = builder.HasIndex(item => new { item.HospitalId, item.WorkflowDefinitionId });
     }
 }

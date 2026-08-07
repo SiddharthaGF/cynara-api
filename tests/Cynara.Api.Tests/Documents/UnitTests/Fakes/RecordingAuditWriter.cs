@@ -18,13 +18,25 @@ public sealed class RecordingAuditWriter : IAuditWriter
         string action,
         string? actorId,
         DateTimeOffset occurredAt,
-        object metadata)
+        object metadata,
+        Guid? patientId = null,
+        Guid? encounterId = null,
+        Guid? workflowDefinitionId = null)
     {
         ArgumentNullException.ThrowIfNull(resourceType);
         ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(metadata);
         entries.Add(
-            new AuditEntry(resourceType, resourceId, action, actorId, occurredAt, metadata));
+            new AuditEntry(
+                resourceType,
+                resourceId,
+                action,
+                actorId,
+                occurredAt,
+                metadata,
+                patientId,
+                encounterId,
+                workflowDefinitionId));
     }
 
     public sealed record AuditEntry(
@@ -33,5 +45,8 @@ public sealed class RecordingAuditWriter : IAuditWriter
         string Action,
         string? ActorId,
         DateTimeOffset OccurredAt,
-        object Metadata);
+        object Metadata,
+        Guid? PatientId = null,
+        Guid? EncounterId = null,
+        Guid? WorkflowDefinitionId = null);
 }
