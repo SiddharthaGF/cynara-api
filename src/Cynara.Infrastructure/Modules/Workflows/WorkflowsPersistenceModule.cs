@@ -10,6 +10,7 @@ public static class WorkflowsPersistenceModule
         this IServiceCollection services)
     {
         _ = services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+        _ = services.AddScoped<IPipelineRepository, PipelineRepository>();
         return services;
     }
 }

@@ -679,6 +679,7 @@ public sealed class ClinicalDocumentServiceTests
             FakeDocumentCatalogRepository catalog,
             FakeEncounterRepository encounters,
             FakeFormResponseRepository responses,
+            FakeTaskRepository tasks,
             RecordingUnitOfWork unitOfWork,
             RecordingAuditWriter auditWriter,
             FakeHospitalContext hospitalContext,
@@ -693,6 +694,7 @@ public sealed class ClinicalDocumentServiceTests
             Catalog = catalog;
             Encounters = encounters;
             Responses = responses;
+            Tasks = tasks;
             UnitOfWork = unitOfWork;
             AuditWriter = auditWriter;
             HospitalContext = hospitalContext;
@@ -706,6 +708,7 @@ public sealed class ClinicalDocumentServiceTests
                 references,
                 new FakeClinicalDocumentResponseStage(
                     responses, new FakeFormResponseValidator()),
+                tasks,
                 unitOfWork,
                 auditWriter,
                 new FakeWorkflowContext(hospitalContext, timeProvider),
@@ -721,6 +724,8 @@ public sealed class ClinicalDocumentServiceTests
         public FakeEncounterRepository Encounters { get; }
 
         public FakeFormResponseRepository Responses { get; }
+
+        public FakeTaskRepository Tasks { get; }
 
         public RecordingUnitOfWork UnitOfWork { get; }
 
@@ -946,6 +951,7 @@ public sealed class ClinicalDocumentServiceTests
                 catalogRepository,
                 encounterRepository,
                 new FakeFormResponseRepository(),
+                new FakeTaskRepository(),
                 new RecordingUnitOfWork(),
                 new RecordingAuditWriter(),
                 new FakeHospitalContext(hospitalId),

@@ -1,6 +1,8 @@
 using Cynara.Api.Common.ErrorHandling;
 using Cynara.Api.Modules.Health;
+using Cynara.Api.Modules.Pipelines;
 using Cynara.Api.Modules.Schemas;
+using Cynara.Api.Modules.Tasks;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Hospitals;
@@ -31,6 +33,7 @@ internal static class WebApplicationExtensions
         _ = app.UseRouting();
         _ = app.UseCors();
         _ = app.UseHospitalContext();
+        _ = app.UseAuthorization();
         app.UseJsonApi();
 
         await app.Services.InitializeDatabaseAsync(cancellationToken)
@@ -63,6 +66,8 @@ internal static class WebApplicationExtensions
         // Probe/root endpoints stay out of Scalar; JSON:API is the contract UI.
         _ = app.MapHealthEndpoints();
         _ = app.MapSchemaEndpoints();
+        _ = app.MapPipelinesEndpoints();
+        _ = app.MapTasksEndpoints();
         _ = app.MapControllers();
 
         return app;

@@ -4,11 +4,14 @@ using Cynara.Application.Forms;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.FormResponses;
+using Cynara.Application.Modules.Tasks;
+using Cynara.Application.Modules.Tasks.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Encounters;
 using Cynara.Domain.Forms;
+using Cynara.Domain.Tasks;
 
 namespace Cynara.Application.Modules.Documents;
 
@@ -27,6 +30,7 @@ public sealed class ClinicalDocumentService(
     IClinicalDocumentRepository documents,
     IClinicalDocumentReferenceResolver references,
     IClinicalDocumentResponseStage responses,
+    ITaskRepository tasks,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IWorkflowContext context,
@@ -256,6 +260,10 @@ public sealed class ClinicalDocumentService(
                 rowVersion = request.RowVersion,
             });
 
+        await CloseTasksForCompletedDocumentAsync(
+                document, definition.Code, actorId, now, cancellationToken)
+            .ConfigureAwait(false);
+
         _ = await unitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
         return ClinicalDocumentMappers.ToDto(document);
@@ -364,5 +372,39 @@ public sealed class ClinicalDocumentService(
         _ = await unitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
         return ClinicalDocumentMappers.ToDto(document);
+    }
+
+    private async Task CloseTasksForCompletedDocumentAsync(
+        ClinicalDocument document,
+        string formCode,
+        string? actorId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ClinicalTask> open = await tasks
+            .ListOpenByFormCodeAsync(
+                document.HospitalId,
+                document.EncounterId,
+                formCode,
+                track: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+        foreach (ClinicalTask task in open)
+        {
+            ClinicalTaskLifecycle.Complete(task, actorId, now);
+            auditWriter.Append(
+                AuditEntityTypes.Task,
+                task.Id,
+                "task.completed",
+                actorId,
+                now,
+                new
+                {
+                    clinicalDocumentId = document.Id,
+                    documentDefinitionCode = formCode,
+                    pipelineId = task.PipelineId,
+                    nodeId = task.NodeId,
+                });
+        }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Cynara.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cynara.Infrastructure.Migrations
 {
     [DbContext(typeof(CynaraDbContext))]
-    partial class CynaraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806225157_AddWorkflowPipelines")]
+    partial class AddWorkflowPipelines
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -998,121 +1001,10 @@ namespace Cynara.Infrastructure.Migrations
                     b.ToTable("patients", (string)null);
                 });
 
-            modelBuilder.Entity("Cynara.Domain.Tasks.ClinicalTask", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AssignedActor")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("AssignedDiscipline")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("AssignedRole")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset?>("CanceledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CanceledBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset?>("ClaimedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ClaimedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CompletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<DateTimeOffset?>("DueAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("EncounterId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("FormCode")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("FormVersion")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid>("HospitalId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("NodeId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PipelineId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("RowVersion")
-                        .IsConcurrencyToken()
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("WorkflowVersionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("HospitalId");
-
-                    b.HasIndex("PipelineId");
-
-                    b.HasIndex("HospitalId", "EncounterId");
-
-                    b.HasIndex("HospitalId", "PatientId");
-
-                    b.HasIndex("HospitalId", "PipelineId");
-
-                    b.HasIndex("HospitalId", "Status");
-
-                    b.HasIndex("HospitalId", "EncounterId", "Status");
-
-                    b.ToTable("clinical_tasks", (string)null);
-                });
-
             modelBuilder.Entity("Cynara.Domain.Workflows.Pipeline", b =>
                 {
                     b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -1123,16 +1015,10 @@ namespace Cynara.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<Guid?>("EncounterId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTimeOffset?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("HospitalId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PatientId")
                         .HasColumnType("uuid");
 
                     b.Property<long>("RowVersion")
@@ -1167,10 +1053,6 @@ namespace Cynara.Infrastructure.Migrations
 
                     b.HasIndex("WorkflowVersionId");
 
-                    b.HasIndex("HospitalId", "EncounterId");
-
-                    b.HasIndex("HospitalId", "PatientId");
-
                     b.HasIndex("HospitalId", "Status");
 
                     b.HasIndex("HospitalId", "SubjectId");
@@ -1185,6 +1067,7 @@ namespace Cynara.Infrastructure.Migrations
             modelBuilder.Entity("Cynara.Domain.Workflows.PipelineHistory", b =>
                 {
                     b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Action")
@@ -1433,17 +1316,6 @@ namespace Cynara.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("FormDefinition");
-                });
-
-            modelBuilder.Entity("Cynara.Domain.Tasks.ClinicalTask", b =>
-                {
-                    b.HasOne("Cynara.Domain.Workflows.Pipeline", "Pipeline")
-                        .WithMany()
-                        .HasForeignKey("PipelineId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Pipeline");
                 });
 
             modelBuilder.Entity("Cynara.Domain.Workflows.Pipeline", b =>

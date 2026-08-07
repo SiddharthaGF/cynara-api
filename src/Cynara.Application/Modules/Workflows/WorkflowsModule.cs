@@ -9,6 +9,7 @@ public static class WorkflowsModule
     {
         _ = services.AddScoped<IWorkflowLifecycleService, WorkflowLifecycleService>();
         _ = services.AddScoped<IWorkflowQueryService, WorkflowQueriesService>();
+        _ = services.AddScoped<IPipelineService, PipelineService>();
         return services;
     }
 }
