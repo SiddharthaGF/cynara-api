@@ -277,6 +277,162 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task AdvancePipeline_Returns200_WhenActorHoldsWrite()
+    {
+        (Guid pipelineId, uint rowVersion) = await SeedStartedPipelineAsync(
+            "wf-pipeline-advance-ok",
+            WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
+
+        HttpClient client = CreateClient(Doctor, PrimaryHospitalCode);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.PipelinesRead,
+            PrimaryHospitalCode).ConfigureAwait(false);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.PipelinesWrite,
+            PrimaryHospitalCode).ConfigureAwait(false);
+
+        using HttpResponseMessage response = await PostPipelineTransitionAsync(
+            client,
+            pipelineId,
+            "advance",
+            rowVersion).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PipelineMutations_Return403_WhenActorHoldsOnlyRead_AndAuditDenial()
+    {
+        (Guid pipelineId, uint rowVersion) = await SeedStartedPipelineAsync(
+            "wf-pipeline-mutations-deny",
+            WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
+
+        HttpClient client = CreateClient(Doctor, PrimaryHospitalCode);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.PipelinesRead,
+            PrimaryHospitalCode).ConfigureAwait(false);
+        int deniedBefore = await DenialCountAsync().ConfigureAwait(false);
+
+        foreach (string action in new[]
+        {
+            "advance",
+            "complete",
+            "cancel",
+            "enter-in-error",
+        })
+        {
+            using HttpResponseMessage response = await PostPipelineTransitionAsync(
+                client,
+                pipelineId,
+                action,
+                rowVersion).ConfigureAwait(false);
+            await AssertForbiddenAsync(response).ConfigureAwait(false);
+        }
+
+        Assert.True(
+            await DenialCountAsync().ConfigureAwait(false) > deniedBefore,
+            "Expected an access.denied audit event per denied pipeline "
+            + "mutation.");
+    }
+
+    [Fact]
+    public async Task ClaimTask_Returns200_WhenActorHoldsWrite()
+    {
+        Guid taskId = await SeedStartedTaskAsync("wf-task-claim-ok")
+            .ConfigureAwait(false);
+
+        HttpClient client = CreateClient(Doctor, PrimaryHospitalCode);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.TasksRead,
+            PrimaryHospitalCode).ConfigureAwait(false);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.TasksWrite,
+            PrimaryHospitalCode).ConfigureAwait(false);
+
+        using HttpResponseMessage response = await PostTaskTransitionAsync(
+            client,
+            taskId,
+            "claim",
+            rowVersion: 0).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TaskMutations_Return403_WhenActorHoldsOnlyRead_AndAuditDenial()
+    {
+        Guid taskId = await SeedStartedTaskAsync("wf-task-mutations-deny")
+            .ConfigureAwait(false);
+
+        HttpClient client = CreateClient(Doctor, PrimaryHospitalCode);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.TasksRead,
+            PrimaryHospitalCode).ConfigureAwait(false);
+        int deniedBefore = await DenialCountAsync().ConfigureAwait(false);
+
+        foreach (string action in new[] { "claim", "complete", "cancel" })
+        {
+            using HttpResponseMessage response = await PostTaskTransitionAsync(
+                client,
+                taskId,
+                action,
+                rowVersion: 0).ConfigureAwait(false);
+            await AssertForbiddenAsync(response).ConfigureAwait(false);
+        }
+
+        Assert.True(
+            await DenialCountAsync().ConfigureAwait(false) > deniedBefore,
+            "Expected an access.denied audit event per denied task mutation.");
+    }
+
+    [Fact]
+    public async Task Pipeline_IsNotVisibleInAnotherHospital_WhenOnlyGrantedThere()
+    {
+        (Guid pipelineId, _) = await SeedStartedPipelineAsync(
+            "wf-pipeline-cross-tenant",
+            WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
+
+        await Factory.SeedSecondaryHospitalAsync().ConfigureAwait(false);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.PipelinesRead,
+            OtherHospitalCode).ConfigureAwait(false);
+        HttpClient otherClient = CreateClient(Doctor, OtherHospitalCode);
+
+        using HttpResponseMessage denied = await otherClient
+            .GetAsync(new Uri($"/api/pipelines/{pipelineId:D}", UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+    }
+
+    [Fact]
+    public async Task Task_IsNotVisibleInAnotherHospital_WhenOnlyGrantedThere()
+    {
+        Guid taskId = await SeedStartedTaskAsync("wf-task-cross-tenant")
+            .ConfigureAwait(false);
+
+        await Factory.SeedSecondaryHospitalAsync().ConfigureAwait(false);
+        await SeedAssignmentAsync(
+            Doctor,
+            CapabilityCodes.TasksRead,
+            OtherHospitalCode).ConfigureAwait(false);
+        HttpClient otherClient = CreateClient(Doctor, OtherHospitalCode);
+
+        using HttpResponseMessage denied = await otherClient
+            .GetAsync(new Uri($"/api/tasks/{taskId:D}", UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+    }
+
     private async Task<JsonApiClient> CreateAdminApiAsync()
     {
         HttpClient adminClient = CreateClient(Admin, PrimaryHospitalCode);
@@ -594,6 +750,106 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         Assert.Equal(
             "Capability required",
             error.GetProperty("title").GetString());
+    }
+
+    private async Task<(Guid PipelineId, uint RowVersion)> SeedStartedPipelineAsync(
+        string workflowCode,
+        string workflowSchemaJson)
+    {
+        JsonApiClient adminApi = await CreateAdminApiAsync().ConfigureAwait(false);
+        await PublishWorkflowAsync(
+            adminApi,
+            workflowCode,
+            workflowSchemaJson).ConfigureAwait(false);
+        Guid encounterId = await SeedEncounterAsync(adminApi.Http)
+            .ConfigureAwait(false);
+
+        using HttpResponseMessage response = await PostStartPipelineAsync(
+            adminApi.Http,
+            workflowCode,
+            encounterId).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        var pipelineId = Guid.Parse(
+            document.RootElement.GetProperty("id").GetString()!,
+            CultureInfo.InvariantCulture);
+        uint rowVersion = document.RootElement
+            .GetProperty("rowVersion")
+            .GetUInt32();
+        return (pipelineId, rowVersion);
+    }
+
+    private async Task<Guid> SeedStartedTaskAsync(string workflowCode)
+    {
+        (Guid pipelineId, uint rowVersion) = await SeedStartedPipelineAsync(
+            workflowCode,
+            WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
+
+        HttpClient adminClient = CreateClient(Admin, PrimaryHospitalCode);
+        using HttpResponseMessage advanced = await PostPipelineTransitionAsync(
+            adminClient,
+            pipelineId,
+            "advance",
+            rowVersion).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, advanced.StatusCode);
+
+        using HttpResponseMessage list = await adminClient.GetAsync(
+            new Uri("/api/tasks", UriKind.Relative)).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        using var document = JsonDocument.Parse(
+            await list.Content.ReadAsStringAsync().ConfigureAwait(false));
+        string taskId = document.RootElement.GetProperty("tasks")
+            .EnumerateArray()
+            .Single(item => string.Equals(
+                item.GetProperty("pipelineId").GetString(),
+                pipelineId.ToString("D", CultureInfo.InvariantCulture),
+                StringComparison.Ordinal))
+            .GetProperty("id")
+            .GetString()!;
+        return Guid.Parse(taskId, CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<HttpResponseMessage> PostPipelineTransitionAsync(
+        HttpClient client,
+        Guid pipelineId,
+        string action,
+        uint rowVersion)
+    {
+        return await PostJsonAsync(
+            client,
+            $"/api/pipelines/{pipelineId:D}/{action}",
+            new { rowVersion }).ConfigureAwait(false);
+    }
+
+    private static async Task<HttpResponseMessage> PostTaskTransitionAsync(
+        HttpClient client,
+        Guid taskId,
+        string action,
+        uint rowVersion)
+    {
+        return await PostJsonAsync(
+            client,
+            $"/api/tasks/{taskId:D}/{action}",
+            new { rowVersion }).ConfigureAwait(false);
+    }
+
+    private static async Task<HttpResponseMessage> PostJsonAsync(
+        HttpClient client,
+        string path,
+        object body)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(path, UriKind.Relative))
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(body),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        return await client.SendAsync(request).ConfigureAwait(false);
     }
 
     private async Task<int> DenialCountAsync()

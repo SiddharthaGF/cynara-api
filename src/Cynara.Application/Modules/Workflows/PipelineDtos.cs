@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Cynara.Application.Modules.Workflows;
 
@@ -57,10 +58,10 @@ public sealed record PipelineHistoryDto(
 /// resolved hospital and pins it for the pipeline lifetime.
 /// </summary>
 public sealed record StartPipelineRequest(
-    string WorkflowCode,
+    [property: JsonRequired] string WorkflowCode,
     string? WorkflowVersion,
-    string SubjectType,
-    Guid SubjectId);
+    [property: JsonRequired] string SubjectType,
+    [property: JsonRequired] Guid SubjectId);
 
 /// <summary>
 /// Advance contract for a running pipeline. The server evaluates the
@@ -69,7 +70,7 @@ public sealed record StartPipelineRequest(
 /// the next node directly.
 /// </summary>
 public sealed record AdvancePipelineRequest(
-    uint RowVersion,
+    [property: JsonRequired] uint RowVersion,
     IReadOnlyDictionary<string, JsonElement>? InputValues = null);
 
 /// <summary>
@@ -78,7 +79,7 @@ public sealed record AdvancePipelineRequest(
 /// recorded in the progression history.
 /// </summary>
 public sealed record TransitionPipelineRequest(
-    uint RowVersion,
+    [property: JsonRequired] uint RowVersion,
     string? Reason = null);
 
 /// <summary>

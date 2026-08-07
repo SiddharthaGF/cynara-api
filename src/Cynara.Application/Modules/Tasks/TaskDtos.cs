@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Cynara.Application.Modules.Tasks;
 
 /// <summary>
@@ -68,7 +70,8 @@ public sealed record TaskListResponse(
 /// Claim contract for an open task. The <c>RowVersion</c> must match the
 /// latest persisted value.
 /// </summary>
-public sealed record ClaimTaskRequest(uint RowVersion);
+public sealed record ClaimTaskRequest(
+    [property: JsonRequired] uint RowVersion);
 
 /// <summary>
 /// Lifecycle contract for completing or canceling a task. The
@@ -76,5 +79,5 @@ public sealed record ClaimTaskRequest(uint RowVersion);
 /// audit event.
 /// </summary>
 public sealed record TransitionTaskRequest(
-    uint RowVersion,
+    [property: JsonRequired] uint RowVersion,
     string? Reason = null);

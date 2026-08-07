@@ -81,6 +81,8 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Contains("Form Definitions", tagNames);
         Assert.Contains("Form AI", tagNames);
         Assert.Contains("AI Provider Settings", tagNames);
+        Assert.Contains("Pipelines", tagNames);
+        Assert.Contains("Tasks", tagNames);
         Assert.DoesNotContain("formDefinitions", tagNames);
         Assert.DoesNotContain("aiProviderSettings", tagNames);
 
@@ -122,6 +124,24 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(
             paths.TryGetProperty("/api/me/capabilities", out JsonElement myCaps));
         Assert.True(myCaps.TryGetProperty("get", out _));
+
+        Assert.True(
+            paths.TryGetProperty("/api/pipelines", out JsonElement pipelines));
+        Assert.True(pipelines.TryGetProperty("get", out _));
+        Assert.True(pipelines.TryGetProperty("post", out _));
+        Assert.True(
+            paths.TryGetProperty(
+                "/api/pipelines/{id}/advance",
+                out JsonElement advance));
+        Assert.True(advance.TryGetProperty("post", out _));
+        Assert.True(
+            paths.TryGetProperty("/api/tasks", out JsonElement tasks));
+        Assert.True(tasks.TryGetProperty("get", out _));
+        Assert.True(
+            paths.TryGetProperty(
+                "/api/tasks/{id}/claim",
+                out JsonElement claim));
+        Assert.True(claim.TryGetProperty("post", out _));
 
         Assert.True(
             paths.TryGetProperty("/api/capabilities", out JsonElement caps));
@@ -217,6 +237,106 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(
             duplicateOperationIds.Count == 0,
             $"Duplicate operationIds: {string.Join(", ", duplicateOperationIds)}");
+    }
+
+    [Fact]
+    public async Task OpenApiDocument_Stage3Inventory_IsComplete()
+    {
+        using HttpResponseMessage response = await Client
+            .GetAsync(new Uri("/swagger/v1/swagger.json", UriKind.Relative))
+            .ConfigureAwait(false);
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(body);
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        var missing = new List<string>();
+        var noResponses = new List<string>();
+        var noSuccess = new List<string>();
+        var unexpectedMediaTypes = new List<string>();
+        var duplicateOperationIds = new List<string>();
+        var mutationsWithoutBody = new List<string>();
+        var operationIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach ((string path, string method) in Stage3Endpoints)
+        {
+            if (!paths.TryGetProperty(path, out JsonElement pathItem)
+                || !pathItem.TryGetProperty(method, out JsonElement operation))
+            {
+                missing.Add($"{method.ToUpperInvariant()} {path}");
+                continue;
+            }
+
+            if (operation.TryGetProperty("operationId", out JsonElement operationId))
+            {
+                string id = operationId.GetString() ?? string.Empty;
+                if (!operationIds.Add(id))
+                {
+                    duplicateOperationIds.Add(id);
+                }
+            }
+
+            // Every Stage 3 mutation must declare an application/json request
+            // body so client generators produce a usable payload contract.
+            if (method is "post"
+                && (!operation.TryGetProperty("requestBody", out JsonElement requestBody)
+                    || !requestBody.TryGetProperty("required", out JsonElement required)
+                    || required.ValueKind != JsonValueKind.True
+                    || !requestBody.TryGetProperty("content", out JsonElement content)
+                    || !content.TryGetProperty("application/json", out _)))
+            {
+                mutationsWithoutBody.Add($"{method.ToUpperInvariant()} {path}");
+            }
+
+            if (!operation.TryGetProperty("responses", out JsonElement responses))
+            {
+                noResponses.Add($"{method.ToUpperInvariant()} {path}");
+                continue;
+            }
+
+            if (!responses.EnumerateObject().Any(item =>
+                    item.Name is "200" or "201" or "204"))
+            {
+                noSuccess.Add($"{method.ToUpperInvariant()} {path}");
+            }
+
+            foreach (JsonProperty item in responses.EnumerateObject())
+            {
+                if (!item.Value.TryGetProperty("content", out JsonElement contentItem))
+                {
+                    continue;
+                }
+
+                foreach (JsonProperty mediaType in contentItem.EnumerateObject())
+                {
+                    if (!IsAllowedMediaType(mediaType.Name))
+                    {
+                        unexpectedMediaTypes.Add(
+                            $"{method.ToUpperInvariant()} {path}: {mediaType.Name}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            $"Missing Stage 3 endpoints: {string.Join(", ", missing)}");
+        Assert.True(
+            noResponses.Count == 0,
+            $"Endpoints without documented responses: {string.Join(", ", noResponses)}");
+        Assert.True(
+            noSuccess.Count == 0,
+            $"Endpoints without a 2xx response: {string.Join(", ", noSuccess)}");
+        Assert.True(
+            unexpectedMediaTypes.Count == 0,
+            $"Unexpected response media types: {string.Join(", ", unexpectedMediaTypes)}");
+        Assert.True(
+            duplicateOperationIds.Count == 0,
+            $"Duplicate operationIds: {string.Join(", ", duplicateOperationIds)}");
+        Assert.True(
+            mutationsWithoutBody.Count == 0,
+            "Stage 3 mutations without an application/json request body: "
+            + string.Join(", ", mutationsWithoutBody));
     }
 
     [Fact]
@@ -392,6 +512,30 @@ public sealed class OpenApiContractTests : IDisposable
         ("/api/ai/status", "get"),
         ("/api/ai/forms/{formDefinitionId}/chat", "post"),
         ("/api/ai/forms/{formDefinitionId}/chat/stream", "post"),
+    ];
+
+    /// <summary>
+    /// The full Stage 3 route map: the workflow pipeline runtime and the
+    /// clinical task catalog/lifecycle. Every entry must exist in the OpenAPI
+    /// document with documented responses, only the supported media types,
+    /// and — for mutations — an application/json request body.
+    /// </summary>
+    private static readonly (string Path, string Method)[] Stage3Endpoints =
+    [
+        ("/api/pipelines", "get"),
+        ("/api/pipelines", "post"),
+        ("/api/pipelines/journey", "get"),
+        ("/api/pipelines/{id}", "get"),
+        ("/api/pipelines/{id}/history", "get"),
+        ("/api/pipelines/{id}/advance", "post"),
+        ("/api/pipelines/{id}/complete", "post"),
+        ("/api/pipelines/{id}/cancel", "post"),
+        ("/api/pipelines/{id}/enter-in-error", "post"),
+        ("/api/tasks", "get"),
+        ("/api/tasks/{id}", "get"),
+        ("/api/tasks/{id}/claim", "post"),
+        ("/api/tasks/{id}/complete", "post"),
+        ("/api/tasks/{id}/cancel", "post"),
     ];
 
     private static bool IsAllowedMediaType(string mediaType)
