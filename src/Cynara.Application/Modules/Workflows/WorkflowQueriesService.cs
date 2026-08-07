@@ -18,7 +18,7 @@ public sealed class WorkflowQueriesService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
         IReadOnlyList<WorkflowDefinition> items = await workflows
             .ListDefinitionsAsync(hospitalContext.HospitalId, cancellationToken)
@@ -32,7 +32,7 @@ public sealed class WorkflowQueriesService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: false, hospitalContext.HospitalId, cancellationToken)
@@ -46,7 +46,7 @@ public sealed class WorkflowQueriesService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: false, hospitalContext.HospitalId, cancellationToken)
@@ -62,7 +62,7 @@ public sealed class WorkflowQueriesService(
     {
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
+            CapabilityCodes.WorkflowsRead, cancellationToken)
             .ConfigureAwait(false);
         SemverRules.EnsureValid(version);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers

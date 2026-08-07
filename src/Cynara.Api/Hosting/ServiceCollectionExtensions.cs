@@ -104,11 +104,10 @@ internal static class ServiceCollectionExtensions
                         + "request to select the hospital workspace; the "
                         + "tenant context is resolved by the API host and "
                         + "cannot be overridden by client-supplied "
-                        + "identifiers. Stage 2 protected endpoints require "
-                        + "a capability the actor holds in the resolved "
+                        + "identifiers. Protected endpoints require a "
+                        + "capability the actor holds in the resolved "
                         + "hospital; denied requests return 403 and never "
-                        + "reveal whether the protected resource exists. "
-                        + "Media type: application/vnd.api+json. Workflow "
+                        + "reveal whether the protected resource exists. " + "Media type: application/vnd.api+json. Workflow "
                         + "actions use rowVersion query parameters. "
                         + "Form AI status/chat use application/json; "
                         + "chat/stream uses text/event-stream (SSE).",
@@ -165,7 +164,10 @@ internal static class ServiceCollectionExtensions
             .AddSingleton<
                 IAuthorizationPolicyProvider,
                 CapabilityPolicyProvider>()
-            .AddScoped<IAuthorizationHandler, CapabilityAuthorizationHandler>();
+            .AddScoped<IAuthorizationHandler, CapabilityAuthorizationHandler>()
+            .AddSingleton<
+                IAuthorizationMiddlewareResultHandler,
+                CapabilityAuthorizationMiddlewareResultHandler>();
     }
 
     private static IServiceCollection AddCynaraForwardedHeaders(

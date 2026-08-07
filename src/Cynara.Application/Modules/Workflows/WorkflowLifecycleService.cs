@@ -49,7 +49,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         CodeRules.EnsureValid(request.Code, "Workflow");
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -116,7 +116,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         schemaValidator.ValidateWorkflowDraft(request.WorkflowSchemaJson);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
@@ -156,7 +156,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
@@ -204,7 +204,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
@@ -247,7 +247,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(request.Comment))
         {
@@ -299,7 +299,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
@@ -360,7 +360,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
@@ -418,7 +418,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(version);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         SemverRules.EnsureValid(version);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
@@ -461,7 +461,7 @@ public sealed class WorkflowLifecycleService(
         ArgumentNullException.ThrowIfNull(code);
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
+            CapabilityCodes.WorkflowsWrite, cancellationToken)
             .ConfigureAwait(false);
         WorkflowDefinition definition = await WorkflowWorkflowHelpers
             .RequireDefinitionAsync(workflows, code, track: true, hospitalContext.HospitalId, cancellationToken).ConfigureAwait(false);
