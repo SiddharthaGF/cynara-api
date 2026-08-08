@@ -15,7 +15,7 @@ namespace Cynara.Infrastructure.Modules.Hospitals;
 public static class HospitalBootstrap
 {
     public const string DefaultBootstrapCode = "default";
-    public const string DefaultBootstrapName = "Default workspace";
+    public const string DefaultBootstrapName = "Espacio de trabajo predeterminado";
 
     public static async Task EnsureBootstrapHospitalAsync(
         this IServiceProvider services,

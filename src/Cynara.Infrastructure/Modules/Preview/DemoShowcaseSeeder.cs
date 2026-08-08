@@ -367,7 +367,7 @@ public static class DemoShowcaseSeeder
         FacilityDto? match = existing.FirstOrDefault(item =>
             string.Equals(item.Code, FacilityCode, StringComparison.Ordinal));
         return match ?? await taxonomy.CreateFacilityAsync(
-            new CreateFacilityRequest(FacilityCode, "Main campus"),
+            new CreateFacilityRequest(FacilityCode, "Campus principal"),
             ActorId,
             cancellationToken).ConfigureAwait(false);
     }
@@ -388,7 +388,7 @@ public static class DemoShowcaseSeeder
         return match ?? await taxonomy.CreateClinicalAreaAsync(
             new CreateClinicalAreaRequest(
                 ClinicalAreaCode,
-                "Emergency",
+                "Urgencias",
                 facilityId),
             ActorId,
             cancellationToken).ConfigureAwait(false);
@@ -410,7 +410,7 @@ public static class DemoShowcaseSeeder
         return match ?? await taxonomy.CreateDisciplineAsync(
             new CreateDisciplineRequest(
                 DisciplineCode,
-                "Nursing",
+                "Enfermería",
                 clinicalAreaId),
             ActorId,
             cancellationToken).ConfigureAwait(false);
@@ -526,7 +526,7 @@ public static class DemoShowcaseSeeder
         return match ?? await catalog.CreateAsync(
             new CreateDocumentDefinitionRequest(
                 DocumentDefinitionCode,
-                "Intake assessment",
+                "Evaluación de ingreso",
                 formVersionId,
                 facilityId,
                 clinicalAreaId,
@@ -686,7 +686,7 @@ public static class DemoShowcaseSeeder
         // entry so the table is not empty in fresh workspaces.
         await writer.RecordAsync(
             new NotFoundException(
-                "Seed fixture: simulated not-found failure for the demo."),
+                "Fixture de seed: fallo no encontrado simulado para la demo."),
             new FailureRequestContext(
                 Method: "GET",
                 Path: "/forms/demo-showcase/missing",
@@ -754,7 +754,7 @@ public static class DemoShowcaseSeeder
             _ = await workflows.CreateAsync(
                 new CreateWorkflowRequest(
                     WorkflowCode,
-                    "Patient triage",
+                    "Triaje de pacientes",
                     PatientTriageWorkflowSchema),
                 ActorId,
                 cancellationToken).ConfigureAwait(false);
@@ -872,7 +872,7 @@ public static class DemoShowcaseSeeder
         ComponentSummaryDto summary = await componentLifecycle.CreateAsync(
             new CreateComponentRequest(
                 ComponentCode,
-                "Patient demographics",
+                "Datos demográficos del paciente",
                 LoadJson("patient-demographics-clinical.json"),
                 LoadJson("patient-demographics-ui.json")),
             ActorId,
@@ -906,7 +906,7 @@ public static class DemoShowcaseSeeder
             _ = await forms.CreateAsync(
                 new CreateFormRequest(
                     FormCode,
-                    "Clinical showcase (preview)",
+                    "Showcase clínico (vista previa)",
                     clinical,
                     ui,
                     rules),

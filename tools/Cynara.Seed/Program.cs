@@ -45,13 +45,13 @@ internal static class Program
                 await serviceProvider.DisposeAsync().ConfigureAwait(false);
             }
 
-            Console.WriteLine($"→ Seeded '{DemoShowcaseSeeder.ComponentCode}', "
-                + $"'{DemoShowcaseSeeder.FormCode}', and "
+            Console.WriteLine($"→ Sembrado '{DemoShowcaseSeeder.ComponentCode}', "
+                + $"'{DemoShowcaseSeeder.FormCode}' y "
                 + $"'{DemoShowcaseSeeder.WorkflowCode}'.");
-            Console.WriteLine("→ Open: /forms/demo-showcase/designer and "
+            Console.WriteLine("→ Abrir: /forms/demo-showcase/designer y "
                 + "/workflows/patient-triage/designer");
-            Console.WriteLine("→ Full demo dataset: taxonomy, patients, "
-                + "encounters, documents, responses.");
+            Console.WriteLine("→ Conjunto de datos de demostración completo: "
+                + "taxonomía, pacientes, encuentros, documentos y respuestas.");
             return 0;
         }
         catch (Exception exception)
