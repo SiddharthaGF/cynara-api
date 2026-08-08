@@ -13,6 +13,8 @@ using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
+using Cynara.Application.Modules.Workflows;
+using Cynara.Application.Workflows;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
@@ -27,6 +29,7 @@ public static class DemoShowcaseSeeder
 {
     public const string ComponentCode = "patient-demographics";
     public const string FormCode = "demo-showcase";
+    public const string WorkflowCode = "patient-triage";
 
     private const string ActorId = "designer-user";
 
@@ -34,6 +37,54 @@ public static class DemoShowcaseSeeder
     private const string ClinicalAreaCode = "area-emergency";
     private const string DisciplineCode = "disc-nursing";
     private const string DocumentDefinitionCode = "doc-intake";
+
+    private const string PatientTriageWorkflowSchema =
+        /*lang=json,strict*/ """
+        {
+          "$schema": "https://cynara.dev/schemas/v1/workflow-schema.schema.json",
+          "schemaVersion": "1.0.0",
+          "inputs": ["assessment.pain-score"],
+          "nodes": [
+            { "id": "start", "type": "start", "name": "Triaje iniciado" },
+            { "id": "triage", "type": "decision", "name": "Valoración del dolor" },
+            {
+              "id": "intake-task",
+              "type": "task",
+              "name": "Evaluación de ingreso",
+              "description": "Completar la evaluación de ingreso del paciente.",
+              "formCode": "demo-showcase",
+              "formVersion": "1.0.0",
+              "assignee": { "role": "nurse" },
+              "dueDays": 1
+            },
+            {
+              "id": "high-task",
+              "type": "task",
+              "name": "Revisión médica urgente",
+              "description": "Revisión médica para dolor severo.",
+              "formCode": "demo-showcase",
+              "formVersion": "1.0.0",
+              "assignee": { "role": "physician" },
+              "dueDays": 2
+            },
+            { "id": "end", "type": "end", "name": "Completado" }
+          ],
+          "edges": [
+            { "from": "start", "to": "triage" },
+            {
+              "from": "triage",
+              "to": "high-task",
+              "condition": {
+                "op": "gte",
+                "args": [ { "ref": "assessment.pain-score" }, { "lit": 7 } ]
+              }
+            },
+            { "from": "triage", "to": "intake-task", "label": "Dolor leve o moderado" },
+            { "from": "intake-task", "to": "end" },
+            { "from": "high-task", "to": "end" }
+          ]
+        }
+        """;
 
     public static async Task SeedDemoShowcaseAsync(
         this IServiceProvider services,
@@ -55,9 +106,9 @@ public static class DemoShowcaseSeeder
 
     /// <summary>
     /// Seeds the whole demo workspace: hospital, capabilities, component,
-    /// published form, clinical taxonomy, patients, encounters, document
-    /// catalog, clinical documents, form responses, AI provider settings,
-    /// and a sample failure log.
+    /// published form, published workflow, clinical taxonomy, patients,
+    /// encounters, document catalog, clinical documents, form responses, AI
+    /// provider settings, and a sample failure log.
     /// </summary>
     public static async Task SeedFullDatabaseAsync(
         this IServiceProvider services,
@@ -124,6 +175,9 @@ public static class DemoShowcaseSeeder
                 forms,
                 services,
                 cancellationToken)
+            .ConfigureAwait(false);
+
+        await EnsureWorkflowsAsync(services, cancellationToken)
             .ConfigureAwait(false);
 
         if (seedClinicalData)
@@ -677,6 +731,61 @@ public static class DemoShowcaseSeeder
         _ = await review.PublishDraftAsync(
             FormCode,
             new PublishFormDraftRequest(editable.RowVersion),
+            ActorId,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureWorkflowsAsync(
+        IServiceProvider services,
+        CancellationToken cancellationToken)
+    {
+        IWorkflowQueryService queries = services
+            .GetRequiredService<IWorkflowQueryService>();
+        IReadOnlyList<WorkflowSummaryDto> existing = await queries
+            .ListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        WorkflowSummaryDto? seeded = existing.FirstOrDefault(item =>
+            string.Equals(item.Code, WorkflowCode, StringComparison.Ordinal));
+
+        IWorkflowLifecycleService workflows = services
+            .GetRequiredService<IWorkflowLifecycleService>();
+        if (seeded is null)
+        {
+            _ = await workflows.CreateAsync(
+                new CreateWorkflowRequest(
+                    WorkflowCode,
+                    "Patient triage",
+                    PatientTriageWorkflowSchema),
+                ActorId,
+                cancellationToken).ConfigureAwait(false);
+            seeded = await queries
+                .GetSummaryAsync(WorkflowCode, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (seeded.PublishedVersions.Count > 0)
+        {
+            return;
+        }
+
+        uint rowVersion = seeded.EditableRowVersion
+            ?? throw new InvalidOperationException(
+                $"Workflow '{WorkflowCode}' has no editable version to publish.");
+        if (string.Equals(seeded.EditableStatus, "draft", StringComparison.Ordinal))
+        {
+            WorkflowVersionDto inReview = await workflows
+                .SubmitForReviewAsync(
+                    WorkflowCode,
+                    new SubmitWorkflowDraftForReviewRequest(rowVersion),
+                    ActorId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            rowVersion = inReview.RowVersion;
+        }
+
+        _ = await workflows.PublishDraftAsync(
+            WorkflowCode,
+            new PublishWorkflowDraftRequest(rowVersion),
             ActorId,
             cancellationToken).ConfigureAwait(false);
     }

@@ -77,6 +77,8 @@ public sealed class DemoShowcaseSeederTests : IDisposable
         Assert.True(await dbContext.Patients.AnyAsync().ConfigureAwait(false));
         Assert.True(await dbContext.Encounters.AnyAsync().ConfigureAwait(false));
         Assert.True(await dbContext.CapabilityAssignments.AnyAsync().ConfigureAwait(false));
+        Assert.True(await dbContext.WorkflowDefinitions.AnyAsync().ConfigureAwait(false));
+        Assert.True(await dbContext.WorkflowVersions.AnyAsync().ConfigureAwait(false));
     }
 
     [Fact]
@@ -99,6 +101,8 @@ public sealed class DemoShowcaseSeederTests : IDisposable
         Assert.Equal(3, await dbContext.FormResponses.CountAsync().ConfigureAwait(false));
         Assert.Equal(1, await dbContext.AiProviderSettings.CountAsync().ConfigureAwait(false));
         Assert.Equal(1, await dbContext.FailureLogs.CountAsync().ConfigureAwait(false));
+        Assert.Equal(1, await dbContext.WorkflowDefinitions.CountAsync().ConfigureAwait(false));
+        Assert.Equal(1, await dbContext.WorkflowVersions.CountAsync().ConfigureAwait(false));
         Assert.Equal(
             CapabilityCodes.All.Count,
             await dbContext.CapabilityAssignments.CountAsync().ConfigureAwait(false));

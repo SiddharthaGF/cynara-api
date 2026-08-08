@@ -45,9 +45,11 @@ internal static class Program
                 await serviceProvider.DisposeAsync().ConfigureAwait(false);
             }
 
-            Console.WriteLine($"→ Seeded '{DemoShowcaseSeeder.ComponentCode}' "
-                + $"and '{DemoShowcaseSeeder.FormCode}'.");
-            Console.WriteLine("→ Open: /forms/demo-showcase/designer");
+            Console.WriteLine($"→ Seeded '{DemoShowcaseSeeder.ComponentCode}', "
+                + $"'{DemoShowcaseSeeder.FormCode}', and "
+                + $"'{DemoShowcaseSeeder.WorkflowCode}'.");
+            Console.WriteLine("→ Open: /forms/demo-showcase/designer and "
+                + "/workflows/patient-triage/designer");
             Console.WriteLine("→ Full demo dataset: taxonomy, patients, "
                 + "encounters, documents, responses.");
             return 0;
