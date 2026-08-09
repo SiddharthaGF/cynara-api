@@ -222,6 +222,7 @@ public static class DemoShowcaseSeeder
                 "González",
                 new DateOnly(1985, 3, 14),
                 "female",
+                "o+",
                 cancellationToken)
             .ConfigureAwait(false);
         PatientDto patientB = await EnsurePatientAsync(
@@ -232,6 +233,7 @@ public static class DemoShowcaseSeeder
                 "Pérez",
                 new DateOnly(1990, 11, 2),
                 "male",
+                "a-",
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -424,6 +426,7 @@ public static class DemoShowcaseSeeder
         string familyName,
         DateOnly birthDate,
         string sex,
+        string bloodType,
         CancellationToken cancellationToken)
     {
         PatientListResponse existing = await patients
@@ -446,7 +449,8 @@ public static class DemoShowcaseSeeder
                 givenName,
                 familyName,
                 birthDate,
-                sex),
+                sex,
+                bloodType),
             ActorId,
             cancellationToken).ConfigureAwait(false);
     }

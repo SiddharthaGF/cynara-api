@@ -285,6 +285,7 @@ public sealed class ClinicalRecordAuthorizationMatrixTests : IAsyncDisposable
                     familyName = "Lovelace",
                     birthDate = "1990-01-01",
                     sex = "female",
+                    bloodType = "o+",
                 })),
             WriteTargets.Facilities => Task.FromResult(JsonRequest(
                 HttpMethod.Post,

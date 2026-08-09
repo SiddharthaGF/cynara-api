@@ -458,6 +458,7 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
                 familyName = "Lovelace",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
             }).ConfigureAwait(false);
     }
 

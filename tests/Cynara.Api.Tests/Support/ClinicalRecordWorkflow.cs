@@ -117,7 +117,7 @@ internal sealed class ClinicalRecordWorkflow(
     {
         return CreatePlainAsync(
             "patients",
-            new { mrn, givenName, familyName, birthDate, sex });
+            new { mrn, givenName, familyName, birthDate, sex, bloodType = "o+" });
     }
 
     public Task<Guid> CreateEncounterAsync(

@@ -64,6 +64,12 @@ public sealed class Patient
     /// <summary>Patient biological sex.</summary>
     public Sex Sex { get; set; }
 
+    /// <summary>
+    /// ABO/Rh blood type. Captured at registration; editable through the
+    /// patient update workflow.
+    /// </summary>
+    public BloodType BloodType { get; set; }
+
     /// <summary>Lifecycle status of the patient record.</summary>
     public PatientStatus Status { get; set; }
 

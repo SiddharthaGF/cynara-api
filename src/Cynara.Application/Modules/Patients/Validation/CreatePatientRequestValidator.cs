@@ -67,5 +67,15 @@ public sealed class CreatePatientRequestValidator
                 .WithMessage(item =>
                     "Patient sex '" + item.Sex
                     + "' is not one of: female, male, unknown.");
+
+        _ = RuleFor(item => item.BloodType)
+            .NotEmpty()
+                .WithMessage("Patient blood type is required.")
+            .Must(value => value is
+                "a+" or "a-" or "b+" or "b-"
+                or "ab+" or "ab-" or "o+" or "o-")
+                .WithMessage(item =>
+                    "Patient blood type '" + item.BloodType
+                    + "' is not one of: a+, a-, b+, b-, ab+, ab-, o+, o-.");
     }
 }

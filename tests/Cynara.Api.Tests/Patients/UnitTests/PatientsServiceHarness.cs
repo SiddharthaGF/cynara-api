@@ -72,7 +72,8 @@ internal sealed class PatientsServiceHarness
         Sex? sex = null,
         uint rowVersion = 0,
         DateTimeOffset? deletedAt = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        BloodType bloodType = BloodType.OPositive)
     {
         DateTimeOffset now = new(2026, 7, 27, 9, 0, 0, TimeSpan.Zero);
         return new Patient
@@ -89,6 +90,7 @@ internal sealed class PatientsServiceHarness
             NormalizedFamilyName = PatientWorkflowHelpers.NormalizeName(familyName),
             BirthDate = birthDate ?? new DateOnly(1990, 1, 1),
             Sex = sex ?? Sex.Unknown,
+            BloodType = bloodType,
             Status = PatientStatus.Active,
             CreatedAt = now,
             UpdatedAt = now,
@@ -103,7 +105,8 @@ internal sealed class PatientsServiceHarness
         string familyName = "Lovelace",
         DateOnly? birthDate = null,
         string? sex = "female",
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         return new CreatePatientRequest(
             Mrn: mrn,
@@ -111,7 +114,8 @@ internal sealed class PatientsServiceHarness
             GivenName: givenName,
             FamilyName: familyName,
             BirthDate: birthDate ?? new DateOnly(1990, 1, 1),
-            Sex: sex ?? "female");
+            Sex: sex ?? "female",
+            BloodType: bloodType);
     }
 
     public static UpdatePatientRequest BuildUpdateRequest(
@@ -120,7 +124,8 @@ internal sealed class PatientsServiceHarness
         string familyName = "Lovelace",
         DateOnly? birthDate = null,
         string? sex = "female",
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         return new UpdatePatientRequest(
             NationalId: nationalId,
@@ -128,6 +133,7 @@ internal sealed class PatientsServiceHarness
             FamilyName: familyName,
             BirthDate: birthDate ?? new DateOnly(1990, 1, 1),
             Sex: sex ?? "female",
+            BloodType: bloodType,
             RowVersion: rowVersion);
     }
 }

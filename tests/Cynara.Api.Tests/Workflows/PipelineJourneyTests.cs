@@ -631,6 +631,7 @@ public sealed class PipelineJourneyTests : IDisposable
                 familyName = "Lovelace",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
             }).ConfigureAwait(false);
     }
 
@@ -799,6 +800,7 @@ public sealed class PipelineJourneyTenantIsolationTests : IDisposable
                 familyName = "Lovelace",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
             }).ConfigureAwait(false);
         Guid encounterId = await SeedEncounterAsync(patientId).ConfigureAwait(false);
 

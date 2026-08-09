@@ -89,6 +89,7 @@ public sealed class PatientsTenantIsolationTests : IAsyncDisposable
                 familyName = "Byron",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
                 rowVersion = 0U,
             }),
         };
@@ -151,6 +152,7 @@ public sealed class PatientsTenantIsolationTests : IAsyncDisposable
                 familyName = "Lovelace",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
             }),
         };
         request.Content.Headers.ContentType =

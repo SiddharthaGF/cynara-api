@@ -648,6 +648,7 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
                 familyName = "Lovelace",
                 birthDate = "1990-01-01",
                 sex = "female",
+                bloodType = "o+",
             })
             .ConfigureAwait(false);
         var patientId = Guid.Parse(

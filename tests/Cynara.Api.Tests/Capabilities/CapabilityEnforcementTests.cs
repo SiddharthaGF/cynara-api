@@ -112,6 +112,7 @@ public sealed class CapabilityEnforcementTests : IAsyncDisposable
                 familyName = "Lovelace",
                 birthDate = "2000-01-01",
                 sex = "female",
+                bloodType = "o+",
             }).ConfigureAwait(false);
 
         await AssertForbiddenAsync(response).ConfigureAwait(false);

@@ -59,6 +59,10 @@ public sealed class PatientEntityConfiguration
         _ = builder.Property(item => item.Sex)
             .HasConversion<string>()
             .HasMaxLength(16);
+        _ = builder.Property(item => item.BloodType)
+            .HasConversion<string>()
+            .HasMaxLength(16)
+            .IsRequired();
         _ = builder.Property(item => item.Status)
             .HasConversion<string>()
             .HasMaxLength(32);

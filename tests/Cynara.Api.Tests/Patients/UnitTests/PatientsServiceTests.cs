@@ -426,6 +426,50 @@ public sealed class PatientsServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_PersistsBloodTypeInClinicalNotation()
+    {
+        var harness = PatientsServiceHarness.Create();
+
+        PatientDto created = await harness.Service
+            .CreateAsync(
+                PatientsServiceHarness.BuildCreateRequest(
+                    mrn: "MRN-199",
+                    bloodType: "o+"),
+                actorId: null,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal("o+", created.BloodType);
+        Patient tracked = Assert.Single(harness.Repository.Added);
+        Assert.Equal(BloodType.OPositive, tracked.BloodType);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsMissingBloodType()
+    {
+        var harness = PatientsServiceHarness.Create();
+        CreatePatientRequest request = PatientsServiceHarness
+            .BuildCreateRequest(mrn: "MRN-198", bloodType: string.Empty);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.CreateAsync(
+                request, actorId: null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsUnknownBloodTypeValue()
+    {
+        var harness = PatientsServiceHarness.Create();
+        CreatePatientRequest request = PatientsServiceHarness
+            .BuildCreateRequest(mrn: "MRN-197") with
+        { BloodType = "z-", };
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.CreateAsync(
+                request, actorId: null, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CreateAsync_RejectsFutureBirthDate()
     {
         var harness = PatientsServiceHarness.Create();
@@ -508,6 +552,51 @@ public sealed class PatientsServiceTests
         Assert.Equal("patient.updated", audit.Action);
         Assert.Equal("actor-2", audit.ActorId);
         Assert.Equal(1, harness.UnitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_UpdatesBloodType()
+    {
+        var harness = PatientsServiceHarness.Create();
+        Patient patient = PatientsServiceHarness.BuildPatient(
+            harness.HospitalId,
+            mrn: "MRN-303",
+            givenName: "Ada",
+            familyName: "Lovelace",
+            bloodType: BloodType.OPositive,
+            rowVersion: 7);
+        harness.Repository.Seed(patient);
+
+        UpdatePatientRequest request = PatientsServiceHarness
+            .BuildUpdateRequest(rowVersion: 7, bloodType: "ab-");
+
+        PatientDto updated = await harness.Service
+            .UpdateAsync(patient.Id, request, actorId: null, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        Assert.Equal("ab-", updated.BloodType);
+        Assert.Equal(BloodType.ABNegative, patient.BloodType);
+        Assert.Equal(8U, updated.RowVersion);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RejectsMissingBloodType()
+    {
+        var harness = PatientsServiceHarness.Create();
+        Patient patient = PatientsServiceHarness.BuildPatient(
+            harness.HospitalId,
+            mrn: "MRN-304",
+            givenName: "Ada",
+            familyName: "Lovelace",
+            rowVersion: 7);
+        harness.Repository.Seed(patient);
+
+        UpdatePatientRequest request = PatientsServiceHarness
+            .BuildUpdateRequest(rowVersion: 7, bloodType: string.Empty);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => harness.Service.UpdateAsync(
+                patient.Id, request, actorId: null, CancellationToken.None));
     }
 
     [Fact]

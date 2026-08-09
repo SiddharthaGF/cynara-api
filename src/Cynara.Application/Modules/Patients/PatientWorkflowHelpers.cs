@@ -235,6 +235,62 @@ internal static class PatientWorkflowHelpers
     }
 
     /// <summary>
+    /// Canonical lowercase clinical notation for a blood type
+    /// (<c>a+</c>, <c>ab-</c>, <c>o+</c>, …).
+    /// </summary>
+    public static string FormatBloodType(BloodType bloodType)
+    {
+        return bloodType switch
+        {
+            BloodType.APositive => "a+",
+            BloodType.ANegative => "a-",
+            BloodType.BPositive => "b+",
+            BloodType.BNegative => "b-",
+            BloodType.ABPositive => "ab+",
+            BloodType.ABNegative => "ab-",
+            BloodType.OPositive => "o+",
+            BloodType.ONegative => "o-",
+            _ => throw new ValidationException(
+                $"Unknown patient blood type '{bloodType}'."),
+        };
+    }
+
+    /// <summary>
+    /// Parses the supplied clinical notation into the <see cref="BloodType"/>
+    /// enum and throws <see cref="ValidationException"/> when the value is
+    /// unknown.
+    /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the supplied blood type does not match a defined
+    /// <see cref="BloodType"/> member.
+    /// </exception>
+    public static BloodType ParseBloodType(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ValidationException("Patient blood type is required.");
+        }
+
+        string normalized = value.Trim().ToLowerInvariant();
+        BloodType parsed = normalized switch
+        {
+            "a+" => BloodType.APositive,
+            "a-" => BloodType.ANegative,
+            "b+" => BloodType.BPositive,
+            "b-" => BloodType.BNegative,
+            "ab+" => BloodType.ABPositive,
+            "ab-" => BloodType.ABNegative,
+            "o+" => BloodType.OPositive,
+            "o-" => BloodType.ONegative,
+            _ => throw new ValidationException(
+                "Patient blood type '" + value
+                + "' is not one of: a+, a-, b+, b-, ab+, ab-, o+, o-."),
+        };
+
+        return parsed;
+    }
+
+    /// <summary>
     /// Optimistic concurrency guard for patient updates.
     /// </summary>
     /// <exception cref="ConcurrencyException">

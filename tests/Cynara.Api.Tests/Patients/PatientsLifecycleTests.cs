@@ -73,6 +73,48 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task CreatePatient_PersistsBloodType()
+    {
+        using JsonDocument response = await CreatePatientAsync(
+            mrn: "MRN-BLOOD-01",
+            givenName: "Carlos",
+            familyName: "Ruiz",
+            bloodType: "ab-").ConfigureAwait(false);
+
+        Guid id = ExtractPatientId(response);
+
+        using JsonDocument fetched = await GetPatientAsync(id).ConfigureAwait(false);
+        JsonElement attributes = ExtractAttributes(fetched);
+        Assert.Equal("ab-", attributes.GetProperty("bloodType").GetString());
+    }
+
+    [Fact]
+    public async Task CreatePatient_RejectsMissingBloodType()
+    {
+        HttpResponseMessage response = await SendCreateAsync(
+            Client,
+            mrn: "MRN-BLOOD-00",
+            givenName: "Carlos",
+            familyName: "Ruiz",
+            bloodType: string.Empty).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreatePatient_RejectsUnknownBloodType()
+    {
+        HttpResponseMessage response = await SendCreateAsync(
+            Client,
+            mrn: "MRN-BLOOD-02",
+            givenName: "Carlos",
+            familyName: "Ruiz",
+            bloodType: "zz").ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task CreatePatient_NormalizesMrnToUppercase()
     {
         using JsonDocument response = await CreatePatientAsync(
@@ -261,6 +303,29 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task PatchPatient_UpdatesBloodType()
+    {
+        using JsonDocument created = await CreatePatientAsync(
+            mrn: "MRN-305",
+            givenName: "Ada",
+            familyName: "Lovelace",
+            bloodType: "o+").ConfigureAwait(false);
+        Guid id = ExtractPatientId(created);
+        uint rowVersion = ExtractAttributes(created).GetProperty("rowVersion").GetUInt32();
+
+        using JsonDocument patched = await PatchPatientAsync(
+            id, rowVersion, bloodType: "ab-").ConfigureAwait(false);
+
+        JsonElement attributes = ExtractAttributes(patched);
+        Assert.Equal("ab-", attributes.GetProperty("bloodType").GetString());
+
+        using JsonDocument fetched = await GetPatientAsync(id).ConfigureAwait(false);
+        Assert.Equal(
+            "ab-",
+            ExtractAttributes(fetched).GetProperty("bloodType").GetString());
+    }
+
+    [Fact]
     public async Task PatchPatient_RejectsStaleRowVersion()
     {
         using JsonDocument created = await CreatePatientAsync(
@@ -356,10 +421,12 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         string familyName,
         string sex = "female",
         DateOnly? birthDate = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         HttpResponseMessage response = await SendCreateAsync(
-            mrn, givenName, familyName, sex, birthDate, nationalId).ConfigureAwait(false);
+            mrn, givenName, familyName, sex, birthDate, nationalId, bloodType)
+            .ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Created)
         {
             string body = await response.Content
@@ -378,10 +445,11 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         string familyName,
         string sex = "female",
         DateOnly? birthDate = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         return await SendCreateAsync(
-            Client, mrn, givenName, familyName, sex, birthDate, nationalId)
+            Client, mrn, givenName, familyName, sex, birthDate, nationalId, bloodType)
             .ConfigureAwait(false);
     }
 
@@ -392,7 +460,8 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         string familyName,
         string sex = "female",
         DateOnly? birthDate = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         var payload = new
         {
@@ -403,6 +472,7 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
             birthDate = (birthDate ?? new DateOnly(1990, 1, 1))
                 .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             sex,
+            bloodType,
         };
         HttpRequestMessage request = new(HttpMethod.Post, "/api/patients")
         {
@@ -418,10 +488,11 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         uint rowVersion,
         string? givenName = null,
         string? familyName = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         HttpResponseMessage response = await SendPatchAsync(
-            id, rowVersion, givenName, familyName, nationalId).ConfigureAwait(false);
+            id, rowVersion, givenName, familyName, nationalId, bloodType).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.OK)
         {
             string body = await response.Content
@@ -439,7 +510,8 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
         uint rowVersion,
         string? givenName = null,
         string? familyName = null,
-        string? nationalId = null)
+        string? nationalId = null,
+        string bloodType = "o+")
     {
         var payload = new
         {
@@ -448,6 +520,7 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
             familyName = familyName ?? "Lovelace",
             birthDate = new DateOnly(1990, 1, 1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             sex = "female",
+            bloodType,
             rowVersion,
         };
         HttpRequestMessage request = new(HttpMethod.Patch, $"/api/patients/{id}")

@@ -44,6 +44,7 @@ public sealed class PatientService(
         PatientWorkflowHelpers.EnsureValidName(request.FamilyName, "family name");
         PatientWorkflowHelpers.EnsureValidBirthDate(request.BirthDate);
         Sex sex = PatientWorkflowHelpers.ParseSex(request.Sex);
+        BloodType bloodType = PatientWorkflowHelpers.ParseBloodType(request.BloodType);
 
         string normalizedMrn = PatientWorkflowHelpers.NormalizeMrn(request.Mrn);
         string? normalizedNationalId =
@@ -78,6 +79,7 @@ public sealed class PatientService(
                 PatientWorkflowHelpers.NormalizeName(request.FamilyName),
             BirthDate = request.BirthDate,
             Sex = sex,
+            BloodType = bloodType,
             Status = PatientStatus.Active,
             CreatedAt = now,
             UpdatedAt = now,
@@ -184,6 +186,7 @@ public sealed class PatientService(
         PatientWorkflowHelpers.EnsureValidName(request.FamilyName, "family name");
         PatientWorkflowHelpers.EnsureValidBirthDate(request.BirthDate);
         Sex sex = PatientWorkflowHelpers.ParseSex(request.Sex);
+        BloodType bloodType = PatientWorkflowHelpers.ParseBloodType(request.BloodType);
 
         Patient patient = await repository
             .FindByIdAsync(hospitalContext.HospitalId, id, track: true, cancellationToken)
@@ -205,6 +208,7 @@ public sealed class PatientService(
             PatientWorkflowHelpers.NormalizeName(request.FamilyName);
         patient.BirthDate = request.BirthDate;
         patient.Sex = sex;
+        patient.BloodType = bloodType;
         patient.UpdatedAt = now;
         patient.RowVersion = request.RowVersion + 1;
 

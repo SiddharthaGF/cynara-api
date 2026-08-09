@@ -20,6 +20,7 @@ internal static class PatientMappers
             patient.FamilyName,
             patient.BirthDate,
             patient.Sex.ToString().ToLowerInvariant(),
+            PatientWorkflowHelpers.FormatBloodType(patient.BloodType),
             patient.Status.ToString().ToLowerInvariant(),
             patient.RowVersion,
             patient.DeletedAt,

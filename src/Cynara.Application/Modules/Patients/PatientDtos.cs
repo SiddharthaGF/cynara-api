@@ -16,6 +16,9 @@ namespace Cynara.Application.Modules.Patients;
 /// <item><c>GivenName</c> / <c>FamilyName</c> – trimmed at write time.</item>
 /// <item><c>BirthDate</c> – UTC date of birth (no time zone).</item>
 /// <item><c>Sex</c> – one of <c>female</c>, <c>male</c>, <c>unknown</c>.</item>
+/// <item><c>BloodType</c> – ABO/Rh type in clinical notation
+/// (<c>a+</c>, <c>o-</c>, …); captured at registration and editable
+/// through the update contract.</item>
 /// <item><c>Status</c> – one of <c>active</c>, <c>retired</c>.</item>
 /// <item><c>RowVersion</c> – optimistic concurrency token; required for
 /// PATCH and soft-delete.</item>
@@ -33,6 +36,8 @@ public sealed record PatientDto(
     DateOnly BirthDate,
     [property: OpenApiEnumValues("female", "male", "unknown")]
     string Sex,
+    [property: OpenApiEnumValues("a+", "a-", "b+", "b-", "ab+", "ab-", "o+", "o-")]
+    string BloodType,
     [property: OpenApiEnumValues("active", "retired")]
     string Status,
     uint RowVersion,
@@ -43,7 +48,9 @@ public sealed record PatientDto(
 /// <summary>
 /// Create contract for patients. The MRN is the business identifier within
 /// the resolved hospital workspace and must be unique across the hospital;
-/// the <c>Sex</c> value is stored in lowercase.
+/// the <c>Sex</c> and <c>BloodType</c> values are stored in lowercase
+/// clinical notation. <c>BloodType</c> is always captured at registration
+/// and remains editable through the update contract.
 /// </summary>
 public sealed record CreatePatientRequest(
     string Mrn,
@@ -51,11 +58,13 @@ public sealed record CreatePatientRequest(
     string GivenName,
     string FamilyName,
     DateOnly BirthDate,
-    string Sex);
+    string Sex,
+    string BloodType);
 
 /// <summary>
 /// Update contract for mutable demographic fields. The MRN is immutable
 /// after creation; clients must delete and recreate to re-issue a new MRN.
+/// Blood type is editable alongside the other demographic fields.
 /// </summary>
 public sealed record UpdatePatientRequest(
     string? NationalId,
@@ -63,6 +72,7 @@ public sealed record UpdatePatientRequest(
     string FamilyName,
     DateOnly BirthDate,
     string Sex,
+    string BloodType,
     uint RowVersion);
 
 /// <summary>
