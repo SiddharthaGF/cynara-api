@@ -33,6 +33,7 @@ internal static class WebApplicationExtensions
         _ = app.UseRouting();
         _ = app.UseCors();
         _ = app.UseHospitalContext();
+        _ = app.UseMiddleware<QueryCountingMiddleware>();
         _ = app.UseAuthorization();
         app.UseJsonApi();
 

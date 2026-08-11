@@ -16,6 +16,7 @@ using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
 using Cynara.Infrastructure.Persistence;
+using Cynara.Infrastructure.Persistence.QueryCounting;
 using Cynara.Infrastructure.Schemas;
 
 using Microsoft.EntityFrameworkCore;
@@ -89,8 +90,14 @@ public static partial class InfrastructureServiceCollectionExtensions
         string normalizedConnectionString = PostgreSqlConnectionStringNormalizer
             .Normalize(connectionString);
 
-        _ = services.AddDbContext<CynaraDbContext>(options =>
-            _ = options.UseNpgsql(normalizedConnectionString));
+        _ = services.AddScoped<QueryCounter>();
+        _ = services.AddScoped<QueryCountingInterceptor>();
+        _ = services.AddDbContext<CynaraDbContext>((provider, options) =>
+        {
+            _ = options.UseNpgsql(normalizedConnectionString);
+            _ = options.AddInterceptors(
+                provider.GetRequiredService<QueryCountingInterceptor>());
+        });
 
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());

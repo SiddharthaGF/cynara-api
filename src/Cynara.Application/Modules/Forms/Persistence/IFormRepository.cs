@@ -21,6 +21,11 @@ public interface IFormRepository
         bool track,
         CancellationToken cancellationToken);
 
+    public Task<FormVersion?> FindVersionByIdAsync(
+        Guid hospitalId,
+        Guid formVersionId,
+        CancellationToken cancellationToken);
+
     public void AddVersion(FormVersion version);
 
     public void RemoveVersion(FormVersion version);
