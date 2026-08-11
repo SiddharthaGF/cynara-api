@@ -95,6 +95,10 @@ dotnet_diagnostic.CA1052.severity = none
 [src/Cynara.Api/JsonApi/OpenApi/OpenApiDocumentExporter.cs]
 dotnet_diagnostic.MA0004.severity = none
 
+# Disposable spikes use the same await-using pattern for seed scopes.
+[spikes/**/*.cs]
+dotnet_diagnostic.MA0004.severity = none
+
 [tests/**/*.cs]
 dotnet_style_require_accessibility_modifiers = omit_if_default:silent
 dotnet_diagnostic.IDE0008.severity = none
