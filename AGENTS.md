@@ -165,3 +165,132 @@ dotnet cake --target=Check
 
 When authoring form schema triples (clinical / UI / rules) or workflow
 schemas, use the `form-schema-authoring` skill.
+
+## Commit Messages
+
+Only create a commit when the user explicitly asks. Follow Conventional Commits
+in English (match existing history).
+
+Format:
+
+```
+type(scope): imperative summary
+
+Optional body explaining why, not a file list.
+```
+
+- Subject: ≤72 chars, imperative mood, no trailing period
+- Body: wrap ~72 chars; focus on **why**, not what changed file-by-file
+- Pass the message via HEREDOC (`git commit -m "$(cat <<'EOF' ... EOF)"`)
+
+Types: `feat` | `fix` | `refactor` | `perf` | `test` | `chore` | `docs` |
+`build` | `ci`.
+
+Scopes (prefer these): `api` · `forms` · `components` · `responses` · `audit` ·
+`schema` · `persistence` · `validation` · `config` · `deps` · `tests`.
+
+Omit scope only when the change is truly cross-cutting. If a Linear/issue id is
+known (e.g. `CYN-11`), append it: `feat(forms): add draft withdraw-review
+endpoint (CYN-11)`.
+
+Examples:
+
+```
+feat(forms): enforce review gate before publish
+fix(validation): reject out-of-step numeric answers
+refactor(persistence): share soft-delete helpers for drafts
+test(responses): cover complete-after-soft-delete conflict
+chore(config): tighten editorconfig for test projects
+```
+
+Anti-patterns: vague file dumps (`update stuff`, `fix bugs`), past tense, or
+trailing periods.
+
+## Pull Requests
+
+Only open a PR when the user explicitly asks. Use `gh` for GitHub tasks. Write
+titles and bodies in English (match existing PRs).
+
+Before opening:
+
+1. Inspect branch state vs base (`git status`, `git diff`, `git log`,
+   `git diff main...HEAD` or the repo's default base).
+2. Push with `-u` if the branch is not on the remote yet.
+3. Prefer focused PRs; if a change is large, ask about splitting before opening.
+
+Title: imperative, specific, ≤90 chars, no trailing period. Prefer the
+Conventional Commit shape (`feat(forms): add draft withdraw-review endpoint
+(CYN-11)`) or a clear outcome title with ticket ids. Include Linear/issue ids
+when known (`CYN-N`).
+
+Body (pass via HEREDOC to `gh pr create`):
+
+```markdown
+## Summary
+- 1–3 bullets: API/contract outcome or why this change exists
+- Not a file list
+
+## Test plan
+- [ ] Concrete checks a reviewer can run
+- [ ] Prefer `make test` or `make check` when lifecycle, validation, or
+      endpoints changed
+- [ ] Call out schema contract, review/publish, concurrency, or audit when
+      those areas moved
+
+Linear:
+- https://linear.app/ailuracode/issue/CYN-N
+```
+
+Omit the Linear block only when no issue exists. Use `Closes #N` / `Fixes #N`
+when linking a GitHub issue.
+
+Anti-patterns: vague titles (`Update api`, `WIP`, `fix stuff`) or a body that is
+a file dump with no test plan.
+
+## SonarQube MCP Server
+
+Guidelines when using the SonarQube MCP server (`.opencode/mcp/sonarqube-mcp.sh`).
+
+### Basic usage
+
+- **IMPORTANT**: After you finish generating or modifying any code files at the
+  very end of the task, you MUST call the `analyze_file_list` tool (if it
+  exists) to analyze the files you created or modified.
+- **IMPORTANT**: When starting a new task, you MUST disable automatic analysis
+  with the `toggle_automatic_analysis` tool if it exists.
+- **IMPORTANT**: When you are done generating code at the very end of the task,
+  you MUST re-enable automatic analysis with the `toggle_automatic_analysis`
+  tool if it exists.
+
+### Project Keys
+
+- When a user mentions a project key, use `search_my_sonarqube_projects` first
+  to find the exact project key.
+- Don't guess project keys - always look them up.
+
+### Code Language Detection
+
+- When analyzing code snippets, try to detect the programming language from the
+  code syntax. If unclear, ask the user or make an educated guess based on
+  syntax.
+
+### Branch and Pull Request Context
+
+- Many operations support branch-specific analysis. If user mentions working on
+  a feature branch, include the branch parameter.
+
+### Code Issues and Violations
+
+- After fixing issues, do not attempt to verify them using
+  `search_sonar_issues_in_projects`, as the server will not yet reflect the
+  updates.
+
+### Troubleshooting
+
+- SonarQube requires USER tokens (not project tokens). When the error
+  `SonarQube answered with Not authorized` occurs, verify the token type.
+- Use `search_my_sonarqube_projects` to find available projects; verify project
+  key spelling and format.
+- Ensure programming language is correctly specified. Remind users that snippet
+  analysis doesn't replace full project scans. Provide full file content for
+  better analysis results.
