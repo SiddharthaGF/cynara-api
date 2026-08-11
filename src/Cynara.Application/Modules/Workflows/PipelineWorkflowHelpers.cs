@@ -1,4 +1,4 @@
-using System.Globalization;
+using Cynara.Application.Common;
 
 using Cynara.Domain.Workflows;
 
@@ -11,11 +11,7 @@ internal static class PipelineWorkflowHelpers
 {
     public static void EnsureConcurrency(uint current, uint provided)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                "The pipeline was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, "pipeline");
     }
 
     public static PipelineSubjectType ParseSubjectType(string value)
@@ -87,21 +83,6 @@ internal static class PipelineWorkflowHelpers
 
     public static string EnsureReasonLength(string? reason)
     {
-        const int maxLength = 2000;
-        if (string.IsNullOrWhiteSpace(reason))
-        {
-            return string.Empty;
-        }
-
-        string trimmed = reason.Trim();
-        if (trimmed.Length > maxLength)
-        {
-            throw new ValidationException(
-                "Pipeline transition reason must be "
-                + maxLength.ToString(CultureInfo.InvariantCulture)
-                + " characters or fewer.");
-        }
-
-        return trimmed;
+        return ReasonLengthGuard.Normalize(reason, "Pipeline");
     }
 }

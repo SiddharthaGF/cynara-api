@@ -1,4 +1,3 @@
-using Cynara.Application.Common;
 using Cynara.Application.Components;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components.Persistence;
@@ -53,26 +52,5 @@ public sealed class ComponentQueriesService(
             .ConfigureAwait(false);
         ComponentVersion draft = ComponentWorkflowHelpers.RequireDraft(definition);
         return ComponentMappers.ToVersionDto(definition, draft);
-    }
-
-    public async Task<ComponentVersionDto> GetVersionAsync(
-        string code,
-        string version,
-        CancellationToken cancellationToken)
-    {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
-        SemverRules.EnsureValid(version);
-        ComponentDefinition definition = await ComponentWorkflowHelpers
-            .RequireDefinitionAsync(components, code, track: false, hospitalContext.HospitalId, cancellationToken)
-            .ConfigureAwait(false);
-        ComponentVersion published = definition.Versions.SingleOrDefault(
-                item => string.Equals(item.Version, version, StringComparison.Ordinal)
-                    && item.Status != ComponentVersionStatus.Draft)
-            ?? throw new NotFoundException(
-                $"Component '{code}' version '{version}' was not found.");
-        return ComponentMappers.ToVersionDto(definition, published);
     }
 }

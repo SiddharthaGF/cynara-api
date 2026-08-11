@@ -56,11 +56,10 @@ public sealed class HospitalWorkspaceService(
             ?? throw new NotFoundException(
                 $"Hospital '{hospitalContext.Code}' was not found.");
 
-        if (hospital.RowVersion != request.RowVersion)
-        {
-            throw new ConcurrencyException(
-                "The hospital workspace was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(
+            hospital.RowVersion,
+            request.RowVersion,
+            "hospital workspace");
 
         hospital.Name = request.Name.Trim();
         hospital.MetadataJson = request.MetadataJson;

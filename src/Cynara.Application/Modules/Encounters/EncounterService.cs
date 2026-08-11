@@ -147,7 +147,7 @@ public sealed class EncounterService(
             id,
             request,
             actorId,
-            EncounterLifecycle.Trigger.Complete,
+            TerminalLifecycle.Trigger.Complete,
             "encounter.completed",
             cancellationToken).ConfigureAwait(false);
     }
@@ -166,7 +166,7 @@ public sealed class EncounterService(
             id,
             request,
             actorId,
-            EncounterLifecycle.Trigger.Cancel,
+            TerminalLifecycle.Trigger.Cancel,
             "encounter.canceled",
             cancellationToken).ConfigureAwait(false);
     }
@@ -185,7 +185,7 @@ public sealed class EncounterService(
             id,
             request,
             actorId,
-            EncounterLifecycle.Trigger.EnterInError,
+            TerminalLifecycle.Trigger.EnterInError,
             "encounter.enteredInError",
             cancellationToken).ConfigureAwait(false);
     }
@@ -194,7 +194,7 @@ public sealed class EncounterService(
         Guid id,
         TransitionEncounterRequest request,
         string? actorId,
-        EncounterLifecycle.Trigger trigger,
+        TerminalLifecycle.Trigger trigger,
         string auditAction,
         CancellationToken cancellationToken)
     {

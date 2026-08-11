@@ -22,7 +22,7 @@ public sealed class EncountersController(
     IEncounterService encounterService,
     ISensitiveReadAuditor sensitiveReadAuditor,
     IHttpContextAccessor httpContextAccessor)
-    : EncounterControllerBase(httpContextAccessor)
+    : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>
     /// Lists encounters for the resolved hospital workspace. Terminal

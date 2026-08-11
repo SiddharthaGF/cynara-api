@@ -1,4 +1,5 @@
 using Cynara.Application;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Documents;
 using Cynara.Domain.Documents;
 
@@ -14,7 +15,7 @@ public sealed class ClinicalDocumentLifecycleTests
     {
         ClinicalDocument document = Document();
         ClinicalDocumentLifecycle.Fire(
-            document, ClinicalDocumentLifecycle.Trigger.Complete);
+            document, TerminalLifecycle.Trigger.Complete);
         Assert.Equal(ClinicalDocumentStatus.Completed, document.Status);
     }
 
@@ -23,7 +24,7 @@ public sealed class ClinicalDocumentLifecycleTests
     {
         ClinicalDocument document = Document();
         ClinicalDocumentLifecycle.Fire(
-            document, ClinicalDocumentLifecycle.Trigger.Cancel);
+            document, TerminalLifecycle.Trigger.Cancel);
         Assert.Equal(ClinicalDocumentStatus.Canceled, document.Status);
     }
 
@@ -32,7 +33,7 @@ public sealed class ClinicalDocumentLifecycleTests
     {
         ClinicalDocument document = Document();
         ClinicalDocumentLifecycle.Fire(
-            document, ClinicalDocumentLifecycle.Trigger.EnterInError);
+            document, TerminalLifecycle.Trigger.EnterInError);
         Assert.Equal(ClinicalDocumentStatus.EnteredInError, document.Status);
     }
 
@@ -41,7 +42,7 @@ public sealed class ClinicalDocumentLifecycleTests
     {
         ClinicalDocument document = Document(ClinicalDocumentStatus.Completed);
         ClinicalDocumentLifecycle.Fire(
-            document, ClinicalDocumentLifecycle.Trigger.EnterInError);
+            document, TerminalLifecycle.Trigger.EnterInError);
         Assert.Equal(ClinicalDocumentStatus.EnteredInError, document.Status);
     }
 
@@ -52,7 +53,7 @@ public sealed class ClinicalDocumentLifecycleTests
 
         InvalidStateException ex = Assert.Throws<InvalidStateException>(
             () => ClinicalDocumentLifecycle.Fire(
-                document, ClinicalDocumentLifecycle.Trigger.Cancel));
+                document, TerminalLifecycle.Trigger.Cancel));
 
         Assert.Contains("completed", ex.Message, StringComparison.Ordinal);
         Assert.Equal(ClinicalDocumentStatus.Completed, document.Status);
@@ -65,10 +66,10 @@ public sealed class ClinicalDocumentLifecycleTests
 
         Assert.Throws<InvalidStateException>(
             () => ClinicalDocumentLifecycle.Fire(
-                document, ClinicalDocumentLifecycle.Trigger.Complete));
+                document, TerminalLifecycle.Trigger.Complete));
         Assert.Throws<InvalidStateException>(
             () => ClinicalDocumentLifecycle.Fire(
-                document, ClinicalDocumentLifecycle.Trigger.EnterInError));
+                document, TerminalLifecycle.Trigger.EnterInError));
         Assert.Equal(ClinicalDocumentStatus.Canceled, document.Status);
     }
 
@@ -79,7 +80,7 @@ public sealed class ClinicalDocumentLifecycleTests
 
         Assert.Throws<InvalidStateException>(
             () => ClinicalDocumentLifecycle.Fire(
-                document, ClinicalDocumentLifecycle.Trigger.EnterInError));
+                document, TerminalLifecycle.Trigger.EnterInError));
         Assert.Equal(ClinicalDocumentStatus.EnteredInError, document.Status);
     }
 

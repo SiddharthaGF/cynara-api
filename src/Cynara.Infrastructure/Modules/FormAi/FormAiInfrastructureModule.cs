@@ -14,7 +14,6 @@ public static class FormAiInfrastructureModule
     {
         _ = services.AddSingleton<IOpenAiConfiguration, OpenAiConfiguration>();
         _ = services.AddSingleton<IFormAiSkillLoader, FileFormAiSkillLoader>();
-        _ = services.AddSingleton<IOpenAiChatClientFactory, OpenAiChatClientFactory>();
         _ = services.AddSingleton<IOpenAiClient, OpenAiClient>();
         _ = services.AddResiliencePipeline(
             OpenAiClient.ResiliencePipelineKey,

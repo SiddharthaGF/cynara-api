@@ -8,6 +8,9 @@ public static class TasksModule
         this IServiceCollection services)
     {
         _ = services.AddScoped<ITaskService, TaskService>();
+        _ = services.AddScoped<
+            IClinicalDocumentTaskCloser,
+            ClinicalDocumentTaskCloser>();
         return services;
     }
 }

@@ -168,7 +168,7 @@ public sealed class WorkflowLifecycleService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         WorkflowVersionLifecycle.Fire(
             draft,
-            WorkflowVersionLifecycle.Trigger.SubmitForReview);
+            ReviewableVersionLifecycle.Trigger.SubmitForReview);
         draft.SubmittedForReviewAt = now;
         draft.LastReviewComment = null;
         draft.LastReviewDecision = null;
@@ -214,7 +214,7 @@ public sealed class WorkflowLifecycleService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         WorkflowVersionLifecycle.Fire(
             review,
-            WorkflowVersionLifecycle.Trigger.WithdrawFromReview);
+            ReviewableVersionLifecycle.Trigger.WithdrawFromReview);
         review.SubmittedForReviewAt = null;
         review.RowVersion = request.RowVersion + 1;
         definition.UpdatedAt = now;
@@ -262,7 +262,7 @@ public sealed class WorkflowLifecycleService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         WorkflowVersionLifecycle.Fire(
             review,
-            WorkflowVersionLifecycle.Trigger.RejectReview);
+            ReviewableVersionLifecycle.Trigger.RejectReview);
         review.SubmittedForReviewAt = null;
         review.LastReviewComment = request.Comment.Trim();
         review.LastReviewDecision = "rejected";
@@ -319,7 +319,7 @@ public sealed class WorkflowLifecycleService(
         review.Version = version;
         WorkflowVersionLifecycle.Fire(
             review,
-            WorkflowVersionLifecycle.Trigger.Publish);
+            ReviewableVersionLifecycle.Trigger.Publish);
         review.ContentHash = ContentHashCalculator.Compute(
             review.WorkflowSchemaJson,
             uiSchemaJson: null);
@@ -432,7 +432,7 @@ public sealed class WorkflowLifecycleService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         WorkflowVersionLifecycle.Fire(
             published,
-            WorkflowVersionLifecycle.Trigger.Retire);
+            ReviewableVersionLifecycle.Trigger.Retire);
         published.RetiredAt = now;
         definition.UpdatedAt = now;
         auditWriter.Append(

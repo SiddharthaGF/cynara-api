@@ -1,3 +1,4 @@
+using Cynara.Application.Common;
 using Cynara.Application.Modules.FormResponses.Persistence;
 using Cynara.Domain.Forms;
 
@@ -36,11 +37,10 @@ internal static class FormResponseWorkflowHelpers
         FormResponse response,
         uint expectedRowVersion)
     {
-        if (response.RowVersion != expectedRowVersion)
-        {
-            throw new ConcurrencyException(
-                "The form response was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(
+            response.RowVersion,
+            expectedRowVersion,
+            "form response");
     }
 
     public static FormResponseRevision CreateRevision(

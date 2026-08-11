@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using Cynara.Application.Common;
+
 using Cynara.Domain.Encounters;
 
 namespace Cynara.Application.Modules.Encounters;
@@ -11,11 +13,7 @@ internal static class EncounterWorkflowHelpers
 {
     public static void EnsureConcurrency(uint current, uint provided)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                "The encounter was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, "encounter");
     }
 
     public static void EnsureValidResponsibleProfessionalId(string value)

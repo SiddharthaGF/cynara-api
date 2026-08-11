@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Infrastructure.Persistence;
@@ -25,172 +27,158 @@ public sealed class ClinicalTaxonomyRepository(
     }
 
     public Task<Facility?> FindFacilityByIdAsync(
-        Guid hospitalId,
-        Guid id,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, Guid id, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<Facility> query = track
-            ? dbContext.Facilities
-            : dbContext.Facilities.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.Id == id && item.HospitalId == hospitalId,
-            cancellationToken);
+        return FindByIdAsync<Facility>(hospitalId, id, track, cancellationToken);
     }
 
     public Task<Facility?> FindFacilityByCodeAsync(
-        Guid hospitalId,
-        string code,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, string code, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<Facility> query = track
-            ? dbContext.Facilities
-            : dbContext.Facilities.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.HospitalId == hospitalId && item.Code == code,
-            cancellationToken);
+        return FindByCodeAsync<Facility>(hospitalId, code, track, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Facility>> ListFacilitiesAsync(
-        Guid hospitalId,
-        bool includeRetired,
-        CancellationToken cancellationToken)
+    public Task<IReadOnlyList<Facility>> ListFacilitiesAsync(
+        Guid hospitalId, bool includeRetired, CancellationToken cancellationToken)
     {
-        IQueryable<Facility> query = dbContext.Facilities
-            .AsNoTracking()
-            .Where(item => item.HospitalId == hospitalId);
-
-        query = ApplyRetiredFilter(query, includeRetired);
-
-        return await query
-            .OrderBy(item => item.Code)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+        return ListAsync<Facility>(
+            hospitalId,
+            includeRetired,
+            parentFilter: null,
+            cancellationToken);
     }
 
     public Task<bool> FacilityCodeExistsAsync(
-        Guid hospitalId,
-        string code,
-        CancellationToken cancellationToken)
+        Guid hospitalId, string code, CancellationToken cancellationToken)
     {
-        return dbContext.Facilities.AnyAsync(
-            item => item.HospitalId == hospitalId && item.Code == code,
-            cancellationToken);
+        return CodeExistsAsync<Facility>(hospitalId, code, cancellationToken);
     }
 
     public void AddFacility(Facility facility)
     {
-        _ = dbContext.Facilities.Add(facility);
+        Add(facility);
     }
 
     public Task<ClinicalArea?> FindClinicalAreaByIdAsync(
-        Guid hospitalId,
-        Guid id,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, Guid id, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<ClinicalArea> query = track
-            ? dbContext.ClinicalAreas
-            : dbContext.ClinicalAreas.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.Id == id && item.HospitalId == hospitalId,
-            cancellationToken);
+        return FindByIdAsync<ClinicalArea>(hospitalId, id, track, cancellationToken);
     }
 
     public Task<ClinicalArea?> FindClinicalAreaByCodeAsync(
-        Guid hospitalId,
-        string code,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, string code, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<ClinicalArea> query = track
-            ? dbContext.ClinicalAreas
-            : dbContext.ClinicalAreas.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.HospitalId == hospitalId && item.Code == code,
-            cancellationToken);
+        return FindByCodeAsync<ClinicalArea>(hospitalId, code, track, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ClinicalArea>> ListClinicalAreasAsync(
+    public Task<IReadOnlyList<ClinicalArea>> ListClinicalAreasAsync(
         Guid hospitalId,
         Guid? facilityId,
         bool includeRetired,
         CancellationToken cancellationToken)
     {
-        IQueryable<ClinicalArea> query = dbContext.ClinicalAreas
-            .AsNoTracking()
-            .Where(item => item.HospitalId == hospitalId);
+        Expression<Func<ClinicalArea, bool>>? parentFilter =
+            facilityId is Guid parentId
+                ? item => item.FacilityId == parentId
+                : null;
 
-        if (facilityId is Guid parentId)
-        {
-            query = query.Where(item => item.FacilityId == parentId);
-        }
-
-        query = ApplyRetiredFilter(query, includeRetired);
-
-        return await query
-            .OrderBy(item => item.Code)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+        return ListAsync(
+            hospitalId,
+            includeRetired,
+            parentFilter,
+            cancellationToken);
     }
 
     public Task<bool> ClinicalAreaCodeExistsAsync(
-        Guid hospitalId,
-        string code,
-        CancellationToken cancellationToken)
+        Guid hospitalId, string code, CancellationToken cancellationToken)
     {
-        return dbContext.ClinicalAreas.AnyAsync(
-            item => item.HospitalId == hospitalId && item.Code == code,
-            cancellationToken);
+        return CodeExistsAsync<ClinicalArea>(hospitalId, code, cancellationToken);
     }
 
     public void AddClinicalArea(ClinicalArea clinicalArea)
     {
-        _ = dbContext.ClinicalAreas.Add(clinicalArea);
+        Add(clinicalArea);
     }
 
     public Task<Discipline?> FindDisciplineByIdAsync(
-        Guid hospitalId,
-        Guid id,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, Guid id, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<Discipline> query = track
-            ? dbContext.Disciplines
-            : dbContext.Disciplines.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.Id == id && item.HospitalId == hospitalId,
-            cancellationToken);
+        return FindByIdAsync<Discipline>(hospitalId, id, track, cancellationToken);
     }
 
     public Task<Discipline?> FindDisciplineByCodeAsync(
-        Guid hospitalId,
-        string code,
-        bool track,
-        CancellationToken cancellationToken)
+        Guid hospitalId, string code, bool track, CancellationToken cancellationToken)
     {
-        IQueryable<Discipline> query = track
-            ? dbContext.Disciplines
-            : dbContext.Disciplines.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.HospitalId == hospitalId && item.Code == code,
-            cancellationToken);
+        return FindByCodeAsync<Discipline>(hospitalId, code, track, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Discipline>> ListDisciplinesAsync(
+    public Task<IReadOnlyList<Discipline>> ListDisciplinesAsync(
         Guid hospitalId,
         Guid? clinicalAreaId,
         bool includeRetired,
         CancellationToken cancellationToken)
     {
-        IQueryable<Discipline> query = dbContext.Disciplines
+        Expression<Func<Discipline, bool>>? parentFilter =
+            clinicalAreaId is Guid parentId
+                ? item => item.ClinicalAreaId == parentId
+                : null;
+
+        return ListAsync(
+            hospitalId,
+            includeRetired,
+            parentFilter,
+            cancellationToken);
+    }
+
+    public Task<bool> DisciplineCodeExistsAsync(
+        Guid hospitalId, string code, CancellationToken cancellationToken)
+    {
+        return CodeExistsAsync<Discipline>(hospitalId, code, cancellationToken);
+    }
+
+    public void AddDiscipline(Discipline discipline)
+    {
+        Add(discipline);
+    }
+
+    private Task<T?> FindByIdAsync<T>(
+        Guid hospitalId, Guid id, bool track, CancellationToken cancellationToken)
+        where T : class, IClinicalTaxonomyDefinition
+    {
+        IQueryable<T> query = track
+            ? dbContext.Set<T>()
+            : dbContext.Set<T>().AsNoTracking();
+        return query.SingleOrDefaultAsync(
+            item => item.Id == id && item.HospitalId == hospitalId,
+            cancellationToken);
+    }
+
+    private Task<T?> FindByCodeAsync<T>(
+        Guid hospitalId, string code, bool track, CancellationToken cancellationToken)
+        where T : class, IClinicalTaxonomyDefinition
+    {
+        IQueryable<T> query = track
+            ? dbContext.Set<T>()
+            : dbContext.Set<T>().AsNoTracking();
+        return query.SingleOrDefaultAsync(
+            item => item.HospitalId == hospitalId && item.Code == code,
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<T>> ListAsync<T>(
+        Guid hospitalId,
+        bool includeRetired,
+        Expression<Func<T, bool>>? parentFilter,
+        CancellationToken cancellationToken)
+        where T : class, IClinicalTaxonomyDefinition
+    {
+        IQueryable<T> query = dbContext.Set<T>()
             .AsNoTracking()
             .Where(item => item.HospitalId == hospitalId);
 
-        if (clinicalAreaId is Guid parentId)
+        if (parentFilter is not null)
         {
-            query = query.Where(item => item.ClinicalAreaId == parentId);
+            query = query.Where(parentFilter);
         }
 
         query = ApplyRetiredFilter(query, includeRetired);
@@ -201,18 +189,18 @@ public sealed class ClinicalTaxonomyRepository(
             .ConfigureAwait(false);
     }
 
-    public Task<bool> DisciplineCodeExistsAsync(
-        Guid hospitalId,
-        string code,
-        CancellationToken cancellationToken)
+    private Task<bool> CodeExistsAsync<T>(
+        Guid hospitalId, string code, CancellationToken cancellationToken)
+        where T : class, IClinicalTaxonomyDefinition
     {
-        return dbContext.Disciplines.AnyAsync(
+        return dbContext.Set<T>().AnyAsync(
             item => item.HospitalId == hospitalId && item.Code == code,
             cancellationToken);
     }
 
-    public void AddDiscipline(Discipline discipline)
+    private void Add<T>(T entity)
+        where T : class, IClinicalTaxonomyDefinition
     {
-        _ = dbContext.Disciplines.Add(discipline);
+        _ = dbContext.Set<T>().Add(entity);
     }
 }

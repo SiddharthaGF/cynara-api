@@ -14,15 +14,6 @@ public sealed record FormResponseDto(
     DateTimeOffset? CompletedAt,
     DateTimeOffset? DeletedAt);
 
-public sealed record FormResponseRevisionDto(
-    Guid Id,
-    Guid FormResponseId,
-    uint RevisionNumber,
-    string AnswersJson,
-    string Status,
-    string? ActorId,
-    DateTimeOffset CreatedAt);
-
 public sealed record CreateFormResponseRequest(string? AnswersJson = null);
 
 public sealed record UpdateFormResponseRequest(string AnswersJson, uint RowVersion);

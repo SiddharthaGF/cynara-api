@@ -2,7 +2,7 @@ namespace Cynara.Application.Modules.Encounters;
 
 /// <summary>
 /// Shared length budgets for encounter string fields. Kept in the
-/// application layer so FluentValidation and workflow helpers share the
+/// application layer so validation and workflow helpers share the
 /// same constants without coupling to Infrastructure.
 /// </summary>
 public static class EncounterFieldLimits

@@ -4,6 +4,7 @@ using Cynara.Api.Tests.Support;
 using Cynara.Application;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Documents;
+using Cynara.Application.Modules.Tasks;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Encounters;
 using Cynara.Domain.Forms;
@@ -708,7 +709,7 @@ public sealed class ClinicalDocumentServiceTests
                 references,
                 new FakeClinicalDocumentResponseStage(
                     responses, new FakeFormResponseValidator()),
-                tasks,
+                new ClinicalDocumentTaskCloser(tasks, auditWriter),
                 unitOfWork,
                 auditWriter,
                 new FakeWorkflowContext(hospitalContext, timeProvider),

@@ -34,14 +34,3 @@ public sealed record JsonApiError(
 /// <param name="PointerPath">JSON pointer to the offending request field.</param>
 public sealed record JsonApiErrorSource(
     [property: JsonPropertyName("pointer")] string PointerPath);
-
-/// <summary>
-/// Reusable pagination metadata shape used by custom (non-JSON:API) list
-/// endpoints, e.g. the patient search response. JSON:API resources instead
-/// use the framework's <c>page[number]</c>/<c>page[size]</c> query parameters
-/// and per-request <c>meta</c> blocks.
-/// </summary>
-/// <param name="Page">1-based current page number.</param>
-/// <param name="PageSize">Number of items requested for the page.</param>
-/// <param name="TotalCount">Total number of items matching the query.</param>
-public sealed record PaginationMeta(int Page, int PageSize, int TotalCount);

@@ -66,10 +66,22 @@ internal static class WebApplicationExtensions
         // Probe/root endpoints stay out of Scalar; JSON:API is the contract UI.
         _ = app.MapHealthEndpoints();
         _ = app.MapSchemaEndpoints();
-        _ = app.MapPipelinesEndpoints();
-        _ = app.MapTasksEndpoints();
+        _ = app.MapMinimalApiEndpoints();
         _ = app.MapControllers();
 
+        return app;
+    }
+
+    public static WebApplication MapMinimalApiEndpoints(
+        this WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        // Single source of truth for the minimal-API modules that appear in
+        // the OpenAPI contract. The exporter calls this too so a new module
+        // mapped here is automatically included in contracts/openapi.json.
+        _ = app.MapPipelinesEndpoints();
+        _ = app.MapTasksEndpoints();
         return app;
     }
 

@@ -268,7 +268,7 @@ public sealed class FormService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         FormVersionLifecycle.Fire(
             published,
-            FormVersionLifecycle.Trigger.Retire);
+            ReviewableVersionLifecycle.Trigger.Retire);
         published.RetiredAt = now;
         definition.UpdatedAt = now;
 

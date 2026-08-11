@@ -1,3 +1,5 @@
+using Cynara.Application.Common;
+
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Common;
 
@@ -20,11 +22,7 @@ internal static class ClinicalTaxonomyWorkflowHelpers
 
     public static void EnsureConcurrency(uint current, uint provided, string entityName)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                $"The {entityName} was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, entityName);
     }
 
     public static void EnsureNotRetired(
@@ -32,11 +30,11 @@ internal static class ClinicalTaxonomyWorkflowHelpers
         string entityName,
         string code)
     {
-        if (status == ClinicalTaxonomyStatus.Retired)
-        {
-            throw new InvalidStateException(
-                $"{entityName} '{code}' is already retired.");
-        }
+        StatusGuard.EnsureNotRetired(
+            status,
+            ClinicalTaxonomyStatus.Retired,
+            entityName,
+            code);
     }
 
     public static void EnsureParentActive(

@@ -17,6 +17,7 @@ using JsonApiDotNetCore.Resources.Annotations;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 
@@ -54,8 +55,9 @@ internal static class ServiceCollectionExtensions
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
             .AddSingleton(TimeProvider.System)
-            .AddHttpContextAccessor()
-            .AddScoped<ICurrentActor, CurrentActor>();
+            .AddHttpContextAccessor();
+
+        services = AddHostCurrentActor(services);
 
         _ = services.AddControllers(
             options => options.Filters.Add<CapabilityAuthorizationFilter>());
@@ -158,6 +160,16 @@ internal static class ServiceCollectionExtensions
             CynaraSwaggerGenConfigureOptions>();
 
         return services;
+    }
+
+    private static IServiceCollection AddHostCurrentActor(
+        IServiceCollection services)
+    {
+        // The Application layer registers DefaultCurrentActor for hostless
+        // composition roots (the seed tool); this host must win, so replace
+        // the registration instead of relying on add-after ordering.
+        return services.Replace(
+            ServiceDescriptor.Scoped<ICurrentActor, CurrentActor>());
     }
 
     private static IServiceCollection AddCynaraCapabilityAuthorization(

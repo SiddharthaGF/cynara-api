@@ -22,7 +22,7 @@ public sealed class ClinicalDocumentsController(
     IClinicalDocumentService documentService,
     ISensitiveReadAuditor sensitiveReadAuditor,
     IHttpContextAccessor httpContextAccessor)
-    : ClinicalDocumentControllerBase(httpContextAccessor)
+    : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>
     /// Lists document instances for the resolved hospital workspace.

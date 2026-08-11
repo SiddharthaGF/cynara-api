@@ -63,33 +63,4 @@ public sealed class FakeFormResponseRepository : IFormResponseRepository
             item => item.Id == id && item.HospitalId == hospitalId);
         return Task.FromResult(match);
     }
-
-    public Task<FormResponseRevision?> FindRevisionAsync(
-        Guid responseId,
-        uint revisionNumber,
-        Guid hospitalId,
-        CancellationToken cancellationToken)
-    {
-        FormResponseRevision? match = added
-            .Select(item => item.Revision)
-            .Concat(revisions)
-            .SingleOrDefault(item => item.FormResponseId == responseId
-                && item.RevisionNumber == revisionNumber
-                && item.HospitalId == hospitalId);
-        return Task.FromResult(match);
-    }
-
-    public Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
-        Guid responseId,
-        Guid hospitalId,
-        CancellationToken cancellationToken)
-    {
-        List<FormResponseRevision> matches =
-            [.. added.Select(item => item.Revision)
-                .Concat(revisions)
-                .Where(item => item.FormResponseId == responseId
-                    && item.HospitalId == hospitalId)
-                .OrderBy(item => item.RevisionNumber)];
-        return Task.FromResult<IReadOnlyList<FormResponseRevision>>(matches);
-    }
 }

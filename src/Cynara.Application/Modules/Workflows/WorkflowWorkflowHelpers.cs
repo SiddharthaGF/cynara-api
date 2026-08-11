@@ -1,3 +1,4 @@
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Workflows.Persistence;
 using Cynara.Domain.Workflows;
 
@@ -51,10 +52,9 @@ internal static class WorkflowWorkflowHelpers
         WorkflowVersion version,
         uint expectedRowVersion)
     {
-        if (version.RowVersion != expectedRowVersion)
-        {
-            throw new ConcurrencyException(
-                "The workflow draft was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(
+            version.RowVersion,
+            expectedRowVersion,
+            "workflow draft");
     }
 }

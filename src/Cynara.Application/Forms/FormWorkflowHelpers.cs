@@ -1,3 +1,4 @@
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Domain.Forms;
 
@@ -50,10 +51,9 @@ internal static class FormWorkflowHelpers
         FormVersion version,
         uint expectedRowVersion)
     {
-        if (version.RowVersion != expectedRowVersion)
-        {
-            throw new ConcurrencyException(
-                "The form draft was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(
+            version.RowVersion,
+            expectedRowVersion,
+            "form draft");
     }
 }

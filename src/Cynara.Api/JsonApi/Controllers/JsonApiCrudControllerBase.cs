@@ -8,23 +8,23 @@ using Microsoft.AspNetCore.Mvc;
 namespace Cynara.Api.JsonApi.Controllers;
 
 /// <summary>
-/// Shared scaffold for the three clinical-taxonomy controllers
-/// (facilities, clinical areas, disciplines). Centralises the JSON
-/// envelope, body deserialisation, and actor extraction so each leaf
-/// controller only declares its route, tags, and the four action method
+/// Shared scaffold for JSON:API resource controllers. Centralises the
+/// JSON envelope, body deserialisation, and actor extraction so the leaf
+/// controller only declares its route, tags, and action method
 /// signatures. Leaf controllers inherit the helpers and the canonical
 /// <see cref="ContentType"/> / <see cref="JsonOptions"/>.
 /// </summary>
-public abstract class ClinicalTaxonomyControllerBase(
+public abstract class JsonApiCrudControllerBase(
     IHttpContextAccessor httpContextAccessor) : ControllerBase
 {
-    /// <summary>application/vnd.api+json media type used by every leaf.</summary>
+    /// <summary>application/vnd.api+json media type used by the controller.</summary>
     protected const string ContentType = "application/vnd.api+json";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
+        UnmappedMemberHandling =
+            System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
     };
 
     /// <summary>Deserialises the request body into <typeparamref name="T"/>.</summary>

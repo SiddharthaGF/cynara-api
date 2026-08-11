@@ -48,7 +48,7 @@ public sealed class FormReviewService(
         DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             draft,
-            FormVersionLifecycle.Trigger.SubmitForReview);
+            ReviewableVersionLifecycle.Trigger.SubmitForReview);
         draft.SubmittedForReviewAt = now;
         draft.LastReviewComment = null;
         draft.LastReviewDecision = null;
@@ -92,7 +92,7 @@ public sealed class FormReviewService(
         DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             review,
-            FormVersionLifecycle.Trigger.WithdrawFromReview);
+            ReviewableVersionLifecycle.Trigger.WithdrawFromReview);
         review.SubmittedForReviewAt = null;
         review.RowVersion = request.RowVersion + 1;
         definition.UpdatedAt = now;
@@ -138,7 +138,7 @@ public sealed class FormReviewService(
         DateTimeOffset now = context.GetUtcNow();
         FormVersionLifecycle.Fire(
             review,
-            FormVersionLifecycle.Trigger.RejectReview);
+            ReviewableVersionLifecycle.Trigger.RejectReview);
         review.SubmittedForReviewAt = null;
         review.LastReviewComment = request.Comment.Trim();
         review.LastReviewDecision = "rejected";
@@ -201,7 +201,7 @@ public sealed class FormReviewService(
         review.Version = version;
         FormVersionLifecycle.Fire(
             review,
-            FormVersionLifecycle.Trigger.Publish);
+            ReviewableVersionLifecycle.Trigger.Publish);
         review.ClinicalSchemaJson = compiled.ClinicalSchemaJson;
         review.UiSchemaJson = compiled.UiSchemaJson;
         review.RulesSchemaJson = compiled.RulesSchemaJson;

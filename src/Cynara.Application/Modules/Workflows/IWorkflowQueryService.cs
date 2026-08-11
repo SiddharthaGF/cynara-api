@@ -10,13 +10,4 @@ public interface IWorkflowQueryService
     public Task<WorkflowSummaryDto> GetSummaryAsync(
         string code,
         CancellationToken cancellationToken);
-
-    public Task<WorkflowVersionDto> GetDraftAsync(
-        string code,
-        CancellationToken cancellationToken);
-
-    public Task<WorkflowVersionDto> GetVersionAsync(
-        string code,
-        string version,
-        CancellationToken cancellationToken);
 }

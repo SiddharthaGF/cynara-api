@@ -20,15 +20,4 @@ public interface IFormResponseRepository
         bool includeDeleted,
         Guid hospitalId,
         CancellationToken cancellationToken);
-
-    public Task<FormResponseRevision?> FindRevisionAsync(
-        Guid responseId,
-        uint revisionNumber,
-        Guid hospitalId,
-        CancellationToken cancellationToken);
-
-    public Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
-        Guid responseId,
-        Guid hospitalId,
-        CancellationToken cancellationToken);
 }

@@ -1,8 +1,6 @@
 using System.Globalization;
 
 using Cynara.Api.Hosting;
-using Cynara.Api.Modules.Pipelines;
-using Cynara.Api.Modules.Tasks;
 
 using Microsoft.OpenApi;
 
@@ -54,13 +52,12 @@ public static class OpenApiDocumentExporter
         _ = builder.Services.AddCynaraApi(builder.Configuration);
         await using WebApplication app = builder.Build();
 
-        // The live host maps the Stage 3 minimal API modules inside
-        // UseCynaraApiAsync; the exporter must mirror that mapping so the
-        // Swagger document includes the workflow pipeline and clinical task
-        // surface. Without it JADNC's OpenAPI integration has no route table
-        // to describe and the committed contract silently drops these paths.
-        _ = app.MapPipelinesEndpoints();
-        _ = app.MapTasksEndpoints();
+        // The live host and the exporter both map the minimal-API modules
+        // through the shared MapMinimalApiEndpoints extension so the Swagger
+        // document includes the workflow pipeline and clinical task surface.
+        // Without it JADNC's OpenAPI integration has no route table to
+        // describe and the committed contract silently drops these paths.
+        _ = app.MapMinimalApiEndpoints();
 
         // Wiring the routes into RouteOptions.EndpointDataSources mirrors what
         // UseCynaraApiAsync/UseEndpoints does when the live host starts. The

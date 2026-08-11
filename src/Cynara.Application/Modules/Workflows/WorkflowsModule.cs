@@ -10,6 +10,8 @@ public static class WorkflowsModule
         _ = services.AddScoped<IWorkflowLifecycleService, WorkflowLifecycleService>();
         _ = services.AddScoped<IWorkflowQueryService, WorkflowQueriesService>();
         _ = services.AddScoped<IPipelineService, PipelineService>();
+        _ = services.AddScoped<PipelineSubjectResolver>();
+        _ = services.AddScoped<PipelineTaskCoordinator>();
         return services;
     }
 }

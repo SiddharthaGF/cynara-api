@@ -20,7 +20,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Facilities")]
 public sealed class FacilitiesController(
     IClinicalTaxonomyService taxonomyService,
-    IHttpContextAccessor httpContextAccessor) : ClinicalTaxonomyControllerBase(httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor) : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>
     /// Lists facility definitions owned by the resolved hospital workspace.

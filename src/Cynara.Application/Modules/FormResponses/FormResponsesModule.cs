@@ -11,7 +11,6 @@ public static class FormResponsesModule
     {
         _ = services.AddScoped<IFormResponseValidator, FormResponseValidator>();
         _ = services.AddScoped<IFormResponseLifecycleService, FormResponseLifecycleService>();
-        _ = services.AddScoped<IFormResponseQueryService, FormResponseQueriesService>();
         return services;
     }
 }

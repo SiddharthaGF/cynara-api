@@ -17,7 +17,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Clinical Areas")]
 public sealed class ClinicalAreasController(
     IClinicalTaxonomyService taxonomyService,
-    IHttpContextAccessor httpContextAccessor) : ClinicalTaxonomyControllerBase(httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor) : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>Lists clinical area definitions owned by the resolved hospital workspace.</summary>
     [HttpGet(Name = "listClinicalAreas")]

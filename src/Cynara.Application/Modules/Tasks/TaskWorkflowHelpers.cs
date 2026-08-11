@@ -1,4 +1,4 @@
-using System.Globalization;
+using Cynara.Application.Common;
 
 using Cynara.Domain.Tasks;
 
@@ -11,11 +11,7 @@ internal static class TaskWorkflowHelpers
 {
     public static void EnsureConcurrency(uint current, uint provided)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                "The task was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, "task");
     }
 
     public static ClinicalTaskStatus? ParseStatusOrNull(string? value)
@@ -50,21 +46,6 @@ internal static class TaskWorkflowHelpers
 
     public static string EnsureReasonLength(string? reason)
     {
-        const int maxLength = 2000;
-        if (string.IsNullOrWhiteSpace(reason))
-        {
-            return string.Empty;
-        }
-
-        string trimmed = reason.Trim();
-        if (trimmed.Length > maxLength)
-        {
-            throw new ValidationException(
-                "Task transition reason must be "
-                + maxLength.ToString(CultureInfo.InvariantCulture)
-                + " characters or fewer.");
-        }
-
-        return trimmed;
+        return ReasonLengthGuard.Normalize(reason, "Task");
     }
 }

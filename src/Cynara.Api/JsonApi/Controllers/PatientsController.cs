@@ -23,7 +23,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 public sealed class PatientsController(
     IPatientService patientService,
     ISensitiveReadAuditor sensitiveReadAuditor,
-    IHttpContextAccessor httpContextAccessor) : PatientControllerBase(httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor) : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>
     /// Searches the patient roster for the resolved hospital workspace.

@@ -9,14 +9,9 @@ using OpenAI;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
 
-public interface IOpenAiChatClientFactory
+public static class OpenAiChatClientFactory
 {
-    public IChatClient Create(OpenAiConfig config);
-}
-
-public sealed class OpenAiChatClientFactory : IOpenAiChatClientFactory
-{
-    public IChatClient Create(OpenAiConfig config)
+    public static IChatClient Create(OpenAiConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
         if (string.IsNullOrWhiteSpace(config.ApiKey))

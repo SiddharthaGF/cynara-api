@@ -9,7 +9,6 @@ public static class AuditModule
     public static IServiceCollection AddAuditModule(
         this IServiceCollection services)
     {
-        _ = services.AddScoped<IAuditService, AuditService>();
         _ = services.AddScoped<IAuditWriter, AuditWriter>();
         _ = services.AddScoped<ISensitiveReadAuditor, SensitiveReadAuditor>();
         return services;

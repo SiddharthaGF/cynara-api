@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 
+using Cynara.Application.Common;
+
 using Cynara.Domain.Patients;
 
 namespace Cynara.Application.Modules.Patients;
@@ -299,11 +301,7 @@ internal static class PatientWorkflowHelpers
     /// </exception>
     public static void EnsureConcurrency(uint current, uint provided)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                "The patient was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, "patient");
     }
 
     /// <summary>

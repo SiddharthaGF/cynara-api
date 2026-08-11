@@ -1,4 +1,5 @@
 using Cynara.Application;
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Encounters;
 using Cynara.Domain.Encounters;
 
@@ -13,7 +14,7 @@ public sealed class EncounterLifecycleUnitTests
     public void Fire_Complete_FromOpen_TransitionsToCompleted()
     {
         Encounter encounter = OpenEncounter();
-        EncounterLifecycle.Fire(encounter, EncounterLifecycle.Trigger.Complete);
+        EncounterLifecycle.Fire(encounter, TerminalLifecycle.Trigger.Complete);
         Assert.Equal(EncounterStatus.Completed, encounter.Status);
     }
 
@@ -21,7 +22,7 @@ public sealed class EncounterLifecycleUnitTests
     public void Fire_Cancel_FromOpen_TransitionsToCanceled()
     {
         Encounter encounter = OpenEncounter();
-        EncounterLifecycle.Fire(encounter, EncounterLifecycle.Trigger.Cancel);
+        EncounterLifecycle.Fire(encounter, TerminalLifecycle.Trigger.Cancel);
         Assert.Equal(EncounterStatus.Canceled, encounter.Status);
     }
 
@@ -30,7 +31,7 @@ public sealed class EncounterLifecycleUnitTests
     {
         Encounter encounter = OpenEncounter();
         EncounterLifecycle.Fire(
-            encounter, EncounterLifecycle.Trigger.EnterInError);
+            encounter, TerminalLifecycle.Trigger.EnterInError);
         Assert.Equal(EncounterStatus.EnteredInError, encounter.Status);
     }
 
@@ -45,7 +46,7 @@ public sealed class EncounterLifecycleUnitTests
 
         InvalidStateException ex = Assert.Throws<InvalidStateException>(
             () => EncounterLifecycle.Fire(
-                encounter, EncounterLifecycle.Trigger.Cancel));
+                encounter, TerminalLifecycle.Trigger.Cancel));
 
         Assert.Contains("completed", ex.Message, StringComparison.Ordinal);
         Assert.Equal(EncounterStatus.Completed, encounter.Status);

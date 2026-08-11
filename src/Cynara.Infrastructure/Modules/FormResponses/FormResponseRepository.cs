@@ -67,33 +67,4 @@ public sealed class FormResponseRepository(CynaraDbContext dbContext)
                 item => item.Id == id,
                 cancellationToken);
     }
-
-    public Task<FormResponseRevision?> FindRevisionAsync(
-        Guid responseId,
-        uint revisionNumber,
-        Guid hospitalId,
-        CancellationToken cancellationToken)
-    {
-        return dbContext.FormResponseRevisions
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(item => item.HospitalId == hospitalId
-                && item.FormResponseId == responseId
-                && item.RevisionNumber == revisionNumber)
-            .SingleOrDefaultAsync(cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<FormResponseRevision>> ListRevisionsAsync(
-        Guid responseId,
-        Guid hospitalId,
-        CancellationToken cancellationToken)
-    {
-        return await dbContext.FormResponseRevisions
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(item => item.HospitalId == hospitalId
-                && item.FormResponseId == responseId)
-            .OrderBy(item => item.RevisionNumber)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-    }
 }

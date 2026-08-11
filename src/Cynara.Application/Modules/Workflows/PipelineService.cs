@@ -3,18 +3,10 @@ using System.Text.Json;
 using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Encounters;
-using Cynara.Application.Modules.Encounters.Persistence;
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Application.Modules.Patients.Persistence;
-using Cynara.Application.Modules.Tasks;
-using Cynara.Application.Modules.Tasks.Persistence;
 using Cynara.Application.Modules.Workflows.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
-using Cynara.Domain.Encounters;
-using Cynara.Domain.Patients;
-using Cynara.Domain.Tasks;
 using Cynara.Domain.Workflows;
 
 namespace Cynara.Application.Modules.Workflows;
@@ -32,9 +24,8 @@ namespace Cynara.Application.Modules.Workflows;
 public sealed class PipelineService(
     IPipelineRepository pipelines,
     IWorkflowRepository workflows,
-    IEncounterRepository encounters,
-    IPatientRepository patients,
-    ITaskRepository tasks,
+    PipelineSubjectResolver subjectResolver,
+    PipelineTaskCoordinator taskCoordinator,
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
@@ -62,17 +53,11 @@ public sealed class PipelineService(
             .ConfigureAwait(false);
         WorkflowGraph graph = WorkflowGraphReader.Read(version.WorkflowSchemaJson);
 
-        PipelineSubjectBinding subject = subjectType switch
-        {
-            PipelineSubjectType.Encounter => await RequireActiveEncounterAsync(
-                    request.SubjectId, cancellationToken)
-                .ConfigureAwait(false),
-            PipelineSubjectType.Patient => await RequireActivePatientAsync(
-                    request.SubjectId, cancellationToken)
-                .ConfigureAwait(false),
-            _ => throw new InvalidOperationException(
-                $"Unknown pipeline subject type '{subjectType}'."),
-        };
+        PipelineSubjectBinding subject = await subjectResolver.ResolveAsync(
+                subjectType,
+                request.SubjectId,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
         var pipeline = new Pipeline
@@ -192,14 +177,11 @@ public sealed class PipelineService(
 
         // A soft-deleted patient stays queryable so historical journeys
         // keep rendering; only an unknown or cross-tenant id is a 404.
-        _ = await patients
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
+        await subjectResolver.EnsureSubjectExistsAsync(
+                PipelineSubjectType.Patient,
                 patientId,
-                track: false,
                 cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException($"Patient '{patientId}' was not found.");
+            .ConfigureAwait(false);
 
         IReadOnlyList<Pipeline> items = await pipelines
             .ListForJourneyAsync(
@@ -227,14 +209,11 @@ public sealed class PipelineService(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
-        _ = await encounters
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
+        await subjectResolver.EnsureSubjectExistsAsync(
+                PipelineSubjectType.Encounter,
                 encounterId,
-                track: false,
                 cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException($"Encounter '{encounterId}' was not found.");
+            .ConfigureAwait(false);
 
         IReadOnlyList<Pipeline> items = await pipelines
             .ListForJourneyAsync(
@@ -320,7 +299,11 @@ public sealed class PipelineService(
         pipeline.UpdatedAt = now;
         if (string.Equals(next.Type, WorkflowGraph.EndType, StringComparison.Ordinal))
         {
-            await CancelOpenTasksAsync(pipeline, actorId, now, cancellationToken)
+            await taskCoordinator.CancelOpenAsync(
+                    pipeline,
+                    actorId,
+                    now,
+                    cancellationToken)
                 .ConfigureAwait(false);
             pipeline.Status = PipelineStatus.Completed;
             pipeline.EndedAt = now;
@@ -357,7 +340,12 @@ public sealed class PipelineService(
             pipeline.CurrentNodeId = next.Id;
             if (string.Equals(next.Type, WorkflowGraph.TaskType, StringComparison.Ordinal))
             {
-                await CreateTaskForNodeAsync(pipeline, next, actorId, now, cancellationToken)
+                await taskCoordinator.CreateForNodeAsync(
+                        pipeline,
+                        next,
+                        actorId,
+                        now,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -404,7 +392,7 @@ public sealed class PipelineService(
                 id,
                 request,
                 actorId,
-                PipelineLifecycle.Trigger.Complete,
+                TerminalLifecycle.Trigger.Complete,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -420,7 +408,7 @@ public sealed class PipelineService(
                 id,
                 request,
                 actorId,
-                PipelineLifecycle.Trigger.Cancel,
+                TerminalLifecycle.Trigger.Cancel,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -436,7 +424,7 @@ public sealed class PipelineService(
                 id,
                 request,
                 actorId,
-                PipelineLifecycle.Trigger.EnterInError,
+                TerminalLifecycle.Trigger.EnterInError,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -445,7 +433,7 @@ public sealed class PipelineService(
         Guid id,
         TransitionPipelineRequest request,
         string? actorId,
-        PipelineLifecycle.Trigger trigger,
+        TerminalLifecycle.Trigger trigger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -465,9 +453,9 @@ public sealed class PipelineService(
         string reason = PipelineWorkflowHelpers.EnsureReasonLength(request.Reason);
         string action = trigger switch
         {
-            PipelineLifecycle.Trigger.Complete => "pipeline.completed",
-            PipelineLifecycle.Trigger.Cancel => "pipeline.canceled",
-            PipelineLifecycle.Trigger.EnterInError => "pipeline.entered-in-error",
+            TerminalLifecycle.Trigger.Complete => "pipeline.completed",
+            TerminalLifecycle.Trigger.Cancel => "pipeline.canceled",
+            TerminalLifecycle.Trigger.EnterInError => "pipeline.entered-in-error",
             _ => throw new InvalidOperationException(
                 $"Unknown pipeline lifecycle trigger '{trigger}'."),
         };
@@ -476,7 +464,11 @@ public sealed class PipelineService(
         pipeline.UpdatedAt = now;
         pipeline.RowVersion = request.RowVersion + 1;
 
-        await CancelOpenTasksAsync(pipeline, actorId, now, cancellationToken)
+        await taskCoordinator.CancelOpenAsync(
+                pipeline,
+                actorId,
+                now,
+                cancellationToken)
             .ConfigureAwait(false);
 
         PipelineMappers.AppendHistory(
@@ -508,109 +500,6 @@ public sealed class PipelineService(
         return PipelineMappers.ToDto(pipeline);
     }
 
-    private async Task CreateTaskForNodeAsync(
-        Pipeline pipeline,
-        WorkflowNode node,
-        string? actorId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<ClinicalTask> open = await tasks
-            .ListOpenByPipelineAsync(
-                pipeline.HospitalId,
-                pipeline.Id,
-                track: false,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (open.Any(item => string.Equals(
-                item.NodeId,
-                node.Id,
-                StringComparison.Ordinal)))
-        {
-            return;
-        }
-
-        var task = new ClinicalTask
-        {
-            Id = Guid.NewGuid(),
-            HospitalId = pipeline.HospitalId,
-            PipelineId = pipeline.Id,
-            WorkflowVersionId = pipeline.WorkflowVersionId,
-            WorkflowDefinitionId = pipeline.WorkflowVersion.WorkflowDefinitionId,
-            NodeId = node.Id,
-            Name = node.Name ?? node.Id,
-            Description = node.Description,
-            Status = ClinicalTaskStatus.Open,
-            AssignedActor = node.Assignee?.Actor,
-            AssignedRole = node.Assignee?.Role,
-            AssignedDiscipline = node.Assignee?.Discipline,
-            PatientId = pipeline.PatientId,
-            EncounterId = pipeline.EncounterId,
-            FormCode = node.FormCode,
-            FormVersion = node.FormVersion,
-            DueAt = node.DueDays is null ? null : now.AddDays(node.DueDays.Value),
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-
-        tasks.Add(task);
-        auditWriter.Append(
-            AuditEntityTypes.Task,
-            task.Id,
-            "task.generated",
-            actorId,
-            now,
-            new
-            {
-                pipelineId = task.PipelineId,
-                workflowVersionId = task.WorkflowVersionId,
-                nodeId = task.NodeId,
-                formCode = task.FormCode,
-                formVersion = task.FormVersion,
-                assignedActor = task.AssignedActor,
-                assignedRole = task.AssignedRole,
-                assignedDiscipline = task.AssignedDiscipline,
-                dueAt = task.DueAt,
-            },
-            patientId: task.PatientId,
-            encounterId: task.EncounterId,
-            workflowDefinitionId: task.WorkflowDefinitionId);
-    }
-
-    private async Task CancelOpenTasksAsync(
-        Pipeline pipeline,
-        string? actorId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<ClinicalTask> open = await tasks
-            .ListOpenByPipelineAsync(
-                pipeline.HospitalId,
-                pipeline.Id,
-                track: true,
-                cancellationToken)
-            .ConfigureAwait(false);
-        foreach (ClinicalTask task in open)
-        {
-            ClinicalTaskLifecycle.Cancel(task, actorId, now);
-            auditWriter.Append(
-                AuditEntityTypes.Task,
-                task.Id,
-                "task.canceled",
-                actorId,
-                now,
-                new
-                {
-                    reason = "Pipeline terminated",
-                    pipelineId = pipeline.Id,
-                    nodeId = task.NodeId,
-                },
-                patientId: task.PatientId,
-                encounterId: task.EncounterId,
-                workflowDefinitionId: task.WorkflowDefinitionId);
-        }
-    }
-
     private async Task<Pipeline> RequirePipelineAsync(
         Guid id,
         bool track,
@@ -621,54 +510,6 @@ public sealed class PipelineService(
             .ConfigureAwait(false);
         return pipeline ?? throw new NotFoundException(
             $"Workflow pipeline '{id}' was not found.");
-    }
-
-    private async Task<PipelineSubjectBinding> RequireActiveEncounterAsync(
-        Guid encounterId,
-        CancellationToken cancellationToken)
-    {
-        Encounter encounter = await encounters
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
-                encounterId,
-                track: false,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException(
-                $"Encounter '{encounterId}' was not found.");
-
-        if (encounter.Status != EncounterStatus.Open)
-        {
-            throw new InvalidStateException(
-                $"Encounter '{encounterId}' is "
-                + EncounterWorkflowHelpers.FormatStatus(encounter.Status)
-                + "; pipelines can only be started for open encounters.");
-        }
-
-        return new PipelineSubjectBinding(encounter.PatientId, encounter.Id);
-    }
-
-    private async Task<PipelineSubjectBinding> RequireActivePatientAsync(
-        Guid patientId,
-        CancellationToken cancellationToken)
-    {
-        Patient patient = await patients
-            .FindByIdAsync(
-                hospitalContext.HospitalId,
-                patientId,
-                track: false,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException($"Patient '{patientId}' was not found.");
-
-        if (patient.DeletedAt is not null)
-        {
-            throw new InvalidStateException(
-                $"Patient '{patientId}' is deleted and cannot start a "
-                + "new pipeline.");
-        }
-
-        return new PipelineSubjectBinding(patient.Id, EncounterId: null);
     }
 
     private async Task<WorkflowVersion> RequirePublishedVersionAsync(
@@ -752,9 +593,4 @@ public sealed class PipelineService(
 
         return outgoing[0];
     }
-
-    /// <summary>Resolved patient/encounter binding for a pipeline subject.</summary>
-    private sealed record PipelineSubjectBinding(
-        Guid PatientId,
-        Guid? EncounterId);
 }

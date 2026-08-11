@@ -12,14 +12,9 @@ using Polly.Registry;
 namespace Cynara.Infrastructure.Modules.FormAi;
 
 public sealed partial class OpenAiClient(
-    IOpenAiChatClientFactory chatClientFactory,
     ResiliencePipelineProvider<string> pipelineProvider) : IOpenAiClient
 {
     internal const string ResiliencePipelineKey = "openai";
-
-    private readonly IOpenAiChatClientFactory chatClientFactory =
-        chatClientFactory
-        ?? throw new ArgumentNullException(nameof(chatClientFactory));
 
     private readonly ResiliencePipeline resilience =
         (pipelineProvider
@@ -49,7 +44,7 @@ public sealed partial class OpenAiClient(
             return await resilience.ExecuteAsync(
                 async token =>
                 {
-                    using IChatClient chat = chatClientFactory.Create(config);
+                    using IChatClient chat = OpenAiChatClientFactory.Create(config);
                     List<ChatMessage> chatMessages = ToChatMessages(
                         messages,
                         config,
@@ -79,7 +74,7 @@ public sealed partial class OpenAiClient(
         ArgumentNullException.ThrowIfNull(config);
         EnsureConfigured(config);
         return EnumerateWithFirstChunkRetryAsync(
-            () => chatClientFactory.Create(config),
+            () => OpenAiChatClientFactory.Create(config),
             () => ToChatMessages(messages, config, cacheScope),
             () => CreateChatOptions(config, cacheScope),
             config,

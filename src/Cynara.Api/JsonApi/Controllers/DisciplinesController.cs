@@ -16,7 +16,7 @@ namespace Cynara.Api.JsonApi.Controllers;
 [Tags("Disciplines")]
 public sealed class DisciplinesController(
     IClinicalTaxonomyService taxonomyService,
-    IHttpContextAccessor httpContextAccessor) : ClinicalTaxonomyControllerBase(httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor) : JsonApiCrudControllerBase(httpContextAccessor)
 {
     /// <summary>Lists discipline definitions owned by the resolved hospital workspace.</summary>
     [HttpGet(Name = "listDisciplines")]

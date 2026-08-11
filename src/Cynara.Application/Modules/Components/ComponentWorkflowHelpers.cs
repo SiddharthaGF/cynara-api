@@ -1,3 +1,4 @@
+using Cynara.Application.Common;
 using Cynara.Application.Modules.Components.Persistence;
 using Cynara.Domain.Components;
 
@@ -31,10 +32,9 @@ internal static class ComponentWorkflowHelpers
         ComponentVersion draft,
         uint expectedRowVersion)
     {
-        if (draft.RowVersion != expectedRowVersion)
-        {
-            throw new ConcurrencyException(
-                "The component draft was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(
+            draft.RowVersion,
+            expectedRowVersion,
+            "component draft");
     }
 }

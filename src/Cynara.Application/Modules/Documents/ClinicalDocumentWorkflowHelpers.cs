@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using Cynara.Application.Common;
+
 using Cynara.Domain.Documents;
 
 namespace Cynara.Application.Modules.Documents;
@@ -29,11 +31,7 @@ internal static class ClinicalDocumentWorkflowHelpers
 
     public static void EnsureConcurrency(uint current, uint provided)
     {
-        if (current != provided)
-        {
-            throw new ConcurrencyException(
-                "The clinical document was modified by another request.");
-        }
+        ConcurrencyGuard.Ensure(current, provided, "clinical document");
     }
 
     public static string EnsureEnteredInErrorReason(string? reason)

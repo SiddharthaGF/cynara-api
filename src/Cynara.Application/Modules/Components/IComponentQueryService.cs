@@ -14,9 +14,4 @@ public interface IComponentQueryService
     public Task<ComponentVersionDto> GetDraftAsync(
         string code,
         CancellationToken cancellationToken);
-
-    public Task<ComponentVersionDto> GetVersionAsync(
-        string code,
-        string version,
-        CancellationToken cancellationToken);
 }
