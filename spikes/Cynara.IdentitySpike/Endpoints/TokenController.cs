@@ -36,6 +36,11 @@ public sealed class TokenController(
             return await HandlePasswordGrantAsync(request).ConfigureAwait(false);
         }
 
+        if (request.IsAuthorizationCodeGrantType())
+        {
+            return await HandleAuthorizationCodeGrantAsync().ConfigureAwait(false);
+        }
+
         if (request.IsRefreshTokenGrantType())
         {
             return await HandleRefreshTokenGrantAsync().ConfigureAwait(false);
@@ -117,9 +122,36 @@ public sealed class TokenController(
             OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
-    private async Task<IActionResult> HandleRefreshTokenGrantAsync()
+    /// <summary>
+    /// Handles the authorization-code grant. OpenIddict has already validated
+    /// the code, the PKCE verifier, and the client; authenticate the
+    /// principal stored on the authorization and re-issue it so tokens are
+    /// minted for the exact subject that completed the authorize step.
+    /// </summary>
+    private async Task<IActionResult> HandleAuthorizationCodeGrantAsync()
     {
         AuthenticateResult info = await HttpContext.AuthenticateAsync(
+            OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)
+            .ConfigureAwait(false);
+        if (!info.Succeeded || info.Principal is null)
+        {
+            return BadRequest(new OpenIddictResponse
+            {
+                Error = OpenIddictConstants.Errors.InvalidGrant,
+                ErrorDescription = "The authorization code is no longer valid.",
+            });
+        }
+
+        // Keep the scopes/claims from the authorize step and stamp the
+        // audience so the minted access token targets the API.
+        _ = info.Principal.SetResources("cynara-api");
+        return SignIn(
+            info.Principal,
+            OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private async Task<IActionResult> HandleRefreshTokenGrantAsync()
+    {        AuthenticateResult info = await HttpContext.AuthenticateAsync(
             OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)
             .ConfigureAwait(false);
         if (!info.Succeeded || info.Principal is null)

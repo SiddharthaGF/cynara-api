@@ -38,10 +38,12 @@ builder.Services
     .AddServer(options =>
     {
         _ = options
+            .SetAuthorizationEndpointUris("/connect/authorize")
             .SetTokenEndpointUris("/connect/token")
             .SetRevocationEndpointUris("/connect/revocation");
 
         _ = options
+            .AllowAuthorizationCodeFlow()
             .AllowPasswordFlow()
             .AllowRefreshTokenFlow()
             .AllowClientCredentialsFlow();
@@ -72,6 +74,7 @@ builder.Services
             ?? "http://localhost:5295");
 
         _ = options.UseAspNetCore()
+            .EnableAuthorizationEndpointPassthrough()
             .EnableTokenEndpointPassthrough()
             .DisableTransportSecurityRequirement();
     })

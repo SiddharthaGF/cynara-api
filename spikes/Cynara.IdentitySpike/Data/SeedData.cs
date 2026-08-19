@@ -41,6 +41,19 @@ public static class SeedData
     public const string ClientSecret = "spike-secret";
 
     /// <summary>
+    /// Authorization-code redirect URIs registered for the Cynara Web spike
+    /// (login callback route per locale). Match exactly the redirect_uri the
+    /// web sends when it begins an authorize request.
+    /// </summary>
+    public const string WebRedirectUriEnglish = "http://localhost:5173/en/login";
+
+    /// <summary>
+    /// Spanish-locale authorization-code redirect URI for the Cynara Web
+    /// spike login callback.
+    /// </summary>
+    public const string WebRedirectUriSpanish = "http://localhost:5173/es/login";
+
+    /// <summary>
     /// Resets the spike database and provisions the demo data.
     /// </summary>
     public static async Task RunAsync(
@@ -157,21 +170,32 @@ public static class SeedData
             {
                 ClientId = ClientId,
                 ClientSecret = ClientSecret,
-                ConsentType = OpenIddictConstants.ConsentTypes.Explicit,
+                // First-party confidential client: sign-in grants consent
+                // implicitly (no separate consent screen in the disposable
+                // spike).
+                ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
                 DisplayName = "Cynara Identity Spike client",
                 ClientType = OpenIddictConstants.ClientTypes.Confidential,
                 Permissions =
                 {
+                    OpenIddictConstants.Permissions.Endpoints.Authorization,
                     OpenIddictConstants.Permissions.Endpoints.Token,
                     OpenIddictConstants.Permissions.Endpoints.Revocation,
+                    OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
                     OpenIddictConstants.Permissions.GrantTypes.Password,
                     OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
                     OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                    OpenIddictConstants.Permissions.ResponseTypes.Code,
                     OpenIddictConstants.Permissions.Scopes.Email,
                     OpenIddictConstants.Permissions.Scopes.Profile,
                     "scp:openid",
                     "scp:offline_access",
                     "scp:cynara_api",
+                },
+                RedirectUris =
+                {
+                    new Uri(WebRedirectUriEnglish, UriKind.Absolute),
+                    new Uri(WebRedirectUriSpanish, UriKind.Absolute),
                 },
             },
             cancellationToken).ConfigureAwait(false);
