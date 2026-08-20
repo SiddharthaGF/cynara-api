@@ -1,4 +1,5 @@
 using Cynara.Application.Failures;
+using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Infrastructure.Failures;
@@ -12,6 +13,7 @@ using Cynara.Infrastructure.Modules.FormAi;
 using Cynara.Infrastructure.Modules.FormResponses;
 using Cynara.Infrastructure.Modules.Forms;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
@@ -92,8 +94,23 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddDbContext<CynaraDbContext>(options =>
             _ = options.UseNpgsql(normalizedConnectionString));
 
+        // The identity track keeps its own migrations history table so
+        // applying authentication schema can never collide with the domain
+        // track's migration stamps.
+        _ = services.AddDbContext<CynaraIdentityDbContext>(options =>
+            _ = options.UseNpgsql(
+                normalizedConnectionString,
+                npgsql => npgsql.MigrationsHistoryTable(
+                    CynaraIdentityDbContext.MigrationsHistoryTableName)));
+
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());
+
+        // Membership listing reads both the identity memberships and the
+        // domain hospitals, so it registers once both contexts exist.
+        _ = services.AddScoped<
+            IHospitalMembershipReader,
+            MembershipHospitalReader>();
 
         return services;
     }
@@ -145,6 +162,12 @@ public static partial class InfrastructureServiceCollectionExtensions
                 CynaraDbContext dbContext = scope.ServiceProvider
                     .GetRequiredService<CynaraDbContext>();
                 await EnsureDatabaseSchemaAsync(dbContext, cancellationToken)
+                    .ConfigureAwait(false);
+
+                CynaraIdentityDbContext identityDbContext = scope
+                    .ServiceProvider
+                    .GetRequiredService<CynaraIdentityDbContext>();
+                await identityDbContext.Database.MigrateAsync(cancellationToken)
                     .ConfigureAwait(false);
                 return;
             }

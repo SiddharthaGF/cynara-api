@@ -68,7 +68,7 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Contains("include", raw, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("page", raw, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("sort", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("X-Actor-Id", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("X-Actor-Id", raw, StringComparison.Ordinal);
         Assert.Contains("/api/formVersions/{id}/publish", raw, StringComparison.Ordinal);
         Assert.True(
             raw.Contains("errors", StringComparison.OrdinalIgnoreCase)
@@ -98,7 +98,8 @@ public sealed class OpenApiContractTests : IDisposable
                 out _));
 
         // JADNC docs distinguish collection (0 params) vs get-by-id (1 param).
-        // X-Actor-Id must be injected after that filter or summaries break.
+        // The bearer/hospital security requirement is injected after that filter
+        // so summaries keep their collection/individual distinction.
         Assert.True(
             paths.TryGetProperty("/api/aiProviderSettings", out JsonElement coll));
         Assert.True(coll.TryGetProperty("get", out JsonElement collGet));
@@ -154,6 +155,82 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(capsByKey.TryGetProperty("delete", out _));
 
         Assert.Contains("Capabilities", tagNames);
+    }
+
+    [Fact]
+    public async Task OpenApiDocument_DescribesBearerAndOAuth2Security()
+    {
+        using HttpResponseMessage response = await Client
+            .GetAsync(new Uri("/swagger/v1/swagger.json", UriKind.Relative))
+            .ConfigureAwait(false);
+        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(body);
+
+        JsonElement schemes = document.RootElement
+            .GetProperty("components")
+            .GetProperty("securitySchemes");
+
+        // Bearer HTTP scheme replaces the legacy X-Actor-Id api-key scheme.
+        JsonElement bearer = schemes.GetProperty("Bearer");
+        Assert.Equal("http", bearer.GetProperty("type").GetString());
+        Assert.Equal("bearer", bearer.GetProperty("scheme").GetString());
+
+        // OAuth2 describes the authorization-code + PKCE and client-credentials
+        // flows that the /connect surface implements.
+        JsonElement oauth2 = schemes.GetProperty("OAuth2");
+        Assert.Equal("oauth2", oauth2.GetProperty("type").GetString());
+        JsonElement flows = oauth2.GetProperty("flows");
+        Assert.True(flows.TryGetProperty("authorizationCode", out JsonElement codeFlow));
+        Assert.Contains(
+            "/connect/authorize",
+            codeFlow.GetProperty("authorizationUrl").GetString() ?? string.Empty,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "/connect/token",
+            codeFlow.GetProperty("tokenUrl").GetString() ?? string.Empty,
+            StringComparison.Ordinal);
+        Assert.True(flows.TryGetProperty("clientCredentials", out JsonElement ccFlow));
+        Assert.Contains(
+            "/connect/token",
+            ccFlow.GetProperty("tokenUrl").GetString() ?? string.Empty,
+            StringComparison.Ordinal);
+
+        Assert.False(schemes.TryGetProperty("ActorId", out _));
+
+        // A protected operation requires both a bearer token and the hospital
+        // header in a single security requirement (AND semantics).
+        JsonElement requirement = Assert.Single(
+            document.RootElement
+                .GetProperty("paths")
+                .GetProperty("/api/formDefinitions")
+                .GetProperty("get")
+                .GetProperty("security")
+                .EnumerateArray());
+        Assert.True(requirement.TryGetProperty("Bearer", out _));
+        Assert.True(requirement.TryGetProperty("HospitalCode", out _));
+
+        // The tenant-exempt membership listing is bearer-only: it must carry
+        // the bearer scheme but never advertise the hospital header scheme or
+        // parameter, so clients can enumerate hospitals before a tenant exists.
+        JsonElement listing = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/me/hospitals")
+            .GetProperty("get");
+        JsonElement listingRequirement = Assert.Single(
+            listing.GetProperty("security").EnumerateArray());
+        Assert.True(listingRequirement.TryGetProperty("Bearer", out _));
+        Assert.False(listingRequirement.TryGetProperty("HospitalCode", out _));
+        Assert.False(listing.TryGetProperty("parameters", out _));
+
+        // Public authentication surface is documented without any security
+        // requirement or hospital/actor header parameter.
+        JsonElement tokenOp = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/connect/token")
+            .GetProperty("post");
+        Assert.False(tokenOp.TryGetProperty("security", out _));
+        Assert.False(tokenOp.TryGetProperty("parameters", out _));
     }
 
     [Fact]

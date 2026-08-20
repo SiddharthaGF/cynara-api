@@ -19,8 +19,8 @@ public sealed class MeCapabilitiesController(
 {
     /// <summary>
     /// Returns the effective capabilities of the current actor. An actor with
-    /// no grant (or no <c>X-Actor-Id</c>) receives an empty list, mirroring
-    /// the deny-by-default behavior of the enforcement layer.
+    /// no grant (or no resolved actor for the request) receives an empty list,
+    /// mirroring the deny-by-default behavior of the enforcement layer.
     /// </summary>
     [HttpGet(Name = "getMyCapabilities")]
     [EndpointDescription(

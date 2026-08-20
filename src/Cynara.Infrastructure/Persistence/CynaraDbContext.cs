@@ -69,7 +69,14 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
+
+        // The Identity module owns its dedicated CynaraIdentityDbContext;
+        // its configurations must not leak the auth entities (Membership,
+        // IdentityUser) into the domain model.
         _ = modelBuilder.ApplyConfigurationsFromAssembly(
-            typeof(CynaraDbContext).Assembly);
+            typeof(CynaraDbContext).Assembly,
+            static configurationType => configurationType.Namespace?.StartsWith(
+                    "Cynara.Infrastructure.Modules.Identity",
+                    StringComparison.Ordinal) is not true);
     }
 }

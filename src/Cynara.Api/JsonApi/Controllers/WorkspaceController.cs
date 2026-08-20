@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Cynara.Api.CapabilityAuthorization;
+using Cynara.Api.Common.ActorContext;
 using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
@@ -105,7 +106,6 @@ public sealed class WorkspaceController(
         StatusCodes.Status409Conflict,
         Description = "rowVersion does not match the persisted workspace.")]
     public async Task<ActionResult<HospitalWorkspaceDto>> PatchAsync(
-        [FromHeader(Name = "X-Actor-Id")] string? actorId,
         CancellationToken cancellationToken)
     {
         UpdateHospitalWorkspaceRequest? request;
@@ -125,7 +125,10 @@ public sealed class WorkspaceController(
         }
 
         HospitalWorkspaceDto workspace = await workspaceService
-            .UpdateCurrentAsync(request, actorId, cancellationToken)
+            .UpdateCurrentAsync(
+                request,
+                HttpContext.GetActorId(),
+                cancellationToken)
             .ConfigureAwait(false);
         return Ok(workspace);
     }

@@ -39,21 +39,24 @@ internal static class ServiceCollectionExtensions
                 options.AddDefaultPolicy(
                     policy =>
                     {
-                        // Dev/maquette CORS: origins are not yet locked down.
-#pragma warning disable S5122 // Allow-any is deliberate for the maquette
-                        // surface: it carries no credentials and no
-                        // authentication gate.
+                        // Only configured origins may call the API cross-origin.
+                        // Calls from any other origin are stripped of CORS
+                        // response headers. Missing/empty config rejects all
+                        // cross-origin requests (safe default for the API).
+                        string[]? allowedOrigins = configuration
+                            .GetSection("Cors:AllowedOrigins")
+                            .Get<string[]>();
                         _ = policy
-                            .AllowAnyOrigin()
+                            .WithOrigins(allowedOrigins ?? [])
                             .AllowAnyHeader()
                             .AllowAnyMethod();
-#pragma warning restore S5122
                     });
             })
             .AddCynaraForwardedHeaders(configuration)
             .AddCynaraApplication()
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
+            .AddCynaraIdentity(configuration)
             .AddSingleton(TimeProvider.System)
             .AddHttpContextAccessor();
 
@@ -86,6 +89,14 @@ internal static class ServiceCollectionExtensions
                 JsonApiDotNetCore.Middleware.IExceptionHandler,
                 CynaraJsonApiExceptionHandler>();
 
+        services = AddCynaraOpenApi(services);
+
+        return services;
+    }
+
+    private static IServiceCollection AddCynaraOpenApi(
+        IServiceCollection services)
+    {
         // Returns void; must not be chained.
         services.AddOpenApiForJsonApi(swagger =>
         {
@@ -101,36 +112,22 @@ internal static class ServiceCollectionExtensions
                         + "encounters, clinical taxonomy, audit, capability "
                         + "assignment, AI provider settings, workflow "
                         + "pipelines and journeys, and clinical tasks. Send "
-                        + "`X-Actor-Id` on every request: it is the actor "
-                        + "identity for both audit attribution and capability "
-                        + "resolution. Send `X-Hospital-Code` on every "
-                        + "request to select the hospital workspace; the "
-                        + "tenant context is resolved by the API host and "
-                        + "cannot be overridden by client-supplied "
-                        + "identifiers. Protected endpoints require a "
-                        + "capability the actor holds in the resolved "
-                        + "hospital; denied requests return 403 and never "
-                        + "reveal whether the protected resource exists. "
-                        + "Media type: application/vnd.api+json. Workflow "
-                        + "actions use rowVersion query parameters; pipeline "
-                        + "and task transitions carry the concurrency token "
-                        + "in the request body. Form AI status/chat use "
+                        + "`X-Hospital-Code` on every request to select the "
+                        + "hospital workspace; the tenant context is resolved "
+                        + "by the API host and cannot be overridden by "
+                        + "client-supplied identifiers. Protected endpoints "
+                        + "require a bearer access token issued by the OIDC "
+                        + "`/connect` surface (authorization-code + PKCE or "
+                        + "client credentials) and a capability the resolved "
+                        + "actor holds in the selected hospital; missing or "
+                        + "invalid tokens return 401, and ungranted actors "
+                        + "receive 403 without revealing whether the protected "
+                        + "resource exists. Media type: application/vnd.api+json. "
+                        + "Workflow actions use rowVersion query parameters; "
+                        + "pipeline and task transitions carry the concurrency "
+                        + "token in the request body. Form AI status/chat use "
                         + "application/json; chat/stream uses "
                         + "text/event-stream (SSE).",
-                });
-            swagger.AddSecurityDefinition(
-                "ActorId",
-                new OpenApiSecurityScheme
-                {
-                    Description =
-                        "Actor identity used for both audit attribution and "
-                        + "capability resolution. Protected endpoints require "
-                        + "the actor to hold the needed capability in the "
-                        + "resolved hospital; missing or ungranted actors "
-                        + "receive 403.",
-                    Name = "X-Actor-Id",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
                 });
             swagger.AddSecurityDefinition(
                 "HospitalCode",
@@ -146,7 +143,7 @@ internal static class ServiceCollectionExtensions
                     Type = SecuritySchemeType.ApiKey,
                 });
 
-            // ActorIdOperationFilter is registered in
+            // The bearer and OAuth2 security schemes are registered in
             // CynaraSwaggerGenConfigureOptions (after JADNC docs filter).
             swagger.DocumentFilter<CynaraOpenApiDocumentFilter>();
 
@@ -167,16 +164,27 @@ internal static class ServiceCollectionExtensions
     {
         // The Application layer registers DefaultCurrentActor for hostless
         // composition roots (the seed tool); this host must win, so replace
-        // the registration instead of relying on add-after ordering.
+        // the registration instead of relying on add-after ordering. The
+        // production actor is membership-resolved (token sub + hospital) and
+        // never reads the spoofable X-Actor-Id header.
         return services.Replace(
-            ServiceDescriptor.Scoped<ICurrentActor, CurrentActor>());
+            ServiceDescriptor.Scoped<ICurrentActor, PrincipalCurrentActor>());
     }
 
     private static IServiceCollection AddCynaraCapabilityAuthorization(
         IServiceCollection services)
     {
         return services
-            .AddAuthorization()
+            .AddAuthorization(options =>
+            {
+                // Every endpoint without explicit authorization metadata must
+                // still require an authenticated user, so anonymous requests
+                // to protected API surface are challenged with 401. Public
+                // paths (auth, health, schemas, swagger) opt out explicitly.
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+            })
             .AddSingleton<
                 IAuthorizationPolicyProvider,
                 CapabilityPolicyProvider>()

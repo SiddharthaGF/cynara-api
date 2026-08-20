@@ -11,6 +11,8 @@ namespace Cynara.Api.Hosting;
 /// <c>X-Hospital-Code</c>), looks up the hospital by code, and stamps the
 /// scoped <see cref="IHospitalContext"/> for the request. Anonymous
 /// requests are rejected with a 400/403 result when the path is tenant-owned.
+/// The bearer-only membership listing is tenant-exempt and passes through
+/// without a hospital header.
 /// </summary>
 internal sealed partial class HospitalContextMiddleware
 {
@@ -37,7 +39,8 @@ internal sealed partial class HospitalContextMiddleware
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (IsExemptPath(context.Request.Path))
+        if (AuthPathPolicy.IsPublicPath(context.Request.Path)
+            || AuthPathPolicy.IsTenantExemptPath(context.Request.Path))
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -119,36 +122,6 @@ internal sealed partial class HospitalContextMiddleware
             options: null,
             contentType: "application/vnd.api+json",
             cancellationToken: context.RequestAborted).ConfigureAwait(false);
-    }
-
-    private static bool IsExemptPath(PathString path)
-    {
-        if (!path.HasValue || path == "/")
-        {
-            return true;
-        }
-
-        if (path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (path.StartsWithSegments("/schemas", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (path.StartsWithSegments("/scalar", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
     }
 
     [LoggerMessage(

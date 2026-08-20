@@ -51,7 +51,7 @@ public abstract class JsonApiCrudControllerBase(
         }
     }
 
-    /// <summary>Returns the X-Actor-Id for the current request, if present.</summary>
+    /// <summary>Returns the resolved actor id for the current request, if any.</summary>
     protected string? ActorId()
     {
         return httpContextAccessor.HttpContext?.GetActorId();

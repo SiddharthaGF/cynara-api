@@ -17,7 +17,9 @@ behavior. Do not silently drop unknown fields or weaken contract checks.
 - .NET 10 / ASP.NET Core minimal APIs
 - Modular layered solution: Api modules → Application modules → Domain;
   Infrastructure modules provide persistence and schema validation
-- EF Core + SQLite (default local DB)
+- EF Core + Npgsql (PostgreSQL; default local DB)
+- ASP.NET Core Identity + OpenIddict (OIDC), identity data isolated in
+  `CynaraIdentityDbContext`
 - JSON Schema Draft 2020-12 via `JsonSchema.Net`
 - xUnit + `WebApplicationFactory` integration tests
 
@@ -104,9 +106,40 @@ persist independently. Mutations and their audit records must commit together.
 - Form responses: create/update/complete/soft-delete, revisions
 - Audit: list events
 - Health: `GET /health`
+- OIDC (`Modules/Identity/`): `/connect/authorize`, `/connect/token`,
+  `/connect/revocation`, plus `/.well-known/openid-configuration` and JWKS
 
-Actor identity comes from request context (headers/helpers on endpoints); preserve
-audit emission on mutating workflows.
+## Authentication
+
+Protected endpoints require a valid bearer access token issued by the local
+OpenIddict server (issuer `OpenIddict:Issuer`, default `http://localhost:5000`,
+audience `cynara-api`). Supported flows are authorization-code + PKCE, refresh,
+client credentials, and revocation; the password (ROPC) grant is registered only
+in Development and refused in production. `/connect/*` and `/.well-known/*` are
+exempt from the hospital-context gate.
+
+Actor identity for audit and capability attribution is resolved from the token
+`sub` plus the `X-Hospital-Code` header through the user's active `Membership`
+in `CynaraIdentityDbContext`, surfaced as `ICurrentActor` via
+`PrincipalCurrentActor`/`ResolvedActor`. Production never reads `X-Actor-Id`; a
+header-driven current actor exists only as the integration test seam. Grants,
+refresh rotation, and revocation are enforced; client-credentials subjects carry
+an empty actor and are denied capability work. Preserve audit emission on
+mutating workflows.
+
+### Provisioning and keys
+
+Development seeds real users, memberships, capability assignments, and the
+confidential `cynara-web` client through `AuthDevSeeder`
+(`Infrastructure/Modules/Preview/`): `doctor@cynara.dev` /
+`Cynara!Dev123`, actors `doctor-alpha` and `doctor-beta`, demo hospitals
+`default` and `hosp-b`, `cynara-web` / `cynara-web-secret`. It is idempotent and
+never runs in production.
+
+Production must supply the issuer (`OpenIddict__Issuer`) and rotated
+signing/encryption certificates (Key Vault/KMS/mounted certificates) plus a
+shared DataProtection key ring across instances; startup fails fast when
+production issuer or keys are missing.
 
 ## Implementation Rules
 

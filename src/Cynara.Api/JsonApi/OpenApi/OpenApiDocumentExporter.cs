@@ -1,5 +1,3 @@
-using System.Globalization;
-
 using Cynara.Api.Hosting;
 
 using Microsoft.OpenApi;
@@ -30,7 +28,7 @@ public static class OpenApiDocumentExporter
     /// <returns>The canonical OpenAPI document text.</returns>
     public static async Task<string> ExportAsync()
     {
-        DisableRandomizedStringHashing();
+        OpenApiDocumentSerializer.DisableRandomizedStringHashing();
 
         WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
         _ = builder.Configuration.AddInMemoryCollection(
@@ -70,23 +68,6 @@ public static class OpenApiDocumentExporter
             .GetRequiredService<ISwaggerProvider>();
         OpenApiDocument document = provider.GetSwagger(DocumentName);
 
-        await using var textWriter = new StringWriter(CultureInfo.InvariantCulture);
-        var settings = new OpenApiJsonWriterSettings { Terse = true };
-        var jsonWriter = new OpenApiJsonWriter(textWriter, settings);
-        document.SerializeAs(OpenApiSpecVersion.OpenApi3_0, jsonWriter);
-        return textWriter.ToString();
-    }
-
-    /// <summary>
-    /// Makes <see cref="string"/> hash ordering stable across processes so
-    /// hash-backed collections (<c>required</c> sets, security scopes) render
-    /// in the same order in the committed contract and in the drift test.
-    /// Must run before any document generation hashes strings.
-    /// </summary>
-    private static void DisableRandomizedStringHashing()
-    {
-        AppContext.SetSwitch(
-            "System.Runtime.CompilerServices.UseRandomizedStringHash",
-            isEnabled: false);
+        return OpenApiDocumentSerializer.Serialize(document);
     }
 }
