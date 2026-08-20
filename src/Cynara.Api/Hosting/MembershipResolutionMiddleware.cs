@@ -1,8 +1,5 @@
 using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Infrastructure.Modules.Identity;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Api.Hosting;
 
@@ -10,7 +7,7 @@ namespace Cynara.Api.Hosting;
 /// Resolves the authenticated principal into the request actor context.
 /// Reads the Identity <c>sub</c> claim and combines it with the hospital
 /// already resolved by <see cref="HospitalContextMiddleware"/>, looks up the
-/// matching <see cref="Membership"/>, and stamps the scoped
+/// matching membership through <see cref="IHospitalMembershipReader"/>, and stamps the scoped
 /// <see cref="ResolvedActor"/> so capability resolution and audit attribution
 /// key on the hospital-scoped actor. Authenticated users without a matching
 /// membership are denied with 403. Public authentication/schema paths and
@@ -40,8 +37,7 @@ internal sealed class MembershipResolutionMiddleware(RequestDelegate next)
         // subjects are client identifiers (not user ids), so they are not
         // GUIDs and are ignored here — they retain an empty actor and are
         // denied capability work downstream.
-        string? subject = context.User.FindFirst("sub")?.Value;
-        if (!Guid.TryParse(subject, out Guid userId))
+        if (!PrincipalSubject.TryGetUserId(context.User, out Guid userId))
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -55,52 +51,36 @@ internal sealed class MembershipResolutionMiddleware(RequestDelegate next)
             return;
         }
 
-        CynaraIdentityDbContext identity = context.RequestServices
-            .GetRequiredService<CynaraIdentityDbContext>();
-        Membership? membership = await identity.Memberships
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                item => item.UserId == userId
-                    && item.HospitalId == hospitalContext.HospitalId,
+        string? actorId = await context.RequestServices
+            .GetRequiredService<IHospitalMembershipReader>()
+            .FindActorIdAsync(
+                userId,
+                hospitalContext.HospitalId,
                 context.RequestAborted)
             .ConfigureAwait(false);
 
-        if (membership is null)
+        if (actorId is null)
         {
             await RejectNoMembershipAsync(context).ConfigureAwait(false);
             return;
         }
 
-        context.RequestServices.GetRequiredService<ResolvedActor>().ActorId =
-            membership.ActorId;
+        context.RequestServices.GetRequiredService<ResolvedActor>().ActorId = actorId;
 
         await next(context).ConfigureAwait(false);
     }
 
     private static async Task RejectNoMembershipAsync(HttpContext context)
     {
-        var document = new
-        {
-            errors = new[]
-            {
-                new
-                {
-                    status = StatusCodes.Status403Forbidden
-                        .ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    title = "No hospital membership",
-                    detail =
-                        "The authenticated user has no membership in the "
-                        + "resolved hospital workspace.",
-                },
-            },
-        };
+        const string detail =
+            "The authenticated user has no membership in the "
+            + "resolved hospital workspace.";
 
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        context.Response.ContentType = "application/vnd.api+json";
-        await context.Response.WriteAsJsonAsync(
-            document,
-            options: null,
-            contentType: "application/vnd.api+json",
-            cancellationToken: context.RequestAborted).ConfigureAwait(false);
+        await JsonApiErrorResponse.WriteAsync(
+            context,
+            StatusCodes.Status403Forbidden,
+            "No hospital membership",
+            detail)
+            .ConfigureAwait(false);
     }
 }

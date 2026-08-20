@@ -53,4 +53,17 @@ public sealed class MembershipHospitalReader(
                 static (_, hospital) =>
                     new HospitalMembershipDto(hospital.Code, hospital.Name))];
     }
+
+    /// <inheritdoc />
+    public Task<string?> FindActorIdAsync(
+        Guid userId,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        return identity.Memberships
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && item.HospitalId == hospitalId)
+            .Select(item => (string?)item.ActorId)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
 }

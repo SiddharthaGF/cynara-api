@@ -47,7 +47,9 @@ public static class OpenApiDocumentExporter
             .AddControllers()
             .AddApplicationPart(typeof(OpenApiDocumentExporter).Assembly);
 
-        _ = builder.Services.AddCynaraApi(builder.Configuration);
+        _ = builder.Services.AddCynaraApi(
+            builder.Configuration,
+            builder.Environment);
         await using WebApplication app = builder.Build();
 
         // The live host and the exporter both map the minimal-API modules

@@ -1,7 +1,7 @@
 using Cynara.Api.Hosting;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-builder.Services.AddCynaraApi(builder.Configuration);
+builder.Services.AddCynaraApi(builder.Configuration, builder.Environment);
 
 WebApplication app = builder.Build();
 await app.UseCynaraApiAsync().ConfigureAwait(false);

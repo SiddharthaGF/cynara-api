@@ -9,38 +9,24 @@ namespace Cynara.Infrastructure.Modules.FormAi;
 public sealed class OpenAiConfiguration(IConfiguration configuration)
     : IOpenAiConfiguration
 {
-    /// <summary>
-    /// Default ceiling for a single chat request. Authoring big forms can take
-    /// several minutes on MiniMax-M3; align the client
-    /// (<c>AI_STREAM_TIMEOUT_MS</c>) to this value before changing it.
-    /// </summary>
-    internal static readonly TimeSpan DefaultNetworkTimeout = TimeSpan.FromMinutes(10);
-
-    /// <summary>
-    /// Time the stream has to deliver its first chunk before we cancel and
-    /// retry once. Long TTFBs are the main cause of client-side timeouts
-    /// during big-form authoring.
-    /// </summary>
-    internal static readonly TimeSpan DefaultFirstChunkTimeout = TimeSpan.FromSeconds(90);
-
     public OpenAiConfig LoadEnvironment()
     {
         string? apiKey = configuration["OPENAI_API_KEY"];
         string baseUrl = NormalizeBaseUrl(
             configuration["OPENAI_BASE_URL"]
-            ?? "https://api.openai.com/v1");
+            ?? OpenAiDefaults.BaseUrl);
         string model = string.IsNullOrWhiteSpace(configuration["OPENAI_MODEL"])
-            ? "gpt-4o-mini"
+            ? OpenAiDefaults.Model
             : configuration["OPENAI_MODEL"]!.Trim();
         bool jsonObject = ParseBoolean(
             configuration["OPENAI_JSON_OBJECT"],
-            defaultValue: true);
+            OpenAiDefaults.JsonObject);
         TimeSpan networkTimeout = ParseSeconds(
             configuration["OPENAI_NETWORK_TIMEOUT_SECONDS"],
-            DefaultNetworkTimeout);
+            OpenAiDefaults.NetworkTimeout);
         TimeSpan firstChunkTimeout = ParseSeconds(
             configuration["OPENAI_FIRST_CHUNK_TIMEOUT_SECONDS"],
-            DefaultFirstChunkTimeout);
+            OpenAiDefaults.FirstChunkTimeout);
         int? maxOutputTokens = ParseInt(
             configuration["OPENAI_MAX_OUTPUT_TOKENS"]);
         float? temperature = ParseFloat(configuration["OPENAI_TEMPERATURE"]);

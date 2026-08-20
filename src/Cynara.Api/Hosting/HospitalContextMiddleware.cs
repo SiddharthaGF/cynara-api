@@ -102,26 +102,8 @@ internal sealed partial class HospitalContextMiddleware
     {
         LogRejectingRequest(logger, context.Request.Method, context.Request.Path, title);
 
-        var document = new
-        {
-            errors = new[]
-            {
-                new
-                {
-                    status = statusCode.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    title,
-                    detail,
-                },
-            },
-        };
-
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/vnd.api+json";
-        await context.Response.WriteAsJsonAsync(
-            document,
-            options: null,
-            contentType: "application/vnd.api+json",
-            cancellationToken: context.RequestAborted).ConfigureAwait(false);
+        await JsonApiErrorResponse.WriteAsync(context, statusCode, title, detail)
+            .ConfigureAwait(false);
     }
 
     [LoggerMessage(

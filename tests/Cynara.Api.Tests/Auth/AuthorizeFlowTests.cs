@@ -104,6 +104,32 @@ public sealed class AuthorizeFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task PasswordGrant_RemainsClosedInProduction()
+    {
+        await FactoryProduction.ResetDatabaseAsync();
+        _ = await FactoryProduction.CreateUserAsync(UserEmail, UserPassword);
+        await FactoryProduction.RegisterClientAsync();
+
+        using HttpClient client = FactoryProduction.CreateClient();
+        using var content = new FormUrlEncodedContent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["grant_type"] = "password",
+                ["client_id"] = IdentityAuthWebApplicationFactory.ClientId,
+                ["client_secret"] = IdentityAuthWebApplicationFactory.ClientSecret,
+                ["username"] = UserEmail,
+                ["password"] = UserPassword,
+                ["scope"] = "openid profile email offline_access cynara_api",
+            });
+
+        using HttpResponseMessage response = await client
+            .PostAsync("/connect/token", content)
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AuthorizationGet_HandsOffOnlyOpaqueRequestData()
     {
         await Factory.ResetDatabaseAsync();

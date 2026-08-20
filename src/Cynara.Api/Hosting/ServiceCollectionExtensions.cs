@@ -29,9 +29,11 @@ internal static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCynaraApi(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
         services = services
             .AddCors(options =>
@@ -56,7 +58,7 @@ internal static class ServiceCollectionExtensions
             .AddCynaraApplication()
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
-            .AddCynaraIdentity(configuration)
+            .AddCynaraIdentity(configuration, environment)
             .AddSingleton(TimeProvider.System)
             .AddHttpContextAccessor();
 

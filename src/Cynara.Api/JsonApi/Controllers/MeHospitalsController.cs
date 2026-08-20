@@ -1,3 +1,4 @@
+using Cynara.Api.Hosting;
 using Cynara.Application.Modules.Hospitals;
 
 using Microsoft.AspNetCore.Mvc;
@@ -41,8 +42,7 @@ public sealed class MeHospitalsController(
         // OpenIddict does not apply the default inbound claim-type mapping,
         // so the subject claim is read by its literal name. Client-credentials
         // subjects are client identifiers (not user ids) and yield no rows.
-        string? subject = User.FindFirst("sub")?.Value;
-        if (!Guid.TryParse(subject, out Guid userId))
+        if (!PrincipalSubject.TryGetUserId(User, out Guid userId))
         {
             return Ok(Array.Empty<HospitalMembershipDto>());
         }

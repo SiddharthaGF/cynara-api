@@ -26,10 +26,12 @@ internal static class IdentityHostingExtensions
 
     public static IServiceCollection AddCynaraIdentity(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
         _ = services
             .AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>()
@@ -45,7 +47,7 @@ internal static class IdentityHostingExtensions
             DevelopmentEmailSender>();
 
         string issuer = configuration["OpenIddict:Issuer"] ?? "http://localhost:5000";
-        bool isDevelopment = IsDevelopmentEnvironment(configuration);
+        bool isDevelopment = environment.IsDevelopment();
 
         _ = services
             .AddOpenIddict()
@@ -136,13 +138,5 @@ internal static class IdentityHostingExtensions
             .EnableAuthorizationEndpointPassthrough()
             .EnableTokenEndpointPassthrough()
             .DisableTransportSecurityRequirement();
-    }
-
-    private static bool IsDevelopmentEnvironment(IConfiguration configuration)
-    {
-        string? name = configuration["environment"]
-            ?? configuration["ENVIRONMENT"]
-            ?? configuration["ASPNETCORE_ENVIRONMENT"];
-        return string.Equals(name, "Development", StringComparison.OrdinalIgnoreCase);
     }
 }

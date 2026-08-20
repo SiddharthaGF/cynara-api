@@ -15,4 +15,13 @@ public interface IHospitalMembershipReader
     public Task<IReadOnlyList<HospitalMembershipDto>> ListAsync(
         Guid userId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the actor identifier for a user's membership in a hospital, or
+    /// <see langword="null"/> when the user is not a member.
+    /// </summary>
+    public Task<string?> FindActorIdAsync(
+        Guid userId,
+        Guid hospitalId,
+        CancellationToken cancellationToken);
 }
