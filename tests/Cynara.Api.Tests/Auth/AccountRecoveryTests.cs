@@ -207,7 +207,7 @@ public sealed class AccountRecoveryTests : IDisposable
             .PostAsJsonAsync(RecoveryUrl, new { account })
             .ConfigureAwait(false);
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.True(response.IsSuccessStatusCode, $"HTTP {response.StatusCode.ToString("D")}: {body}");
+        Assert.True(response.IsSuccessStatusCode, $"HTTP {response.StatusCode:D}: {body}");
         return body;
     }
 
