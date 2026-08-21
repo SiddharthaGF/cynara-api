@@ -28,14 +28,16 @@ namespace Cynara.Api.Tests.Support;
 internal sealed class IdentityAuthWebApplicationFactory(
     TestDatabaseSettings database,
     bool grantAllCapabilities = true,
-    string? environment = null)
+    string? environment = null,
+    TestOpenIddictCertificates? openIddictCertificates = null)
     : CynaraWebApplicationFactory(
         database,
         bootstrapOptions: null,
         emulateRenderProxy: false,
         grantAllCapabilities: grantAllCapabilities,
         useRealAuthentication: true,
-        environment: environment)
+        environment: environment,
+        openIddictCertificates: openIddictCertificates)
 {
     /// <summary>Confidential test client used by the auth suites.</summary>
     public const string ClientId = "cynara-test";

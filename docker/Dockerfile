@@ -29,7 +29,7 @@ RUN apt-get update \
 
 COPY --from=build /app/publish .
 
-RUN groupadd --system --gid 1001 appgroup \
+RUN groupadd --system appgroup \
     && useradd --system --uid 1001 --gid appgroup appuser
 USER appuser
 

@@ -24,7 +24,8 @@ internal class CynaraWebApplicationFactory(
     bool emulateRenderProxy = false,
     bool grantAllCapabilities = true,
     bool useRealAuthentication = false,
-    string? environment = null)
+    string? environment = null,
+    TestOpenIddictCertificates? openIddictCertificates = null)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
@@ -107,6 +108,18 @@ internal class CynaraWebApplicationFactory(
             if (emulateRenderProxy)
             {
                 settings["RENDER_SERVICE_TYPE"] = "web";
+            }
+
+            if (openIddictCertificates is not null)
+            {
+                settings["OpenIddict:SigningCertificatePath"] =
+                    openIddictCertificates.SigningCertificatePath;
+                settings["OpenIddict:SigningKeyPath"] =
+                    openIddictCertificates.SigningKeyPath;
+                settings["OpenIddict:EncryptionCertificatePath"] =
+                    openIddictCertificates.EncryptionCertificatePath;
+                settings["OpenIddict:EncryptionKeyPath"] =
+                    openIddictCertificates.EncryptionKeyPath;
             }
 
             configuration.AddInMemoryCollection(settings);

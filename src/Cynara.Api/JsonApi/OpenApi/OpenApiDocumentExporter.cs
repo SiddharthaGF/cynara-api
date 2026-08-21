@@ -30,7 +30,12 @@ public static class OpenApiDocumentExporter
     {
         OpenApiDocumentSerializer.DisableRandomizedStringHashing();
 
-        WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(
+            new WebApplicationOptions
+            {
+                Args = [],
+                EnvironmentName = Environments.Development,
+            });
         _ = builder.Configuration.AddInMemoryCollection(
             new Dictionary<string, string?>(StringComparer.Ordinal)
             {

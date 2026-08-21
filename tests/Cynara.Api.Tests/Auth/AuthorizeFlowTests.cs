@@ -24,21 +24,26 @@ public sealed class AuthorizeFlowTests : IDisposable
     {
         Database = database.Settings;
         Factory = new IdentityAuthWebApplicationFactory(Database);
+        ProductionCertificates = TestOpenIddictCertificates.Create();
         FactoryProduction = new IdentityAuthWebApplicationFactory(
             Database,
-            environment: "Production");
+            environment: "Production",
+            openIddictCertificates: ProductionCertificates);
     }
 
     public void Dispose()
     {
         Factory.Dispose();
         FactoryProduction.Dispose();
+        ProductionCertificates.Dispose();
         GC.SuppressFinalize(this);
     }
 
     private IdentityAuthWebApplicationFactory Factory { get; }
 
     private IdentityAuthWebApplicationFactory FactoryProduction { get; }
+
+    private TestOpenIddictCertificates ProductionCertificates { get; }
 
     private TestDatabaseSettings Database { get; }
 

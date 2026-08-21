@@ -1,0 +1,7 @@
+**/bin
+**/obj
+
+openiddict-signing.crt
+openiddict-signing.key
+openiddict-encryption.crt
+openiddict-encryption.key

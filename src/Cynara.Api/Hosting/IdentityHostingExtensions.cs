@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+
 using Cynara.Api.Common.ActorContext;
 using Cynara.Infrastructure.Modules.Identity;
 
@@ -23,6 +26,18 @@ internal static class IdentityHostingExtensions
 
     /// <summary>Application-level scope beyond the standard OIDC scopes.</summary>
     public const string ApiScope = "cynara_api";
+
+    private const string DefaultSigningCertificatePath =
+        "/etc/secrets/openiddict-signing.crt";
+
+    private const string DefaultSigningKeyPath =
+        "/etc/secrets/openiddict-signing.key";
+
+    private const string DefaultEncryptionCertificatePath =
+        "/etc/secrets/openiddict-encryption.crt";
+
+    private const string DefaultEncryptionKeyPath =
+        "/etc/secrets/openiddict-encryption.key";
 
     public static IServiceCollection AddCynaraIdentity(
         this IServiceCollection services,
@@ -54,7 +69,11 @@ internal static class IdentityHostingExtensions
             .AddCore(options => options
                 .UseEntityFrameworkCore()
                 .UseDbContext<CynaraIdentityDbContext>())
-            .AddServer(options => ConfigureServer(options, issuer, isDevelopment))
+            .AddServer(options => ConfigureServer(
+                options,
+                configuration,
+                issuer,
+                isDevelopment))
             .AddValidation(options =>
             {
                 _ = options.AddAudiences(Audience);
@@ -80,6 +99,7 @@ internal static class IdentityHostingExtensions
 
     private static void ConfigureServer(
         OpenIddictServerBuilder options,
+        IConfiguration configuration,
         string issuer,
         bool isDevelopment)
     {
@@ -116,8 +136,32 @@ internal static class IdentityHostingExtensions
             .SetRefreshTokenLifetime(TimeSpan.FromDays(7))
             .SetIdentityTokenLifetime(TimeSpan.FromMinutes(15));
 
-        _ = options.AddDevelopmentSigningCertificate();
-        _ = options.AddDevelopmentEncryptionCertificate();
+        if (isDevelopment)
+        {
+            _ = options.AddDevelopmentSigningCertificate();
+            _ = options.AddDevelopmentEncryptionCertificate();
+        }
+        else
+        {
+            X509Certificate2 signingCertificate = LoadCertificate(
+                configuration,
+                "SigningCertificatePath",
+                "SigningKeyPath",
+                DefaultSigningCertificatePath,
+                DefaultSigningKeyPath,
+                "signing");
+            X509Certificate2 encryptionCertificate = LoadCertificate(
+                configuration,
+                "EncryptionCertificatePath",
+                "EncryptionKeyPath",
+                DefaultEncryptionCertificatePath,
+                DefaultEncryptionKeyPath,
+                "encryption");
+
+            _ = options
+                .AddSigningCertificate(signingCertificate)
+                .AddEncryptionCertificate(encryptionCertificate);
+        }
 
         // Access tokens are stored as reference tokens so revocation actually
         // invalidates them on local validation. Disable the transport
@@ -138,5 +182,76 @@ internal static class IdentityHostingExtensions
             .EnableAuthorizationEndpointPassthrough()
             .EnableTokenEndpointPassthrough()
             .DisableTransportSecurityRequirement();
+    }
+
+    private static X509Certificate2 LoadCertificate(
+        IConfiguration configuration,
+        string certificateSetting,
+        string keySetting,
+        string defaultCertificatePath,
+        string defaultKeyPath,
+        string credentialName)
+    {
+        string certificatePath = GetPath(
+            configuration,
+            certificateSetting,
+            defaultCertificatePath);
+        string keyPath = GetPath(configuration, keySetting, defaultKeyPath);
+
+        try
+        {
+            var certificate = X509Certificate2.CreateFromPemFile(
+                certificatePath,
+                keyPath);
+
+            if (!certificate.HasPrivateKey)
+            {
+                certificate.Dispose();
+                throw new InvalidOperationException(
+                    $"The OpenIddict {credentialName} certificate does not "
+                    + "contain a private key.");
+            }
+
+            return certificate;
+        }
+        catch (InvalidOperationException exception)
+            when (exception.Message.Contains(
+                "does not contain a private key",
+                StringComparison.Ordinal))
+        {
+            throw;
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new InvalidOperationException(
+                $"OpenIddict {credentialName} certificate configuration is "
+                + "invalid or unreadable. Check the configured certificate "
+                + $"and private-key files: '{certificatePath}' and '{keyPath}'.",
+                exception);
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or CryptographicException
+                or IOException
+                or UnauthorizedAccessException
+                or PlatformNotSupportedException)
+        {
+            throw new InvalidOperationException(
+                $"OpenIddict {credentialName} certificate configuration is "
+                + "invalid or unreadable. Check the configured certificate "
+                + $"and private-key files: '{certificatePath}' and '{keyPath}'.",
+                exception);
+        }
+    }
+
+    private static string GetPath(
+        IConfiguration configuration,
+        string setting,
+        string defaultPath)
+    {
+        string? configuredPath = configuration["OpenIddict:" + setting];
+        return string.IsNullOrWhiteSpace(configuredPath)
+            ? defaultPath
+            : configuredPath;
     }
 }
