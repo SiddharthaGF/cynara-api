@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 using Cynara.Api.CapabilityAuthorization;
 using Cynara.Api.Common.ActorContext;
@@ -61,6 +62,47 @@ internal static class ServiceCollectionExtensions
             .AddCynaraIdentity(configuration, environment)
             .AddSingleton(TimeProvider.System)
             .AddHttpContextAccessor();
+
+        _ = services.AddRateLimiter(options =>
+        {
+            options.GlobalLimiter = PartitionedRateLimiter.Create<
+                HttpContext,
+                string>(context =>
+            {
+                if (!IsCredentialBearingEndpoint(context))
+                {
+                    return RateLimitPartition.GetNoLimiter("excluded");
+                }
+
+                string partition = context.Connection.RemoteIpAddress?
+                    .ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partition,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    });
+            });
+            options.OnRejected = static async (context, cancellationToken) =>
+            {
+                if (context.Lease.TryGetMetadata(
+                        MetadataName.RetryAfter,
+                        out TimeSpan retryAfter))
+                {
+                    context.HttpContext.Response.Headers.RetryAfter =
+                        Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                context.HttpContext.Response.StatusCode =
+                    StatusCodes.Status429TooManyRequests;
+                await context.HttpContext.Response.WriteAsync(
+                    "Too many authentication attempts. Try again later.",
+                    cancellationToken).ConfigureAwait(false);
+            };
+        });
 
         services = AddHostCurrentActor(services);
 
@@ -171,6 +213,17 @@ internal static class ServiceCollectionExtensions
         // never reads the spoofable X-Actor-Id header.
         return services.Replace(
             ServiceDescriptor.Scoped<ICurrentActor, PrincipalCurrentActor>());
+    }
+
+    private static bool IsCredentialBearingEndpoint(HttpContext context)
+    {
+        return HttpMethods.IsPost(context.Request.Method)
+            && (context.Request.Path.Equals(
+                    "/connect/authorize",
+                    StringComparison.OrdinalIgnoreCase)
+                || context.Request.Path.Equals(
+                    "/connect/account/recovery",
+                    StringComparison.OrdinalIgnoreCase));
     }
 
     private static IServiceCollection AddCynaraCapabilityAuthorization(

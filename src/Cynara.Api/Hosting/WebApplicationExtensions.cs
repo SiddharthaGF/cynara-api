@@ -38,6 +38,7 @@ internal static class WebApplicationExtensions
                 return next();
             });
         _ = app.UseRouting();
+        _ = app.UseRateLimiter();
         _ = app.UseCors();
         _ = app.UseAuthentication();
         _ = app.UseHospitalContext();

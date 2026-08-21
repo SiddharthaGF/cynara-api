@@ -54,7 +54,7 @@ public sealed class AuthorizeController(
                 .CheckPasswordSignInAsync(
                     user: user,
                     password: password ?? string.Empty,
-                    lockoutOnFailure: false)
+                    lockoutOnFailure: true)
                 .ConfigureAwait(false) is { Succeeded: true })
             {
                 return CompleteAuthorization(user);

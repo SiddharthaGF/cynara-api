@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 using Cynara.Api.Tests.Support;
@@ -99,5 +100,29 @@ public sealed class AuthProtectionTests : IDisposable
             ?? string.Empty;
 
         Assert.Equal(realActor, actorId);
+    }
+
+    [Fact]
+    public async Task CredentialEndpoint_RateLimitsByIpAndReturnsRetryAfter()
+    {
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            using HttpResponseMessage response = await Client
+                .PostAsJsonAsync(
+                    "/connect/account/recovery",
+                    new { account = "rate-limit@cynara.dev" })
+                .ConfigureAwait(false);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        using HttpResponseMessage rejected = await Client
+            .PostAsJsonAsync(
+                "/connect/account/recovery",
+                new { account = "rate-limit@cynara.dev" })
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.True(rejected.Headers.TryGetValues("Retry-After", out _));
     }
 }

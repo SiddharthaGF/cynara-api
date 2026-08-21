@@ -49,7 +49,13 @@ internal static class IdentityHostingExtensions
         ArgumentNullException.ThrowIfNull(environment);
 
         _ = services
-            .AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>()
+            .AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>(options =>
+            {
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan =
+                    TimeSpan.FromMinutes(15);
+            })
             .AddEntityFrameworkStores<CynaraIdentityDbContext>()
             .AddDefaultTokenProviders();
 

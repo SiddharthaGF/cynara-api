@@ -3,7 +3,9 @@ using System.Text.Json;
 
 using Cynara.Api.Tests.Support;
 
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Auth;
 
@@ -263,6 +265,51 @@ public sealed class AuthorizeFlowTests : IDisposable
                 QueryValue(location, "request_uri"));
             Assert.Null(QueryValue(location, "code"));
         }
+    }
+
+    [Fact]
+    public async Task InteractiveLogin_LocksUserAfterFiveFailures()
+    {
+        await Factory.ResetDatabaseAsync();
+
+        var user = await Factory.CreateUserAsync(UserEmail, UserPassword);
+        Guid hospitalId = (await Factory.EnsureHospitalAsync(
+                Factory.BootstrapOptions.BootstrapCode ?? "default",
+                "Primary")).Id;
+        await Factory.SeedMembershipAsync(user, hospitalId, "authorize-actor");
+        await Factory.RegisterClientAsync();
+
+        AuthorizePage page = await GetAuthorizePageAsync(
+            Factory,
+            "lockout-state-5",
+            TokenFlowHelper.CreatePkceVerifier());
+
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            using HttpResponseMessage response = await PostCredentialsAsync(
+                Factory,
+                page,
+                UserEmail,
+                "wrong-password");
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        }
+
+        await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
+        UserManager<IdentityUser<Guid>> users = scope.ServiceProvider
+            .GetRequiredService<UserManager<IdentityUser<Guid>>>();
+        IdentityUser<Guid> lockedUser = (await users.FindByNameAsync(UserEmail))!;
+        Assert.True(await users.IsLockedOutAsync(lockedUser));
+
+        using HttpResponseMessage validAttempt = await PostCredentialsAsync(
+            Factory,
+            page,
+            UserEmail,
+            UserPassword);
+        Assert.Equal(HttpStatusCode.Redirect, validAttempt.StatusCode);
+        Uri location = Assert.IsType<Uri>(validAttempt.Headers.Location);
+        Assert.Equal("invalid_credentials", QueryValue(location, "error"));
+        Assert.Null(QueryValue(location, "code"));
     }
 
     private static async Task<AuthorizePage> GetAuthorizePageAsync(
