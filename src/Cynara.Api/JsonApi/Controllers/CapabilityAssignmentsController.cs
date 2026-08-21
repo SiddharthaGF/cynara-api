@@ -87,8 +87,9 @@ public sealed class CapabilityAssignmentsController(
     }
 
     /// <summary>
-    /// Revokes a capability from an actor within the resolved hospital
-    /// workspace.
+    /// Revokes a capability from an actor. Defaults to the hospital-scoped
+    /// grant in the resolved workspace; pass <c>?scope=platform</c> to
+    /// revoke the actor's platform-scoped grant.
     /// </summary>
     [HttpDelete("{actorId}/{capability}", Name = "revokeCapability")]
     [RequireCapability(CapabilityCodes.CapabilitiesWrite)]
@@ -99,10 +100,11 @@ public sealed class CapabilityAssignmentsController(
     public async Task<IActionResult> RevokeAsync(
         string actorId,
         string capability,
+        [FromQuery] string? scope,
         CancellationToken cancellationToken)
     {
         await service
-            .RevokeAsync(actorId, capability, ActorId(), cancellationToken)
+            .RevokeAsync(actorId, capability, ActorId(), scope, cancellationToken)
             .ConfigureAwait(false);
         return NoContent();
     }

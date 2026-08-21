@@ -1,15 +1,19 @@
 namespace Cynara.Application.Modules.Capabilities.Persistence;
 
 /// <summary>
-/// Persistence port for capability assignments. Implementations must scope
-/// every query by hospital so an assignment in one tenant can never resolve
-/// for another.
+/// Persistence port for capability assignments. Implementations must keep
+/// hospital-scoped queries bound to their hospital so an assignment in one
+/// tenant can never resolve for another; platform-scoped rows authorize in
+/// every hospital context and are the only cross-tenant surface.
 /// </summary>
 public interface ICapabilityAssignmentRepository
 {
     /// <summary>
     /// Returns every capability code currently granted to
-    /// <paramref name="actorId"/> within <paramref name="hospitalId"/>.
+    /// <paramref name="actorId"/> for <paramref name="hospitalId"/>: the
+    /// union of hospital-scoped grants assigned to that hospital and the
+    /// actor's platform-scoped grants, which authorize in every hospital
+    /// context.
     /// </summary>
     public Task<IReadOnlyList<string>> ListCapabilityCodesAsync(
         Guid hospitalId,
@@ -25,11 +29,17 @@ public interface ICapabilityAssignmentRepository
         Guid hospitalId,
         CancellationToken cancellationToken);
 
-    /// <summary>Finds the unique assignment for the triple, if any.</summary>
+    /// <summary>
+    /// Finds the assignment for the actor/capability pair at
+    /// <paramref name="scope"/>, if any. Hospital scope matches only the row
+    /// assigned to <paramref name="hospitalId"/>; platform scope matches the
+    /// single global row regardless of hospital.
+    /// </summary>
     public Task<Domain.Capabilities.CapabilityAssignment?> FindAsync(
         Guid hospitalId,
         string actorId,
         string capability,
+        string scope,
         bool track,
         CancellationToken cancellationToken);
 
