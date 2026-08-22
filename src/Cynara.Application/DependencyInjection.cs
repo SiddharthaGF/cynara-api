@@ -11,6 +11,7 @@ using Cynara.Application.Modules.Forms;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Patients;
 using Cynara.Application.Modules.Tasks;
+using Cynara.Application.Modules.Users;
 using Cynara.Application.Modules.Workflows;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddPatientsModule();
         _ = services.AddEncountersModule();
         _ = services.AddCapabilitiesModule();
+        _ = services.AddUsersModule();
         _ = services.AddWorkflowsModule();
         _ = services.AddTasksModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();

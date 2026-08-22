@@ -240,6 +240,10 @@ internal static class PatientWorkflowHelpers
     /// Canonical lowercase clinical notation for a blood type
     /// (<c>a+</c>, <c>ab-</c>, <c>o+</c>, …).
     /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the supplied blood type does not match a defined
+    /// <see cref="BloodType"/> member.
+    /// </exception>
     public static string FormatBloodType(BloodType bloodType)
     {
         return bloodType switch
@@ -273,8 +277,7 @@ internal static class PatientWorkflowHelpers
             throw new ValidationException("Patient blood type is required.");
         }
 
-        string normalized = value.Trim().ToLowerInvariant();
-        BloodType parsed = normalized switch
+        return value.Trim().ToLowerInvariant() switch
         {
             "a+" => BloodType.APositive,
             "a-" => BloodType.ANegative,
@@ -288,8 +291,6 @@ internal static class PatientWorkflowHelpers
                 "Patient blood type '" + value
                 + "' is not one of: a+, a-, b+, b-, ab+, ab-, o+, o-."),
         };
-
-        return parsed;
     }
 
     /// <summary>

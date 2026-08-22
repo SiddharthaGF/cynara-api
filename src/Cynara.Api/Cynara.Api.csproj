@@ -11,10 +11,12 @@
   <ItemGroup>
     <PackageReference Include="JsonApiDotNetCore" Version="5.11.0" />
     <PackageReference Include="JsonApiDotNetCore.OpenApi.Swashbuckle" Version="5.11.0-preview.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="OpenIddict.AspNetCore" Version="7.6.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.13.0" />
   </ItemGroup>
 

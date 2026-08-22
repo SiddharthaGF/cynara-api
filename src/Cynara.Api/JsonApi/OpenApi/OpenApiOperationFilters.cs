@@ -1,3 +1,5 @@
+using Cynara.Api.Hosting;
+
 using Microsoft.OpenApi;
 
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -5,65 +7,44 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 namespace Cynara.Api.JsonApi.OpenApi;
 
 /// <summary>
-/// Documents the optional X-Actor-Id header used for audit attribution.
+/// Documents bearer-token (HTTP bearer / OAuth2) security for protected
+/// operations. Public authentication, discovery, probe, schema, and
+/// documentation paths are left unsecured because they never require a token.
+/// The legacy <c>X-Actor-Id</c> api-key header is no longer emitted.
 /// </summary>
-public sealed class ActorIdOperationFilter : IOperationFilter
+public sealed class BearerSecurityOperationFilter : IOperationFilter
 {
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(context);
 
-        operation.Parameters ??= [];
-        if (!operation.Parameters.Any(parameter =>
-                string.Equals(
-                    parameter.Name,
-                    "X-Actor-Id",
-                    StringComparison.OrdinalIgnoreCase)))
+        if (OpenApiSecurity.IsPublicPath(context.ApiDescription.RelativePath))
         {
-            operation.Parameters.Add(new OpenApiParameter
-            {
-                Name = "X-Actor-Id",
-                In = ParameterLocation.Header,
-                Required = false,
-                Description =
-                    "Optional actor identity recorded on mutating workflows and "
-                    + "audit events. Not an authentication gate in this maquette.",
-                Schema = new OpenApiSchema { Type = JsonSchemaType.String },
-            });
+            return;
         }
 
-        operation.Security ??= [];
-        operation.Security.Add(new OpenApiSecurityRequirement
-        {
-            [new OpenApiSecuritySchemeReference("ActorId")] = [],
-        });
+        OpenApiSecurity.Require(operation, OpenApiSecurity.Bearer);
     }
 }
 
 /// <summary>
 /// Documents the required X-Hospital-Code header used to resolve the tenant
-/// workspace for every tenant-owned request. Skipped for exempt paths
-/// (health, swagger, scalar) where the host middleware short-circuits.
+/// workspace for every tenant-owned request. Skipped for public paths (auth,
+/// health, schemas, swagger, scalar) where the host middleware short-circuits,
+/// and for the tenant-exempt membership listing, which requires a bearer token
+/// but must not advertise or demand the hospital header.
 /// </summary>
 public sealed class HospitalCodeOperationFilter : IOperationFilter
 {
-    private static readonly HashSet<string> ExemptPathPrefixes = new(
-        StringComparer.OrdinalIgnoreCase)
-    {
-        "/health",
-        "/schemas",
-        "/swagger",
-        "/scalar",
-    };
-
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNull(context);
 
         string? path = context.ApiDescription.RelativePath;
-        if (path is null || ExemptPathPrefixes.Any(prefix =>
-                path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+        if (OpenApiSecurity.IsPublicPath(path)
+            || OpenApiSecurity.IsTenantExemptPath(path))
         {
             return;
         }
@@ -99,11 +80,7 @@ public sealed class HospitalCodeOperationFilter : IOperationFilter
             },
         });
 
-        operation.Security ??= [];
-        operation.Security.Add(new OpenApiSecurityRequirement
-        {
-            [new OpenApiSecuritySchemeReference("HospitalCode")] = [],
-        });
+        OpenApiSecurity.Require(operation, OpenApiSecurity.HospitalCode);
     }
 }
 
@@ -236,5 +213,70 @@ public sealed class FormAiStreamOperationFilter : IOperationFilter
                 },
             };
         }
+    }
+}
+
+/// <summary>
+/// Shared OpenAPI security helpers and scheme names. Security requirements are
+/// expressed as <see cref="OpenApiSecurityRequirement"/>s whose keys are
+/// <see cref="OpenApiSecuritySchemeReference"/> holders; the serialization
+/// layer (<see cref="OpenApiSecurityJsonTransform"/>) restores the scheme key
+/// names that Microsoft.OpenApi 2.4.1 drops when writing generated documents.
+/// </summary>
+internal static class OpenApiSecurity
+{
+    internal const string Bearer = "Bearer";
+    internal const string OAuth2 = "OAuth2";
+    internal const string HospitalCode = "HospitalCode";
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the operation belongs to a public
+    /// path that never requires a token or a hospital header (auth, discovery,
+    /// probe, schema, and documentation surface). Mirrors
+    /// <see cref="AuthPathPolicy.IsPublicPath"/>.
+    /// </summary>
+    internal static bool IsPublicPath(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return true;
+        }
+
+        var path = new PathString("/" + relativePath.TrimStart('/'));
+        return AuthPathPolicy.IsPublicPath(path);
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the operation belongs to the
+    /// tenant-exempt membership listing, which requires a bearer token but no
+    /// hospital header. Mirrors <see cref="AuthPathPolicy.IsTenantExemptPath"/>.
+    /// </summary>
+    internal static bool IsTenantExemptPath(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        var path = new PathString("/" + relativePath.TrimStart('/'));
+        return AuthPathPolicy.IsTenantExemptPath(path);
+    }
+
+    /// <summary>
+    /// Merges the named security scheme into the first security requirement so
+    /// all required schemes live in a single AND-ed requirement object.
+    /// </summary>
+    internal static void Require(OpenApiOperation operation, string schemeName)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        operation.Security ??= [];
+        if (operation.Security.Count == 0)
+        {
+            operation.Security.Add([]);
+        }
+
+        OpenApiSecurityRequirement requirement = operation.Security[0];
+        requirement[new OpenApiSecuritySchemeReference(schemeName)] = [];
     }
 }

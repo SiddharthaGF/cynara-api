@@ -85,6 +85,13 @@ generated_code = true
 dotnet_diagnostic.MA0197.severity = none
 dotnet_diagnostic.MA0051.severity = none
 
+# The Identity module keeps its own migration track, physically separate
+# from the domain track.
+[src/Cynara.Infrastructure/Modules/Identity/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.MA0197.severity = none
+dotnet_diagnostic.MA0051.severity = none
+
 # Top-level Program must stay non-static for WebApplicationFactory<Program>.
 [src/Cynara.Api/Program.cs]
 dotnet_diagnostic.MA0036.severity = none

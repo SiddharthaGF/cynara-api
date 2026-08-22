@@ -1,3 +1,5 @@
+using Cynara.Infrastructure.Modules.Identity;
+
 using Npgsql;
 
 using Testcontainers.PostgreSql;
@@ -34,9 +36,14 @@ public sealed class PostgreSqlDatabaseFixture : IAsyncLifetime
     /// </summary>
     public async Task ResetAsync()
     {
-        // Exclude the EF migrations history table so the schema is reset
-        // without invalidating applied migration stamps.
+        // Exclude both EF migrations history tables so the schema is reset
+        // without invalidating applied migration stamps. The identity track
+        // keeps its own history table; truncating it would make the next
+        // host startup re-apply the identity migrations against tables that
+        // already exist.
         const string MigrationHistoryTable = "__EFMigrationsHistory";
+        const string IdentityMigrationHistoryTable =
+            CynaraIdentityDbContext.MigrationsHistoryTableName;
         const string TruncateSql = @"
 DO $$
 DECLARE
@@ -46,7 +53,8 @@ BEGIN
         INTO tables_to_truncate
         FROM pg_tables
         WHERE schemaname = current_schema()
-          AND tablename <> '" + MigrationHistoryTable + @"';
+          AND tablename <> '" + MigrationHistoryTable + @"'
+          AND tablename <> '" + IdentityMigrationHistoryTable + @"';
 
     IF tables_to_truncate IS NOT NULL THEN
         EXECUTE 'TRUNCATE TABLE ' || tables_to_truncate || ' RESTART IDENTITY CASCADE';

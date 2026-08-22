@@ -20,6 +20,9 @@ public sealed class PipelineSubjectResolver(
     IHospitalContext hospitalContext)
 {
     /// <summary>Resolves an active subject for a new pipeline.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the subject type has no registered resolver.
+    /// </exception>
     public async Task<PipelineSubjectBinding> ResolveAsync(
         PipelineSubjectType subjectType,
         Guid subjectId,
@@ -43,6 +46,9 @@ public sealed class PipelineSubjectResolver(
     /// requiring an active state, so historical journeys keep rendering for
     /// terminal encounters and soft-deleted patients.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the subject type has no registered existence check.
+    /// </exception>
     public async Task EnsureSubjectExistsAsync(
         PipelineSubjectType subjectType,
         Guid subjectId,

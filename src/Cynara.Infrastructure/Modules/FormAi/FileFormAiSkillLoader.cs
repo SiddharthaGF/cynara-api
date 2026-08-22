@@ -7,7 +7,7 @@ namespace Cynara.Infrastructure.Modules.FormAi;
 public sealed partial class FileFormAiSkillLoader(
     ILogger<FileFormAiSkillLoader> logger) : IFormAiSkillLoader
 {
-    private const string SkillRootRelativePath = ".cursor/skills/form-schema-authoring";
+    private const string SkillRootRelativePath = ".opencode/skills/form-schema-authoring";
 
     private static readonly string[] ReferenceFileOrder =
     [

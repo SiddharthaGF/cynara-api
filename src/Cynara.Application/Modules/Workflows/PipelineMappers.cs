@@ -52,6 +52,9 @@ internal static class PipelineMappers
     /// Projects a pipeline (with its pinned workflow version and history
     /// loaded) into a journey rendered from the exact published graph.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the pipeline is missing its pinned workflow version.
+    /// </exception>
     public static JourneyDto ToJourneyDto(Pipeline pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

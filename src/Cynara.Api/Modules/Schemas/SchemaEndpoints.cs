@@ -29,6 +29,7 @@ internal static class SchemaEndpoints
                 "/schemas/v1/{contract}.schema.json",
                 (string contract, SchemaFilePaths paths, HttpContext http) =>
                     ServeContract(contract, paths, http))
+            .AllowAnonymous()
             .WithName("GetSchemaContract")
             .WithTags("Schemas")
             .WithSummary("Serve a versioned clinical schema contract document")

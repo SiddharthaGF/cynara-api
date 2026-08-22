@@ -1,4 +1,6 @@
 using Cynara.Application.Failures;
+using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Infrastructure.Failures;
@@ -12,6 +14,7 @@ using Cynara.Infrastructure.Modules.FormAi;
 using Cynara.Infrastructure.Modules.FormResponses;
 using Cynara.Infrastructure.Modules.Forms;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
@@ -33,8 +36,11 @@ public static partial class InfrastructureServiceCollectionExtensions
 {
     /// <summary>
     /// Provisioned only when baselining a legacy database that predates the
-    /// capabilities feature; keep this DDL aligned with the InitialCreate
-    /// migration so future schema changes apply cleanly.
+    /// capabilities feature; keep this DDL aligned with the latest migration
+    /// so future schema changes apply cleanly. Every statement is guarded:
+    /// tables provisioned by earlier baselines predate the Scope column and
+    /// the partial unique indexes, and this script must converge them onto
+    /// the current schema instead of failing.
     /// </summary>
     private const string CapabilityAssignmentsTableSql = """
         CREATE TABLE IF NOT EXISTS "capability_assignments" (
@@ -42,18 +48,32 @@ public static partial class InfrastructureServiceCollectionExtensions
             "HospitalId" uuid NOT NULL,
             "ActorId" character varying(128) NOT NULL,
             "Capability" character varying(64) NOT NULL,
+            "Scope" character varying(16) NOT NULL DEFAULT 'hospital',
             "AssignedAt" timestamp with time zone NOT NULL,
             "AssignedBy" character varying(128) NULL,
             "RowVersion" bigint NOT NULL,
             CONSTRAINT "PK_capability_assignments" PRIMARY KEY ("Id")
         );
 
+        ALTER TABLE "capability_assignments"
+            ADD COLUMN IF NOT EXISTS "Scope"
+                character varying(16) NOT NULL DEFAULT 'hospital';
+
         CREATE INDEX IF NOT EXISTS "IX_capability_assignments_HospitalId"
             ON "capability_assignments" ("HospitalId");
 
+        DROP INDEX IF EXISTS
+            "IX_capability_assignments_HospitalId_ActorId_Capability";
+
         CREATE UNIQUE INDEX IF NOT EXISTS
             "IX_capability_assignments_HospitalId_ActorId_Capability"
-            ON "capability_assignments" ("HospitalId", "ActorId", "Capability");
+            ON "capability_assignments" ("HospitalId", "ActorId", "Capability")
+            WHERE "Scope" = 'hospital';
+
+        CREATE UNIQUE INDEX IF NOT EXISTS
+            "IX_capability_assignments_ActorId_Capability"
+            ON "capability_assignments" ("ActorId", "Capability")
+            WHERE "Scope" = 'platform';
         """;
 
     public static IServiceCollection AddCynaraInfrastructure(
@@ -99,8 +119,28 @@ public static partial class InfrastructureServiceCollectionExtensions
                 provider.GetRequiredService<QueryCountingInterceptor>());
         });
 
+        // The identity track keeps its own migrations history table so
+        // applying authentication schema can never collide with the domain
+        // track's migration stamps.
+        _ = services.AddDbContext<CynaraIdentityDbContext>(options =>
+            _ = options.UseNpgsql(
+                normalizedConnectionString,
+                npgsql => npgsql.MigrationsHistoryTable(
+                    CynaraIdentityDbContext.MigrationsHistoryTableName)));
+
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());
+
+        // Membership listing reads both the identity memberships and the
+        // domain hospitals, so it registers once both contexts exist.
+        _ = services.AddScoped<
+            IHospitalMembershipReader,
+            MembershipHospitalReader>();
+
+        // The user directory reads users and memberships from the identity
+        // context and hospital codes plus capability rows from the domain
+        // context, so it registers once both contexts exist as well.
+        _ = services.AddScoped<IUserDirectoryReader, UserDirectoryReader>();
 
         return services;
     }
@@ -152,6 +192,12 @@ public static partial class InfrastructureServiceCollectionExtensions
                 CynaraDbContext dbContext = scope.ServiceProvider
                     .GetRequiredService<CynaraDbContext>();
                 await EnsureDatabaseSchemaAsync(dbContext, cancellationToken)
+                    .ConfigureAwait(false);
+
+                CynaraIdentityDbContext identityDbContext = scope
+                    .ServiceProvider
+                    .GetRequiredService<CynaraIdentityDbContext>();
+                await identityDbContext.Database.MigrateAsync(cancellationToken)
                     .ConfigureAwait(false);
                 return;
             }

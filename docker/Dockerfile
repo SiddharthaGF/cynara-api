@@ -29,8 +29,8 @@ RUN apt-get update \
 
 COPY --from=build /app/publish .
 
-RUN groupadd --system --gid 1001 appgroup \
-    && useradd --system --uid 1001 --gid appgroup appuser
+RUN groupadd --system appgroup \
+    && useradd --uid 1001 --gid appgroup appuser
 USER appuser
 
 ENV ASPNETCORE_ENVIRONMENT=Production

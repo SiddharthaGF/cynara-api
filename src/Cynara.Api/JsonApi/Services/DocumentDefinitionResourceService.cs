@@ -121,9 +121,8 @@ public sealed class DocumentDefinitionResourceService(
                 $"Document definition '{id}' was not found.");
         }
 
-        DocumentDefinition? entry = await base.GetAsync(id, cancellationToken)
+        return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
-        return entry!;
     }
 
     public override async Task<IReadOnlyCollection<DocumentDefinition>> GetAsync(

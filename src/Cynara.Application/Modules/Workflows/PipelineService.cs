@@ -526,28 +526,23 @@ public sealed class PipelineService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        WorkflowVersion published;
-        if (string.IsNullOrWhiteSpace(version))
-        {
-            published = definition.Versions
-                    .Where(item => item.Status == WorkflowVersionStatus.Published
-                        && item.Version != null)
-                    .OrderBy(item => item.Version!, SemverRules.StringComparer)
-                    .LastOrDefault()
-                ?? throw new NotFoundException(
-                    $"Workflow '{workflowCode}' has no published version.");
-        }
-        else
+        if (!string.IsNullOrWhiteSpace(version))
         {
             SemverRules.EnsureValid(version);
-            published = definition.Versions.SingleOrDefault(
+            return definition.Versions.SingleOrDefault(
                     item => string.Equals(item.Version, version, StringComparison.Ordinal)
                         && item.Status == WorkflowVersionStatus.Published)
                 ?? throw new NotFoundException(
                     $"Published workflow '{workflowCode}' version '{version}' was not found.");
         }
 
-        return published;
+        return definition.Versions
+            .Where(item => item.Status == WorkflowVersionStatus.Published
+                && item.Version != null)
+            .OrderBy(item => item.Version!, SemverRules.StringComparer)
+            .LastOrDefault()
+            ?? throw new NotFoundException(
+                $"Workflow '{workflowCode}' has no published version.");
     }
 
     private static WorkflowEdge ResolveOutgoingEdge(
@@ -567,15 +562,14 @@ public sealed class PipelineService(
                 WorkflowGraph.DecisionType,
                 StringComparison.Ordinal))
         {
-            foreach (WorkflowEdge edge in outgoing)
-            {
-                if (edge.Condition is not null
+            WorkflowEdge? conditional = outgoing.FirstOrDefault(
+                edge => edge.Condition is not null
                     && WorkflowConditionEvaluator.Evaluate(
                         edge.Condition.Value,
-                        inputValues))
-                {
-                    return edge;
-                }
+                        inputValues));
+            if (conditional is not null)
+            {
+                return conditional;
             }
 
             WorkflowEdge? fallback = outgoing.SingleOrDefault(

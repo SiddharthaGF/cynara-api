@@ -15,6 +15,9 @@ internal sealed class FakeCapabilityAssignmentRepository
 
     public int ListCapabilityCodesCalls { get; private set; }
 
+    /// <summary>Read-only snapshot for assertions on staged assignments.</summary>
+    public IReadOnlyList<CapabilityAssignment> Assignments => assignments;
+
     public void Seed(CapabilityAssignment assignment)
     {
         assignments.Add(assignment);
@@ -28,11 +31,17 @@ internal sealed class FakeCapabilityAssignmentRepository
         ListCapabilityCodesCalls++;
         IReadOnlyList<string> codes = [
             .. assignments
-                .Where(item => item.HospitalId == hospitalId
-                    && string.Equals(
-                        item.ActorId,
-                        actorId,
-                        StringComparison.Ordinal))
+                .Where(item => string.Equals(
+                    item.ActorId,
+                    actorId,
+                    StringComparison.Ordinal)
+                    && ((item.HospitalId == hospitalId
+                            && item.Scope.Equals(
+                                CapabilityScopes.Hospital,
+                                StringComparison.Ordinal))
+                        || item.Scope.Equals(
+                            CapabilityScopes.Platform,
+                            StringComparison.Ordinal)))
                 .Select(item => item.Capability),
         ];
         return Task.FromResult(codes);
@@ -54,20 +63,44 @@ internal sealed class FakeCapabilityAssignmentRepository
         Guid hospitalId,
         string actorId,
         string capability,
+        string scope,
         bool track,
         CancellationToken cancellationToken)
     {
         CapabilityAssignment? match = assignments.FirstOrDefault(item =>
-            item.HospitalId == hospitalId
-            && string.Equals(
-                item.ActorId,
-                actorId,
-                StringComparison.Ordinal)
+            string.Equals(item.ActorId, actorId, StringComparison.Ordinal)
             && string.Equals(
                 item.Capability,
                 capability,
-                StringComparison.Ordinal));
+                StringComparison.Ordinal)
+            && (scope.Equals(
+                    CapabilityScopes.Platform,
+                    StringComparison.Ordinal)
+                ? item.Scope.Equals(
+                    CapabilityScopes.Platform,
+                    StringComparison.Ordinal)
+                : item.HospitalId == hospitalId
+                    && item.Scope.Equals(
+                        CapabilityScopes.Hospital,
+                        StringComparison.Ordinal)));
         return Task.FromResult(match);
+    }
+
+    public Task<bool> HasPlatformScopeAsync(
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken)
+    {
+        bool holds = assignments.Exists(item =>
+            string.Equals(item.ActorId, actorId, StringComparison.Ordinal)
+            && string.Equals(
+                item.Capability,
+                capability,
+                StringComparison.Ordinal)
+            && item.Scope.Equals(
+                CapabilityScopes.Platform,
+                StringComparison.Ordinal));
+        return Task.FromResult(holds);
     }
 
     public void Add(CapabilityAssignment assignment)
