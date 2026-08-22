@@ -6,6 +6,7 @@ using Cynara.Api.Modules.Health;
 using Cynara.Api.Modules.Pipelines;
 using Cynara.Api.Modules.Schemas;
 using Cynara.Api.Modules.Tasks;
+using Cynara.Api.Modules.Users;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Hospitals;
@@ -165,6 +166,7 @@ internal static class WebApplicationExtensions
         // mapped here is automatically included in contracts/openapi.json.
         _ = app.MapPipelinesEndpoints();
         _ = app.MapTasksEndpoints();
+        _ = app.MapUsersEndpoints();
         return app;
     }
 

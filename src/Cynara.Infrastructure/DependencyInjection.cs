@@ -1,5 +1,6 @@
 using Cynara.Application.Failures;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Infrastructure.Failures;
@@ -128,6 +129,11 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddScoped<
             IHospitalMembershipReader,
             MembershipHospitalReader>();
+
+        // The user directory reads users and memberships from the identity
+        // context and hospital codes plus capability rows from the domain
+        // context, so it registers once both contexts exist as well.
+        _ = services.AddScoped<IUserDirectoryReader, UserDirectoryReader>();
 
         return services;
     }

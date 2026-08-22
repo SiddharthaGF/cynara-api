@@ -86,6 +86,23 @@ internal sealed class FakeCapabilityAssignmentRepository
         return Task.FromResult(match);
     }
 
+    public Task<bool> HasPlatformScopeAsync(
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken)
+    {
+        bool holds = assignments.Exists(item =>
+            string.Equals(item.ActorId, actorId, StringComparison.Ordinal)
+            && string.Equals(
+                item.Capability,
+                capability,
+                StringComparison.Ordinal)
+            && item.Scope.Equals(
+                CapabilityScopes.Platform,
+                StringComparison.Ordinal));
+        return Task.FromResult(holds);
+    }
+
     public void Add(CapabilityAssignment assignment)
     {
         assignments.Add(assignment);
