@@ -50,7 +50,7 @@ public sealed class UserDirectoryService(
             cancellationToken).ConfigureAwait(false);
         if (platformScope
             && hospitalFilter is null
-            && HasHospitalCode(request.HospitalCode))
+            && !string.IsNullOrWhiteSpace(request.HospitalCode))
         {
             // A platform caller named a hospital that does not exist: no
             // members can match, and the empty page must not degrade into an
@@ -122,7 +122,7 @@ public sealed class UserDirectoryService(
         string? hospitalCode,
         CancellationToken cancellationToken)
     {
-        if (!platformScope || !HasHospitalCode(hospitalCode))
+        if (!platformScope || string.IsNullOrWhiteSpace(hospitalCode))
         {
             return null;
         }
@@ -131,11 +131,6 @@ public sealed class UserDirectoryService(
             hospitalCode.Trim(),
             cancellationToken).ConfigureAwait(false);
         return hospital?.Id;
-    }
-
-    private static bool HasHospitalCode(string? hospitalCode)
-    {
-        return !string.IsNullOrWhiteSpace(hospitalCode);
     }
 
     private string RequireActorId()
