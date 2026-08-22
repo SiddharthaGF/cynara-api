@@ -43,6 +43,18 @@ public interface ICapabilityAssignmentRepository
         bool track,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Returns <see langword="true"/> when the actor holds a platform-scope
+    /// grant for the capability. Platform rows are hospital-independent by
+    /// definition, so no hospital parameter participates in the match.
+    /// Read-only callers (for example the user directory) use this to decide
+    /// listing breadth without duplicating grant storage knowledge.
+    /// </summary>
+    public Task<bool> HasPlatformScopeAsync(
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken);
+
     public void Add(Domain.Capabilities.CapabilityAssignment assignment);
 
     public void Remove(Domain.Capabilities.CapabilityAssignment assignment);

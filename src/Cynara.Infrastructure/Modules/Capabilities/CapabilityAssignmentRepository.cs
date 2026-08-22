@@ -64,6 +64,20 @@ public sealed class CapabilityAssignmentRepository(CynaraDbContext dbContext)
         return query.SingleOrDefaultAsync(cancellationToken);
     }
 
+    public Task<bool> HasPlatformScopeAsync(
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.CapabilityAssignments
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.ActorId == actorId
+                    && item.Capability == capability
+                    && item.Scope == CapabilityScopes.Platform,
+                cancellationToken);
+    }
+
     public void Add(CapabilityAssignment assignment)
     {
         ArgumentNullException.ThrowIfNull(assignment);
