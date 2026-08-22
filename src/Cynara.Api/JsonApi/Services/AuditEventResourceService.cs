@@ -89,9 +89,8 @@ public sealed class AuditEventResourceService(
                 $"Audit event '{id}' was not found.");
         }
 
-        AuditEvent? auditEvent = await base.GetAsync(id, cancellationToken)
+        return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
-        return auditEvent!;
     }
 
     public override async Task<IReadOnlyCollection<AuditEvent>> GetAsync(

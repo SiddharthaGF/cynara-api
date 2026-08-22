@@ -22,6 +22,7 @@ namespace Cynara.Api.Modules.Identity;
 /// </summary>
 [ApiController]
 [AllowAnonymous]
+[Route("connect")]
 public sealed class TokenController(
     UserManager<IdentityUser<Guid>> userManager,
     SignInManager<IdentityUser<Guid>> signInManager,
@@ -29,7 +30,7 @@ public sealed class TokenController(
 {
     /// <summary>Handles <c>POST /connect/token</c> exchanges.</summary>
     /// <exception cref="InvalidOperationException">Thrown when the request is not a valid OpenIddict request.</exception>
-    [HttpPost("~/connect/token")]
+    [HttpPost("token")]
     [Produces("application/json")]
     public async Task<IActionResult> Exchange()
     {
@@ -193,7 +194,7 @@ public sealed class TokenController(
         _ = identity.SetClaim(
             OpenIddictConstants.Claims.Name,
             request.ClientId);
-        _ = identity.SetDestinations(static claim =>
+        _ = identity.SetDestinations(static _ =>
             [OpenIddictConstants.Destinations.AccessToken]);
         _ = identity.SetScopes(IdentityHostingExtensions.ApiScope);
         _ = identity.SetResources(IdentityHostingExtensions.Audience);

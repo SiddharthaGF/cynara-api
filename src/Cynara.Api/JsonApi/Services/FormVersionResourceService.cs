@@ -74,9 +74,8 @@ public sealed class FormVersionResourceService(
                 $"Form version '{id}' was not found.");
         }
 
-        FormVersion? version = await base.GetAsync(id, cancellationToken)
+        return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
-        return version!;
     }
 
     public override async Task<IReadOnlyCollection<FormVersion>> GetAsync(

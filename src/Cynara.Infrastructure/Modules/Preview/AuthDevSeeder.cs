@@ -24,6 +24,12 @@ namespace Cynara.Infrastructure.Modules.Preview;
 /// </summary>
 public static class AuthDevSeeder
 {
+    // Development-only seed fixtures: the fixed demo credential and loopback
+    // redirect URIs ARE the contract of this seeder. It never runs outside
+    // Development and exists so local cynara-web works out of the box.
+#pragma warning disable S2068 // Encrypted credential: intentional demo seed value
+#pragma warning disable S1075 // URIs should not be hardcoded: registered dev redirect URIs
+
     /// <summary>Seed demo user email.</summary>
     public const string DoctorEmail = "doctor@cynara.dev";
 
@@ -64,6 +70,9 @@ public static class AuthDevSeeder
         WebRedirectUriLoopbackEnglish,
         WebRedirectUriLoopbackSpanish,
     ];
+
+#pragma warning restore S1075 // URIs should not be hardcoded: registered dev redirect URIs
+#pragma warning restore S2068 // Encrypted credential: intentional demo seed value
 
     /// <summary>
     /// Seeds the authentication demo data. Resolves the bootstrap hospital and

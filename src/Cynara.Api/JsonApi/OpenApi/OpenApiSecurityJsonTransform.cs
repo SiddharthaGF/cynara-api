@@ -44,12 +44,16 @@ internal static class OpenApiSecurityJsonTransform
         // rewritten.
         var contexts = new Stack<string>();
 
-        for (int i = 0; i < builder.Length; i++)
+        int i = 0;
+        while (i < builder.Length)
         {
             char current = builder[i];
             if (current == '"')
             {
-                i = ConsumeValueOrKey(builder, i, contexts, edits);
+                // Resume just past the token ConsumeValueOrKey consumed
+                // (its return index is inclusive), so closing brackets of
+                // skipped values are never reprocessed here.
+                i = ConsumeValueOrKey(builder, i, contexts, edits) + 1;
                 continue;
             }
 
@@ -58,6 +62,8 @@ internal static class OpenApiSecurityJsonTransform
             {
                 _ = contexts.Pop();
             }
+
+            i++;
         }
 
         // Apply from the end so earlier edit indices stay valid.
@@ -82,12 +88,7 @@ internal static class OpenApiSecurityJsonTransform
         List<Edit> edits)
     {
         int keyEnd = SkipString(builder, openQuoteIndex);
-        int colonIndex = keyEnd + 1;
-        while (colonIndex < builder.Length
-            && char.IsWhiteSpace(builder[colonIndex]))
-        {
-            colonIndex++;
-        }
+        int colonIndex = SkipWhitespace(builder, keyEnd + 1);
 
         if (colonIndex >= builder.Length || builder[colonIndex] != ':')
         {
@@ -98,12 +99,7 @@ internal static class OpenApiSecurityJsonTransform
         string key = builder.ToString(
             openQuoteIndex + 1,
             keyEnd - openQuoteIndex - 1);
-        int valueStart = colonIndex + 1;
-        while (valueStart < builder.Length
-            && char.IsWhiteSpace(builder[valueStart]))
-        {
-            valueStart++;
-        }
+        int valueStart = SkipWhitespace(builder, colonIndex + 1);
 
         if (valueStart >= builder.Length)
         {
@@ -114,19 +110,64 @@ internal static class OpenApiSecurityJsonTransform
         if (string.Equals(key, "security", StringComparison.Ordinal)
             && valueOpen == '[')
         {
-            int valueEnd = FindMatchingBracket(builder, valueStart);
-            if (valueEnd >= 0
-                && IsDegenerateSecurityArray(builder, valueStart, valueEnd))
-            {
-                edits.Add(new Edit(
-                    valueStart,
-                    valueEnd - valueStart + 1,
-                    RewriteFor(CurrentPath(contexts))));
-            }
-
-            return valueEnd >= 0 ? valueEnd : keyEnd;
+            return HandleSecurityValue(
+                builder,
+                valueStart,
+                keyEnd,
+                contexts,
+                edits);
         }
 
+        return SkipValue(builder, valueStart, valueOpen, key, keyEnd, contexts);
+    }
+
+    /// <summary>Returns the first index at or after <paramref name="from"/> holding a non-whitespace character.</summary>
+    private static int SkipWhitespace(StringBuilder builder, int from)
+    {
+        int index = from;
+        while (index < builder.Length
+            && char.IsWhiteSpace(builder[index]))
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    /// <summary>
+    /// Records a canonical rewrite when the security array starting at
+    /// <paramref name="valueStart"/> is degenerate; returns the index scan
+    /// should resume from.
+    /// </summary>
+    private static int HandleSecurityValue(
+        StringBuilder builder,
+        int valueStart,
+        int keyEnd,
+        Stack<string> contexts,
+        List<Edit> edits)
+    {
+        int valueEnd = FindMatchingBracket(builder, valueStart);
+        if (valueEnd >= 0
+            && IsDegenerateSecurityArray(builder, valueStart, valueEnd))
+        {
+            edits.Add(new Edit(
+                valueStart,
+                valueEnd - valueStart + 1,
+                RewriteFor(CurrentPath(contexts))));
+        }
+
+        return valueEnd >= 0 ? valueEnd : keyEnd;
+    }
+
+    /// <summary>Skips over a non-security value according to its opening shape.</summary>
+    private static int SkipValue(
+        StringBuilder builder,
+        int valueStart,
+        char valueOpen,
+        string key,
+        int keyEnd,
+        Stack<string> contexts)
+    {
         if (valueOpen == '{')
         {
             contexts.Push(key);
@@ -169,7 +210,7 @@ internal static class OpenApiSecurityJsonTransform
             {
                 // Stack.ToArray yields top-first (LIFO), so the entry pushed
                 // right after `paths` — the route path key — sits below it.
-                return index - 1 >= 0 ? items[index - 1] : null;
+                return index > 0 ? items[index - 1] : null;
             }
         }
 
@@ -219,18 +260,22 @@ internal static class OpenApiSecurityJsonTransform
 
     private static int SkipString(StringBuilder builder, int openQuoteIndex)
     {
-        for (int i = openQuoteIndex + 1; i < builder.Length; i++)
+        int index = openQuoteIndex + 1;
+        while (index < builder.Length)
         {
-            if (builder[i] == '\\')
+            if (builder[index] == '\\')
             {
-                i++;
+                // Escape pairs consume the escaped character too.
+                index += 2;
                 continue;
             }
 
-            if (builder[i] == '"')
+            if (builder[index] == '"')
             {
-                return i;
+                return index;
             }
+
+            index++;
         }
 
         return builder.Length - 1;
@@ -239,12 +284,14 @@ internal static class OpenApiSecurityJsonTransform
     private static int FindMatchingBracket(StringBuilder builder, int openIndex)
     {
         int depth = 0;
-        for (int i = openIndex; i < builder.Length; i++)
+        int i = openIndex;
+        while (i < builder.Length)
         {
             char c = builder[i];
             if (c == '"')
             {
-                i = SkipString(builder, i);
+                // SkipString returns the closing quote itself; resume past it.
+                i = SkipString(builder, i) + 1;
                 continue;
             }
 
@@ -256,6 +303,8 @@ internal static class OpenApiSecurityJsonTransform
             {
                 return i;
             }
+
+            i++;
         }
 
         return -1;
