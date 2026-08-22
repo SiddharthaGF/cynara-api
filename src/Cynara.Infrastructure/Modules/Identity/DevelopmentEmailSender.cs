@@ -10,7 +10,7 @@ namespace Cynara.Infrastructure.Modules.Identity;
 /// transport. Production email-provider configuration is future scope; this
 /// sender never invents one and is dormant outside Development.
 /// </summary>
-public sealed class DevelopmentEmailSender(
+public sealed partial class DevelopmentEmailSender(
     ILogger<DevelopmentEmailSender> logger,
     IHostEnvironment environment) : IEmailSender<IdentityUser<Guid>>
 {
@@ -51,13 +51,17 @@ public sealed class DevelopmentEmailSender(
 
         if (environment.IsDevelopment() && logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation(
-                "Dev email sink for {Email}: {Kind} = {Payload}",
-                email,
-                kind,
-                payload);
+            LogDevEmailSink(email, kind, payload);
         }
 
         return Task.CompletedTask;
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Dev email sink for {Email}: {Kind} = {Payload}")]
+    private partial void LogDevEmailSink(
+        string email,
+        string kind,
+        string payload);
 }

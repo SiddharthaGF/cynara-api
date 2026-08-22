@@ -15,6 +15,7 @@ namespace Cynara.Api.Modules.Identity;
 /// </summary>
 [ApiController]
 [AllowAnonymous]
+[Route("connect/account")]
 public sealed class AccountRecoveryController(
     UserManager<IdentityUser<Guid>> userManager,
     IEmailSender<IdentityUser<Guid>> emailSender) : ControllerBase
@@ -33,7 +34,7 @@ public sealed class AccountRecoveryController(
             .FindByNameAsync(request.Account ?? string.Empty)
             .ConfigureAwait(false);
 
-        if (user is not null && user.EmailConfirmed)
+        if (user is { EmailConfirmed: true })
         {
             string token = await userManager
                 .GeneratePasswordResetTokenAsync(user)
@@ -55,7 +56,7 @@ public sealed class AccountRecoveryController(
     /// accounts, invalid or replayed tokens, and non-compliant passwords all
     /// yield the same bounded generic failure and never change the password.
     /// </summary>
-    [HttpPost("~/connect/account/reset")]
+    [HttpPost("reset")]
     [ProducesResponseType(typeof(AccountRecoveryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(AccountRecoveryResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetAsync(

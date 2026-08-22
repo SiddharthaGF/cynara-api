@@ -51,8 +51,18 @@ else
   exit 1
 fi
 
-if [[ -f "${TOKEN_FILE}" && -s "${TOKEN_FILE}" ]]; then
-  echo "Token already present at ${TOKEN_FILE}"
+token_valid() {
+  [[ -f "${TOKEN_FILE}" && -s "${TOKEN_FILE}" ]] || return 1
+  local existing
+  existing="$(tr -d '[:space:]' <"${TOKEN_FILE}")"
+  curl -fsS -H "Authorization: Bearer ${existing}" \
+    "${SONAR_HOST_URL}/api/authentication/validate" 2>/dev/null \
+    | python3 -c "import sys,json; raise SystemExit(0 if json.load(sys.stdin).get('valid') else 1)" \
+    >/dev/null 2>&1
+}
+
+if token_valid; then
+  echo "Token present and valid at ${TOKEN_FILE}"
 else
   echo "Creating analysis token '${SONAR_TOKEN_NAME}'..."
   curl -fsS -u "admin:${ADMIN_PASS}" -X POST \

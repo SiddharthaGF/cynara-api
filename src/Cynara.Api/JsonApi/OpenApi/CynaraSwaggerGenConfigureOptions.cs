@@ -99,9 +99,9 @@ internal sealed class CynaraSwaggerGenConfigureOptions(
 
     private Uri BuildUrl(string relativePath)
     {
-        string issuer = ResolveIssuer();
-        string baseUrl = issuer.TrimEnd('/');
-        return new Uri(baseUrl + "/" + relativePath.TrimStart('/'), UriKind.Absolute);
+        return new Uri(
+            new Uri($"{ResolveIssuer().TrimEnd('/')}/"),
+            relativePath.TrimStart('/'));
     }
 
     private string ResolveIssuer()

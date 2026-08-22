@@ -181,17 +181,14 @@ public sealed class UserDirectoryReader(
         Guid resolvedHospitalId,
         Guid? hospitalFilter)
     {
-        IQueryable<Membership> scoped = source;
         if (!platformScope)
         {
-            scoped = scoped.Where(item => item.HospitalId == resolvedHospitalId);
-        }
-        else if (hospitalFilter is Guid filter)
-        {
-            scoped = scoped.Where(item => item.HospitalId == filter);
+            return source.Where(item => item.HospitalId == resolvedHospitalId);
         }
 
-        return scoped;
+        return hospitalFilter is Guid filter
+            ? source.Where(item => item.HospitalId == filter)
+            : source;
     }
 
     private async Task<Dictionary<Guid, string>> LoadHospitalCodesAsync(

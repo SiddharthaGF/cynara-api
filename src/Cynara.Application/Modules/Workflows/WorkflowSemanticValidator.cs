@@ -430,12 +430,9 @@ public static class WorkflowSemanticValidator
                     continue;
                 }
 
-                foreach (string target in targets)
+                foreach (string target in targets.Where(reachable.Add))
                 {
-                    if (reachable.Add(target))
-                    {
-                        queue.Enqueue(target);
-                    }
+                    queue.Enqueue(target);
                 }
             }
 
@@ -489,6 +486,10 @@ public static class WorkflowSemanticValidator
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Design",
+            "S4143:Verify this is the index/key that was intended",
+            Justification = "Depth-first three-color marking intentionally writes gray (1) then black (2) to the same node key.")]
         private static void DfsForCycle(
             string nodeId,
             Dictionary<string, List<string>> adjacency,
@@ -506,31 +507,51 @@ public static class WorkflowSemanticValidator
             {
                 foreach (string target in targets)
                 {
-                    if (!nodeIndex.ContainsKey(target))
-                    {
-                        continue;
-                    }
-
-                    if (state.TryGetValue(target, out int targetState))
-                    {
-                        if (targetState == 1)
-                        {
-                            _ = cycleTargets.Add(nodeIndex[target]);
-                        }
-                    }
-                    else
-                    {
-                        DfsForCycle(
-                            target,
-                            adjacency,
-                            state,
-                            nodeIndex,
-                            cycleTargets);
-                    }
+                    VisitTarget(
+                        target,
+                        adjacency,
+                        state,
+                        nodeIndex,
+                        cycleTargets);
                 }
             }
 
             state[nodeId] = 2;
+        }
+
+        /// <summary>
+        /// Follows one outgoing edge during cycle detection: known nodes
+        /// either recurse (unvisited) or record a back-edge target (in
+        /// progress); unknown identifiers are skipped.
+        /// </summary>
+        private static void VisitTarget(
+            string target,
+            Dictionary<string, List<string>> adjacency,
+            Dictionary<string, int> state,
+            Dictionary<string, int> nodeIndex,
+            SortedSet<int> cycleTargets)
+        {
+            if (!nodeIndex.ContainsKey(target))
+            {
+                return;
+            }
+
+            if (state.TryGetValue(target, out int targetState))
+            {
+                if (targetState == 1)
+                {
+                    _ = cycleTargets.Add(nodeIndex[target]);
+                }
+            }
+            else
+            {
+                DfsForCycle(
+                    target,
+                    adjacency,
+                    state,
+                    nodeIndex,
+                    cycleTargets);
+            }
         }
 
         private static void AddEdge(

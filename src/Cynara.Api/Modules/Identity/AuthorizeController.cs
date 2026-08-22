@@ -22,6 +22,7 @@ namespace Cynara.Api.Modules.Identity;
 /// </summary>
 [ApiController]
 [AllowAnonymous]
+[Route("connect")]
 public sealed class AuthorizeController(
     UserManager<IdentityUser<Guid>> userManager,
     SignInManager<IdentityUser<Guid>> signInManager) : ControllerBase
@@ -32,9 +33,17 @@ public sealed class AuthorizeController(
     /// completes the flow through the cached authorization request.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the request is not a valid OpenIddict request.</exception>
-    [HttpGet("~/connect/authorize")]
-    [HttpPost("~/connect/authorize")]
+    [HttpGet("authorize")]
+    [HttpPost("authorize")]
     [IgnoreAntiforgeryToken]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "S4502:Ensure CSRF protection is not disabled",
+        Justification = "OpenIddict authorization endpoint: cross-site form posts are the OIDC contract. Anti-replay comes from the single-use server-cached request_uri handle, redirect-URI validation, and PKCE; antiforgery tokens cannot apply to third-party-initiated flows.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "S6932:Use model binding instead of accessing the raw request data",
+        Justification = "The form fields are OpenIddict protocol payload parsed by the server middleware before MVC runs; MVC model binding would advertise a misleading API request body for this browser-driven protocol endpoint.")]
     public async Task<IActionResult> AuthorizeAsync()
     {
         OpenIddictRequest request = HttpContext.GetOpenIddictServerRequest()
@@ -121,11 +130,9 @@ public sealed class AuthorizeController(
     {
         if (!TryGetFrontendLoginUri(request, out Uri? callbackUri)
             || request.ClientId is not { Length: > 0 and <= 256 } clientId
+            || clientId.AsSpan().IndexOfAny('\r', '\n') >= 0
             || request.RequestUri is not { Length: > 0 and <= 2048 } requestUri
-            || clientId.Contains('\r')
-            || clientId.Contains('\n')
-            || requestUri.Contains('\r')
-            || requestUri.Contains('\n'))
+            || requestUri.AsSpan().IndexOfAny('\r', '\n') >= 0)
         {
             return BadRequest("Invalid authorization request.");
         }
