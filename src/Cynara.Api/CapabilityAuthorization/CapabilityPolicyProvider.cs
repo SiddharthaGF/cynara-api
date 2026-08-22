@@ -20,6 +20,7 @@ public sealed class CapabilityPolicyProvider(
         ArgumentNullException.ThrowIfNull(policyName);
 
         AuthorizationPolicy policy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
             .AddRequirements(new CapabilityRequirement(policyName))
             .Build();
         return Task.FromResult<AuthorizationPolicy?>(policy);

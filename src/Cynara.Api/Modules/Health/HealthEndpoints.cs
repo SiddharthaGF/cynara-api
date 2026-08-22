@@ -13,9 +13,14 @@ internal static class HealthEndpoints
         });
 
         _ = endpoints.MapGet("/", () => Results.Text("Hello, Cynara"))
+            .AllowAnonymous()
             .ExcludeFromDescription();
-        _ = endpoints.MapGet("/health", handler).ExcludeFromDescription();
-        _ = endpoints.MapMethods("/health", ["HEAD"], handler).ExcludeFromDescription();
+        _ = endpoints.MapGet("/health", handler)
+            .AllowAnonymous()
+            .ExcludeFromDescription();
+        _ = endpoints.MapMethods("/health", ["HEAD"], handler)
+            .AllowAnonymous()
+            .ExcludeFromDescription();
 
         return endpoints;
     }

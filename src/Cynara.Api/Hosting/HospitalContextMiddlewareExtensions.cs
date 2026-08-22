@@ -31,4 +31,11 @@ internal static class HospitalContextMiddlewareExtensions
         ArgumentNullException.ThrowIfNull(builder);
         return builder.UseMiddleware<HospitalContextMiddleware>();
     }
+
+    public static IApplicationBuilder UseMembershipResolution(
+        this IApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.UseMiddleware<MembershipResolutionMiddleware>();
+    }
 }

@@ -3,8 +3,10 @@ using Cynara.Api.Hosting;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Persistence;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Cynara.Api.Tests.Support;
 
@@ -19,7 +22,10 @@ internal class CynaraWebApplicationFactory(
     TestDatabaseSettings database,
     HospitalBootstrapOptions? bootstrapOptions = null,
     bool emulateRenderProxy = false,
-    bool grantAllCapabilities = true)
+    bool grantAllCapabilities = true,
+    bool useRealAuthentication = false,
+    string? environment = null,
+    TestOpenIddictCertificates? openIddictCertificates = null)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
@@ -41,8 +47,30 @@ internal class CynaraWebApplicationFactory(
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        _ = builder.UseEnvironment("Development");
+        _ = builder.UseEnvironment(environment ?? "Development");
         _ = builder.UseCynaraTestDatabase(database);
+
+        // F1 seam (default): keep the header-driven actor and mark every
+        // request authenticated so the existing X-Actor-Id suites keep
+        // working without real tokens. Real-auth factories opt out and use
+        // genuine OpenIddict tokens end to end.
+        if (!useRealAuthentication)
+        {
+            _ = builder.ConfigureServices(services =>
+            {
+                services.Replace(ServiceDescriptor.Scoped<
+                    ICurrentActor,
+                    CurrentActor>());
+                services.AddSingleton<
+                    IPostConfigureOptions<AuthenticationOptions>,
+                    TestAuthenticationPostConfigure>();
+                _ = services
+                    .AddAuthentication(TestAuthenticationDefaults.Scheme)
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                        TestAuthenticationDefaults.Scheme,
+                        configureOptions: null);
+            });
+        }
 
         if (grantAllCapabilities)
         {
@@ -80,6 +108,18 @@ internal class CynaraWebApplicationFactory(
             if (emulateRenderProxy)
             {
                 settings["RENDER_SERVICE_TYPE"] = "web";
+            }
+
+            if (openIddictCertificates is not null)
+            {
+                settings["OpenIddict:SigningCertificatePath"] =
+                    openIddictCertificates.SigningCertificatePath;
+                settings["OpenIddict:SigningKeyPath"] =
+                    openIddictCertificates.SigningKeyPath;
+                settings["OpenIddict:EncryptionCertificatePath"] =
+                    openIddictCertificates.EncryptionCertificatePath;
+                settings["OpenIddict:EncryptionKeyPath"] =
+                    openIddictCertificates.EncryptionKeyPath;
             }
 
             configuration.AddInMemoryCollection(settings);
@@ -123,9 +163,14 @@ internal class CynaraWebApplicationFactory(
         await resetLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            // Exclude the EF migrations history table so the schema is reset
-            // without invalidating applied migration stamps.
+            // Exclude both EF migrations history tables so the schema is
+            // reset without invalidating applied migration stamps. The
+            // identity track keeps its own history table; truncating it
+            // would make the next host startup re-apply the identity
+            // migrations against tables that already exist.
             const string MigrationHistoryTable = "__EFMigrationsHistory";
+            const string IdentityMigrationHistoryTable =
+                CynaraIdentityDbContext.MigrationsHistoryTableName;
             const string TruncateSql = @"
 DO $$
 DECLARE
@@ -135,7 +180,8 @@ BEGIN
         INTO tables_to_truncate
         FROM pg_tables
         WHERE schemaname = current_schema()
-          AND tablename <> '" + MigrationHistoryTable + @"';
+          AND tablename <> '" + MigrationHistoryTable + @"'
+          AND tablename <> '" + IdentityMigrationHistoryTable + @"';
 
     IF tables_to_truncate IS NOT NULL THEN
         EXECUTE 'TRUNCATE TABLE ' || tables_to_truncate || ' RESTART IDENTITY CASCADE';

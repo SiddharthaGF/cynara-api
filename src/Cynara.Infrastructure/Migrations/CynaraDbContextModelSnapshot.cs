@@ -112,12 +112,24 @@ namespace Cynara.Infrastructure.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("hospital");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HospitalId");
 
+                    b.HasIndex("ActorId", "Capability")
+                        .IsUnique()
+                        .HasFilter("\"Scope\" = 'platform'");
+
                     b.HasIndex("HospitalId", "ActorId", "Capability")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"Scope\" = 'hospital'");
 
                     b.ToTable("capability_assignments", (string)null);
                 });

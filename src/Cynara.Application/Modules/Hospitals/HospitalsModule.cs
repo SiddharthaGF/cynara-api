@@ -11,6 +11,7 @@ public static class HospitalsModule
         _ = services.AddScoped<IHospitalContext>(
             provider => provider.GetRequiredService<HospitalContext>());
         _ = services.AddScoped<IHospitalWorkspaceService, HospitalWorkspaceService>();
+        _ = services.AddScoped<HospitalMembershipService>();
         return services;
     }
 }

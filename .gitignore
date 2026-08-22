@@ -30,6 +30,12 @@ Thumbs.db
 *.local.json
 appsettings.*.local.json
 
+## Local OpenIddict certificate secrets
+/openiddict-signing.crt
+/openiddict-signing.key
+/openiddict-encryption.crt
+/openiddict-encryption.key
+
 ## Local databases
 *.db
 *.db-shm

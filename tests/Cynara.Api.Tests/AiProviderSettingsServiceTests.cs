@@ -5,11 +5,34 @@ using Cynara.Application.Modules.FormAi.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Persistence;
 using Cynara.Domain.FormAi;
+using Cynara.Infrastructure.Modules.FormAi;
+
+using Microsoft.Extensions.Configuration;
 
 namespace Cynara.Api.Tests;
 
 public sealed class AiProviderSettingsServiceTests
 {
+    [Fact]
+    public void OpenAiConfiguration_UsesCentralizedDefaults()
+    {
+        var configuration = new OpenAiConfiguration(
+            new ConfigurationBuilder().Build());
+
+        OpenAiConfig config = configuration.LoadEnvironment();
+
+        Assert.Null(config.ApiKey);
+        Assert.False(config.Configured);
+        Assert.Equal(OpenAiDefaults.BaseUrl, config.BaseUrl);
+        Assert.Equal(OpenAiDefaults.Model, config.Model);
+        Assert.Equal(OpenAiDefaults.JsonObject, config.JsonObject);
+        Assert.Equal(OpenAiDefaults.NetworkTimeout, config.NetworkTimeout);
+        Assert.Equal(OpenAiDefaults.FirstChunkTimeout, config.FirstChunkTimeout);
+        Assert.Null(config.MaxOutputTokens);
+        Assert.Null(config.Temperature);
+        Assert.Null(config.TopP);
+    }
+
     [Fact]
     public async Task ResolveActiveConfig_UsesEnvironmentRuntimeKnobsForDatabaseSettings()
     {

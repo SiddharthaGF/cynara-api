@@ -58,6 +58,13 @@ public static class CapabilityCodes
     public const string CapabilitiesWrite = "capabilities.write";
 
     /// <summary>
+    /// Gates the administrative user directory read surface. The same code
+    /// serves both grant scopes: breadth comes from the assignment's scope
+    /// dimension, never from a scope-encoded code variant.
+    /// </summary>
+    public const string UsersRead = "users.read";
+
+    /// <summary>
     /// The complete Stage 2 catalog. Assignment requests are validated
     /// against this list so an unknown code can never be persisted.
     /// </summary>
@@ -84,5 +91,6 @@ public static class CapabilityCodes
         WorkspaceWrite,
         CapabilitiesRead,
         CapabilitiesWrite,
+        UsersRead,
     ];
 }

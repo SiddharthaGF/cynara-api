@@ -89,9 +89,8 @@ public sealed class FormResponseRevisionResourceService(
                 $"Form response revision '{id}' was not found.");
         }
 
-        FormResponseRevision? revision = await base.GetAsync(
-            id, cancellationToken).ConfigureAwait(false);
-        return revision!;
+        return await base.GetAsync(id, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public override async Task<IReadOnlyCollection<FormResponseRevision>>

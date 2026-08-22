@@ -57,42 +57,7 @@ internal static class WorkflowConditionEvaluator
             }
 
             JsonElement[] args = [.. argsElement.EnumerateArray()];
-            return op switch
-            {
-                "eq" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) == 0),
-                "neq" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) != 0),
-                "gt" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) > 0),
-                "gte" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) >= 0),
-                "lt" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) < 0),
-                "lte" => Compare(
-                    args,
-                    values,
-                    static (left, right) => CompareValues(left, right) <= 0),
-                "and" => args.All(
-                    argument => ToBoolean(EvaluateNode(argument, values))),
-                "or" => args.Any(
-                    argument => ToBoolean(EvaluateNode(argument, values))),
-                "not" => !ToBoolean(EvaluateNode(args[0], values)),
-                "empty" => IsEmpty(EvaluateNode(args[0], values)),
-                "coalesce" => Coalesce(args, values),
-                _ => throw new ValidationException(
-                    $"Unsupported workflow condition operator '{op}'."),
-            };
+            return EvaluateOperator(op, args, values);
         }
 
         throw new ValidationException(
@@ -100,6 +65,61 @@ internal static class WorkflowConditionEvaluator
             + "operator expression.");
     }
 
+    /// <summary>Dispatches a validated operator expression to its evaluator.</summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when the operator is not part of the supported condition
+    /// vocabulary.
+    /// </exception>
+    private static object? EvaluateOperator(
+        string op,
+        JsonElement[] args,
+        IReadOnlyDictionary<string, JsonElement>? values)
+    {
+        return op switch
+        {
+            "eq" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) == 0),
+            "neq" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) != 0),
+            "gt" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) > 0),
+            "gte" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) >= 0),
+            "lt" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) < 0),
+            "lte" => Compare(
+                args,
+                values,
+                static (left, right) => CompareValues(left, right) <= 0),
+            "and" => args.All(
+                argument => ToBoolean(EvaluateNode(argument, values))),
+            "or" => args.Any(
+                argument => ToBoolean(EvaluateNode(argument, values))),
+            "not" => !ToBoolean(EvaluateNode(args[0], values)),
+            "empty" => IsEmpty(EvaluateNode(args[0], values)),
+            "coalesce" => Coalesce(args, values),
+            _ => throw new ValidationException(
+                $"Unsupported workflow condition operator '{op}'."),
+        };
+    }
+
+    /// <summary>
+    /// Evaluates both operands through <see cref="EvaluateNode"/> and applies
+    /// the comparison predicate to the resulting values.
+    /// </summary>
+    /// <exception cref="ValidationException">
+    /// Thrown when either operand is a malformed condition node.
+    /// </exception>
     private static bool Compare(
         JsonElement[] args,
         IReadOnlyDictionary<string, JsonElement>? values,

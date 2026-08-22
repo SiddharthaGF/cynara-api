@@ -7,9 +7,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Capabilities;
 
 /// <summary>
-/// EF Core implementation of the capability assignment repository. Every
-/// query is scoped by hospital; the tracked reads are used by the grant and
-/// revoke workflows so EF can apply the row-version concurrency token.
+/// EF Core implementation of the capability assignment repository.
+/// Resolution is the union of the actor's hospital-scoped grants for the
+/// resolved hospital and their platform-scoped grants; every tracked read
+/// feeds the grant and revoke workflows so EF can apply the row-version
+/// concurrency token.
 /// </summary>
 public sealed class CapabilityAssignmentRepository(CynaraDbContext dbContext)
     : ICapabilityAssignmentRepository
@@ -21,8 +23,10 @@ public sealed class CapabilityAssignmentRepository(CynaraDbContext dbContext)
     {
         return await dbContext.CapabilityAssignments
             .AsNoTracking()
-            .Where(item => item.HospitalId == hospitalId
-                && item.ActorId == actorId)
+            .Where(item => item.ActorId == actorId
+                && ((item.HospitalId == hospitalId
+                        && item.Scope == CapabilityScopes.Hospital)
+                    || item.Scope == CapabilityScopes.Platform))
             .Select(item => item.Capability)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -44,17 +48,34 @@ public sealed class CapabilityAssignmentRepository(CynaraDbContext dbContext)
         Guid hospitalId,
         string actorId,
         string capability,
+        string scope,
         bool track,
         CancellationToken cancellationToken)
     {
         IQueryable<CapabilityAssignment> query = track
             ? dbContext.CapabilityAssignments
             : dbContext.CapabilityAssignments.AsNoTracking();
-        return query.SingleOrDefaultAsync(
-            item => item.HospitalId == hospitalId
-                && item.ActorId == actorId
-                && item.Capability == capability,
-            cancellationToken);
+        query = query.Where(item => item.ActorId == actorId
+            && item.Capability == capability
+            && (scope == CapabilityScopes.Platform
+                ? item.Scope == CapabilityScopes.Platform
+                : item.HospitalId == hospitalId
+                    && item.Scope == CapabilityScopes.Hospital));
+        return query.SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> HasPlatformScopeAsync(
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.CapabilityAssignments
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.ActorId == actorId
+                    && item.Capability == capability
+                    && item.Scope == CapabilityScopes.Platform,
+                cancellationToken);
     }
 
     public void Add(CapabilityAssignment assignment)

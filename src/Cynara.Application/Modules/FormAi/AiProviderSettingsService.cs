@@ -14,16 +14,13 @@ public sealed class AiProviderSettingsService(
     TimeProvider timeProvider,
     ICapabilityGuard capabilityGuard) : IAiProviderSettingsService
 {
-    private static readonly string DefaultOpenAiBaseUrl =
-        HttpsApi("api.openai.com", "v1");
-
     private static readonly IReadOnlyList<AiEndpointSuggestion> Suggestions =
     [
         new(
             "openai",
             "OpenAI",
-            DefaultOpenAiBaseUrl,
-            "gpt-4o-mini",
+            OpenAiDefaults.BaseUrl,
+            OpenAiDefaults.Model,
             JsonObject: true),
         new(
             "minimax",
@@ -127,7 +124,7 @@ public sealed class AiProviderSettingsService(
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
             throw new ValidationException(
-                $"Base URL is required (OpenAI-compatible endpoint, e.g. {DefaultOpenAiBaseUrl}).");
+                $"Base URL is required (OpenAI-compatible endpoint, e.g. {OpenAiDefaults.BaseUrl}).");
         }
 
         if (string.IsNullOrWhiteSpace(model))
@@ -179,8 +176,8 @@ public sealed class AiProviderSettingsService(
         bool jsonObject)
     {
         string normalizedBaseUrl = NormalizeOptionalBaseUrl(baseUrl)
-            ?? DefaultOpenAiBaseUrl;
-        string normalizedModel = NormalizeOptionalText(model) ?? "gpt-4o-mini";
+            ?? OpenAiDefaults.BaseUrl;
+        string normalizedModel = NormalizeOptionalText(model) ?? OpenAiDefaults.Model;
         string? normalizedKey = NormalizeOptionalText(apiKey);
         return new OpenAiConfig(
             normalizedKey,
@@ -188,11 +185,11 @@ public sealed class AiProviderSettingsService(
             normalizedModel,
             !string.IsNullOrWhiteSpace(normalizedKey),
             jsonObject,
-            NetworkTimeout: TimeSpan.FromMinutes(10),
-            MaxOutputTokens: 8192,
-            Temperature: 0.2f,
-            TopP: 0.9f,
-            FirstChunkTimeout: TimeSpan.FromSeconds(90));
+            NetworkTimeout: OpenAiDefaults.NetworkTimeout,
+            MaxOutputTokens: OpenAiDefaults.MaxOutputTokens,
+            Temperature: OpenAiDefaults.Temperature,
+            TopP: OpenAiDefaults.TopP,
+            FirstChunkTimeout: OpenAiDefaults.FirstChunkTimeout);
     }
 
     /// <summary>

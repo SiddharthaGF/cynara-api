@@ -31,18 +31,20 @@ public sealed class CapabilityAssignmentService(
 
         string actorId = RequireActorId(request.ActorId);
         string capability = RequireKnownCapability(request.Capability);
+        string scope = RequireKnownScope(request.Scope);
 
         CapabilityAssignment? existing = await repository.FindAsync(
             hospitalContext.HospitalId,
             actorId,
             capability,
+            scope,
             track: true,
             cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
             throw new ConflictException(
                 $"Actor '{actorId}' already holds capability "
-                + $"'{capability}'.");
+                + $"'{capability}' at scope '{scope}'.");
         }
 
         DateTimeOffset now = timeProvider.GetUtcNow();
@@ -52,6 +54,7 @@ public sealed class CapabilityAssignmentService(
             HospitalId = hospitalContext.HospitalId,
             ActorId = actorId,
             Capability = capability,
+            Scope = scope,
             AssignedAt = now,
             AssignedBy = assignedBy,
         };
@@ -63,7 +66,7 @@ public sealed class CapabilityAssignmentService(
             "capability.assigned",
             assignedBy,
             now,
-            new { actorId, capability });
+            new { actorId, capability, scope });
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -75,21 +78,24 @@ public sealed class CapabilityAssignmentService(
         string actorId,
         string capability,
         string? revokedBy,
+        string? scope,
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
 
         string normalizedActorId = RequireActorId(actorId);
         string normalizedCapability = RequireKnownCapability(capability);
+        string normalizedScope = RequireKnownScope(scope);
 
         CapabilityAssignment? assignment = await repository.FindAsync(
             hospitalContext.HospitalId,
             normalizedActorId,
             normalizedCapability,
+            normalizedScope,
             track: true,
             cancellationToken).ConfigureAwait(false) ?? throw new NotFoundException(
                 $"Actor '{normalizedActorId}' does not hold capability "
-                + $"'{normalizedCapability}'.");
+                + $"'{normalizedCapability}' at scope '{normalizedScope}'.");
         DateTimeOffset now = timeProvider.GetUtcNow();
         repository.Remove(assignment);
         auditWriter.Append(
@@ -98,7 +104,12 @@ public sealed class CapabilityAssignmentService(
             "capability.revoked",
             revokedBy,
             now,
-            new { actorId = normalizedActorId, capability = normalizedCapability });
+            new
+            {
+                actorId = normalizedActorId,
+                capability = normalizedCapability,
+                scope = normalizedScope,
+            });
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -124,6 +135,32 @@ public sealed class CapabilityAssignmentService(
         {
             throw new ValidationException(
                 "actorId is required when assigning a capability.");
+        }
+
+        return normalized;
+    }
+
+    private static string RequireKnownScope(string? scope)
+    {
+        string normalized = scope?.Trim() ?? string.Empty;
+        if (normalized.Length == 0)
+        {
+            return CapabilityScopes.Hospital;
+        }
+
+        if (!string.Equals(
+                normalized,
+                CapabilityScopes.Hospital,
+                StringComparison.Ordinal)
+            && !string.Equals(
+                normalized,
+                CapabilityScopes.Platform,
+                StringComparison.Ordinal))
+        {
+            throw new ValidationException(
+                $"Scope '{scope}' is not recognized; expected "
+                + $"'{CapabilityScopes.Hospital}' or "
+                + $"'{CapabilityScopes.Platform}'.");
         }
 
         return normalized;

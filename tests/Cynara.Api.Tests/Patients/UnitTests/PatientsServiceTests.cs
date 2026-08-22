@@ -563,8 +563,8 @@ public sealed class PatientsServiceTests
             mrn: "MRN-303",
             givenName: "Ada",
             familyName: "Lovelace",
-            bloodType: BloodType.OPositive,
-            rowVersion: 7);
+            rowVersion: 7,
+            bloodType: BloodType.OPositive);
         harness.Repository.Seed(patient);
 
         UpdatePatientRequest request = PatientsServiceHarness

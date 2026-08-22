@@ -127,9 +127,8 @@ public sealed class FormDefinitionResourceService(
                 $"Form definition '{id}' was not found.");
         }
 
-        FormDefinition? definition = await base.GetAsync(id, cancellationToken)
+        return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
-        return definition!;
     }
 
     public override async Task<IReadOnlyCollection<FormDefinition>> GetAsync(

@@ -3,6 +3,7 @@ using System.Reflection;
 using Cynara.Application.Modules.Capabilities;
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Cynara.Api.CapabilityAuthorization;
@@ -38,6 +39,16 @@ public sealed class CapabilityAuthorizationFilter(
             ?? descriptor.ControllerTypeInfo.GetCustomAttribute<RequireCapabilityAttribute>(inherit: true);
         if (requirement is null)
         {
+            return;
+        }
+
+        // Challenge anonymous requests with 401 before evaluating the
+        // capability so absent authentication is reported as such. The test
+        // seam authenticates every request, so the header-based actor suites
+        // keep behaving as before.
+        if (context.HttpContext.User.Identity?.IsAuthenticated is not true)
+        {
+            context.Result = new ChallengeResult();
             return;
         }
 
