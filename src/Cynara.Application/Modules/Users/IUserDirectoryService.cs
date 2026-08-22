@@ -26,9 +26,13 @@ public interface IUserDirectoryService
         CancellationToken cancellationToken);
 }
 
-/// <summary>Listing request filters for the user directory.</summary>
+/// <summary>
+/// Listing request filters for the user directory. The hospital filter
+/// carries the stable hospital business code, matching the codes surfaced
+/// in membership payloads and the tenant header convention.
+/// </summary>
 public sealed record UserDirectorySearchRequest(
     string? SearchTerm,
-    Guid? HospitalFilter,
+    string? HospitalCode,
     int Page,
     int PageSize);

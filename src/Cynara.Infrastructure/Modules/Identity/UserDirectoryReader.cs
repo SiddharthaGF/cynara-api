@@ -31,38 +31,43 @@ public sealed class UserDirectoryReader(
         DirectoryQuery query,
         CancellationToken cancellationToken)
     {
-        IQueryable<UserPageRow> rows =
-            from user in identity.Users.AsNoTracking()
-            join Membership membership in ScopedMemberships(
+        // Filter and page on the identity entities directly. The scope
+        // restriction is an EXISTS semi-join, so each user appears exactly
+        // once by construction — no DISTINCT stage, which keeps the ordered
+        // Skip/Take page translatable end to end.
+        IQueryable<IdentityUser<Guid>> scopedUsers = identity.Users
+            .AsNoTracking()
+            .Where(user => ScopedMemberships(
                     identity.Memberships.AsNoTracking(),
                     query.PlatformScope,
                     query.ResolvedHospitalId,
                     query.HospitalFilter)
-                on user.Id equals membership.UserId
-            select new UserPageRow(
-                user.Id,
-                user.Email ?? string.Empty,
-                user.NormalizedEmail,
-                user.NormalizedUserName);
+                .Any(membership => membership.UserId == user.Id));
 
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             string pattern = BuildContainsPattern(query.SearchTerm);
-            rows = rows.Where(row =>
-                EF.Functions.ILike(row.NormalizedEmail!, pattern, @"\")
-                || EF.Functions.ILike(row.NormalizedUserName!, pattern, @"\"));
+            scopedUsers = scopedUsers.Where(user =>
+                EF.Functions.ILike(user.NormalizedEmail!, pattern, @"\")
+                || EF.Functions.ILike(user.NormalizedUserName!, pattern, @"\"));
         }
 
-        IQueryable<UserPageRow> distinctUsers = rows.Distinct();
-        int totalCount = await distinctUsers
+        int totalCount = await scopedUsers
             .CountAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        List<UserPageRow> page = await distinctUsers
-            .OrderBy(row => row.NormalizedEmail)
-            .ThenBy(row => row.UserId)
+        // Ordering runs on entity columns before projection: EF cannot bind
+        // an ordering back through a constructed projection type.
+        List<UserPageRow> page = await scopedUsers
+            .OrderBy(user => user.NormalizedEmail)
+            .ThenBy(user => user.Id)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
+            .Select(user => new UserPageRow(
+                user.Id,
+                user.Email ?? string.Empty,
+                user.NormalizedEmail,
+                user.NormalizedUserName))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

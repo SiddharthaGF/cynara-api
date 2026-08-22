@@ -45,7 +45,7 @@ internal static class UsersEndpoints
 
     private static async Task<IResult> ListUsersAsync(
         string? q,
-        Guid? hospital,
+        string? hospital,
         int? page,
         int? pageSize,
         IUserDirectoryService directory,

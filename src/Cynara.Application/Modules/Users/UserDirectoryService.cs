@@ -12,13 +12,16 @@ namespace Cynara.Application.Modules.Users;
 /// depends on route wiring alone, then resolves the caller's grant scope to
 /// decide listing breadth. The hospital filter is honored exclusively for
 /// platform-scope callers: it narrows their global view but can never widen
-/// a hospital-scoped caller's view.
+/// a hospital-scoped caller's view. The filter carries a hospital business
+/// code; an unknown code yields an empty page rather than falling back to an
+/// unfiltered listing, so a bad reference can never widen results.
 /// </summary>
 public sealed class UserDirectoryService(
     IHospitalContext hospitalContext,
     ICapabilityGuard capabilityGuard,
     ICurrentActor currentActor,
     ICapabilityAssignmentRepository assignments,
+    IHospitalRepository hospitals,
     IUserDirectoryReader reader) : IUserDirectoryService
 {
     /// <inheritdoc />
@@ -41,13 +44,26 @@ public sealed class UserDirectoryService(
             ? UserDirectoryFieldLimits.DefaultPageSize
             : Math.Min(request.PageSize, UserDirectoryFieldLimits.MaxPageSize);
         string? searchTerm = NormalizeSearchTerm(request.SearchTerm);
+        Guid? hospitalFilter = await ResolveHospitalFilterAsync(
+            platformScope,
+            request.HospitalCode,
+            cancellationToken).ConfigureAwait(false);
+        if (platformScope
+            && hospitalFilter is null
+            && HasHospitalCode(request.HospitalCode))
+        {
+            // A platform caller named a hospital that does not exist: no
+            // members can match, and the empty page must not degrade into an
+            // unfiltered listing.
+            return new UserDirectoryListResponse([], page, pageSize, 0);
+        }
 
         DirectoryPage result = await reader.SearchAsync(
             new DirectoryQuery(
                 platformScope,
                 hospitalContext.HospitalId,
                 searchTerm,
-                platformScope ? request.HospitalFilter : null,
+                hospitalFilter,
                 page,
                 pageSize),
             cancellationToken).ConfigureAwait(false);
@@ -92,6 +108,34 @@ public sealed class UserDirectoryService(
             actorId,
             CapabilityCodes.UsersRead,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Resolves the hospital business code to its identifier. Only
+    /// platform-scope callers may narrow by hospital, so a hospital-scoped
+    /// request yields <see langword="null"/> regardless of the supplied
+    /// code; an unknown platform-side code returns a sentinel miss that the
+    /// caller turns into an empty page.
+    /// </summary>
+    private async Task<Guid?> ResolveHospitalFilterAsync(
+        bool platformScope,
+        string? hospitalCode,
+        CancellationToken cancellationToken)
+    {
+        if (!platformScope || !HasHospitalCode(hospitalCode))
+        {
+            return null;
+        }
+
+        Domain.Hospitals.Hospital? hospital = await hospitals.FindByCodeAsync(
+            hospitalCode.Trim(),
+            cancellationToken).ConfigureAwait(false);
+        return hospital?.Id;
+    }
+
+    private static bool HasHospitalCode(string? hospitalCode)
+    {
+        return !string.IsNullOrWhiteSpace(hospitalCode);
     }
 
     private string RequireActorId()
