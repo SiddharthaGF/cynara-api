@@ -177,6 +177,46 @@ internal sealed class IdentityAuthWebApplicationFactory(
         _ = await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Seeds a platform-scope capability grant for the actor. Platform rows
+    /// authorize in every hospital context; the issuing hospital is stamped
+    /// for traceability only and never narrows the grant.
+    /// </summary>
+    public async Task SeedPlatformCapabilityAsync(
+        Guid hospitalId,
+        string actorId,
+        string capability,
+        CancellationToken cancellationToken = default)
+    {
+        await using AsyncServiceScope scope = Services.CreateAsyncScope();
+        CynaraDbContext dbContext = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+        bool exists = await dbContext.CapabilityAssignments
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.ActorId == actorId
+                    && item.Capability == capability
+                    && item.Scope == CapabilityScopes.Platform,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (exists)
+        {
+            return;
+        }
+
+        dbContext.CapabilityAssignments.Add(new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = hospitalId,
+            ActorId = actorId,
+            Capability = capability,
+            Scope = CapabilityScopes.Platform,
+            AssignedAt = DateTimeOffset.UtcNow,
+            AssignedBy = "test-seed",
+        });
+        _ = await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task RegisterClientAsync(
         string? clientId = ClientId,
         string? clientSecret = ClientSecret,
