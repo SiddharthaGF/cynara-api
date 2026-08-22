@@ -195,7 +195,7 @@ public sealed class TaskRuntimeTests : IDisposable
     {
         ClinicalWorkspace workspace = await clinical.BuildWorkspaceAsync("taskdoc")
             .ConfigureAwait(false);
-        string workflowCode = "task-doc-flow";
+        const string workflowCode = "task-doc-flow";
         _ = await PublishWorkflowAsync(
             workflowCode,
             TaskDocumentFlow(workspace.DocumentDefinitionCode))

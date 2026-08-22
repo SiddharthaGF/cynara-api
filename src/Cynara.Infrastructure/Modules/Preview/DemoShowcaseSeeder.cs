@@ -216,24 +216,26 @@ public static class DemoShowcaseSeeder
             .GetRequiredService<IPatientService>();
         PatientDto patientA = await EnsurePatientAsync(
                 patients,
-                "P-10001",
-                "44889911",
-                "María",
-                "González",
-                new DateOnly(1985, 3, 14),
-                "female",
-                "o+",
+                new PatientSeedInput(
+                    Mrn: "P-10001",
+                    NationalId: "44889911",
+                    GivenName: "María",
+                    FamilyName: "González",
+                    BirthDate: new DateOnly(1985, 3, 14),
+                    Sex: "female",
+                    BloodType: "o+"),
                 cancellationToken)
             .ConfigureAwait(false);
         PatientDto patientB = await EnsurePatientAsync(
                 patients,
-                "P-10002",
-                "55667788",
-                "Juan",
-                "Pérez",
-                new DateOnly(1990, 11, 2),
-                "male",
-                "a-",
+                new PatientSeedInput(
+                    Mrn: "P-10002",
+                    NationalId: "55667788",
+                    GivenName: "Juan",
+                    FamilyName: "Pérez",
+                    BirthDate: new DateOnly(1990, 11, 2),
+                    Sex: "male",
+                    BloodType: "a-"),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -420,19 +422,13 @@ public static class DemoShowcaseSeeder
 
     private static async Task<PatientDto> EnsurePatientAsync(
         IPatientService patients,
-        string mrn,
-        string? nationalId,
-        string givenName,
-        string familyName,
-        DateOnly birthDate,
-        string sex,
-        string bloodType,
+        PatientSeedInput seed,
         CancellationToken cancellationToken)
     {
         PatientListResponse existing = await patients
             .SearchAsync(
                 new PatientSearchRequest(
-                    Mrn: mrn,
+                    Mrn: seed.Mrn,
                     NationalId: null,
                     GivenName: null,
                     FamilyName: null,
@@ -444,13 +440,13 @@ public static class DemoShowcaseSeeder
             : null;
         return match ?? await patients.CreateAsync(
             new CreatePatientRequest(
-                mrn,
-                nationalId,
-                givenName,
-                familyName,
-                birthDate,
-                sex,
-                bloodType),
+                seed.Mrn,
+                seed.NationalId,
+                seed.GivenName,
+                seed.FamilyName,
+                seed.BirthDate,
+                seed.Sex,
+                seed.BloodType),
             ActorId,
             cancellationToken).ConfigureAwait(false);
     }
@@ -955,4 +951,13 @@ public static class DemoShowcaseSeeder
         return JsonSerializer.Serialize(
             JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path)));
     }
+
+    private sealed record PatientSeedInput(
+        string Mrn,
+        string? NationalId,
+        string GivenName,
+        string FamilyName,
+        DateOnly BirthDate,
+        string Sex,
+        string BloodType);
 }

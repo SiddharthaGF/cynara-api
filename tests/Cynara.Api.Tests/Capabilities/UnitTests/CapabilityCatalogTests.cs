@@ -17,9 +17,7 @@ public sealed class CapabilityCatalogTests
         Assert.NotEmpty(CapabilityCodes.All);
         foreach (string code in CapabilityCodes.All)
         {
-            string[] forbiddenSuffixes =
-                [".global", ".platform", ".hospital"];
-            foreach (string suffix in forbiddenSuffixes)
+            foreach (string suffix in new[] { ".global", ".platform", ".hospital" })
             {
                 Assert.False(
                     code.EndsWith(suffix, StringComparison.Ordinal),
