@@ -54,6 +54,19 @@ public sealed class FormRepository(CynaraDbContext dbContext) : IFormRepository
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    public Task<FormVersion?> FindVersionByIdAsync(
+        Guid hospitalId,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.FormVersions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item => item.Id == formVersionId
+                    && item.HospitalId == hospitalId,
+                cancellationToken);
+    }
+
     public void AddVersion(FormVersion version)
     {
         _ = dbContext.FormVersions.Add(version);

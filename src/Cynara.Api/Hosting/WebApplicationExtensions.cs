@@ -31,6 +31,7 @@ internal static class WebApplicationExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         _ = app.UseCynaraExceptionHandling();
+        _ = app.UseQueryCounting();
         _ = app.UseForwardedHeaders();
         _ = app.Use(
             (context, next) =>

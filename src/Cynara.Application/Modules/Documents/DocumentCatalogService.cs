@@ -270,16 +270,13 @@ public sealed class DocumentCatalogService(
         Guid formVersionId,
         CancellationToken cancellationToken)
     {
-        List<FormDefinition> definitions = [.. await forms
-            .ListDefinitionsAsync(context.HospitalId, cancellationToken)
-            .ConfigureAwait(false)];
-
-        FormVersion? formVersion = definitions
-            .SelectMany(definition => definition.Versions)
-            .FirstOrDefault(item => item.Id == formVersionId)
-            ?? throw new NotFoundException(
+        FormVersion? formVersion = await forms
+            .FindVersionByIdAsync(
+                context.HospitalId,
+                formVersionId,
+                cancellationToken)
+            .ConfigureAwait(false) ?? throw new NotFoundException(
                 $"Form version '{formVersionId}' was not found.");
-
         if (formVersion.Status != FormVersionStatus.Published)
         {
             throw new ConflictException(

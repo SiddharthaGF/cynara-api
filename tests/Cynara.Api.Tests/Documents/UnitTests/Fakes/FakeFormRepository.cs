@@ -60,6 +60,18 @@ public sealed class FakeFormRepository : IFormRepository
         return Task.FromResult(match);
     }
 
+    public Task<FormVersion?> FindVersionByIdAsync(
+        Guid hospitalId,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        FormVersion? match = definitions
+            .Where(item => item.HospitalId == hospitalId)
+            .SelectMany(item => item.Versions)
+            .SingleOrDefault(item => item.Id == formVersionId);
+        return Task.FromResult(match);
+    }
+
     public void AddVersion(FormVersion version)
     {
         ArgumentNullException.ThrowIfNull(version);
