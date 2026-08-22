@@ -1,10 +1,15 @@
 namespace Cynara.Application.Modules.Capabilities;
 
 /// <summary>
-/// Request body for granting a capability to an actor within the resolved
-/// hospital workspace.
+/// Request body for granting a capability to an actor. The optional scope
+/// selects the grant breadth: <c>hospital</c> (default) binds the grant to
+/// the resolved hospital workspace, <c>platform</c> authorizes the
+/// capability in every hospital context.
 /// </summary>
-public sealed record GrantCapabilityRequest(string ActorId, string Capability);
+public sealed record GrantCapabilityRequest(
+    string ActorId,
+    string Capability,
+    string? Scope = null);
 
 /// <summary>
 /// One persisted capability assignment for the resolved hospital workspace.

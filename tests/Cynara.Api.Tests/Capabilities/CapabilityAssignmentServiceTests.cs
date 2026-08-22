@@ -163,12 +163,14 @@ public sealed class CapabilityAssignmentServiceTests
             "registrar",
             CapabilityCodes.PatientsWrite,
             revokedBy: "admin",
+            scope: CapabilityScopes.Hospital,
             CancellationToken.None);
 
         CapabilityAssignment? remaining = await repository.FindAsync(
             hospitalId,
             "registrar",
             CapabilityCodes.PatientsWrite,
+            CapabilityScopes.Hospital,
             track: false,
             CancellationToken.None);
         Assert.Null(remaining);
@@ -190,7 +192,215 @@ public sealed class CapabilityAssignmentServiceTests
                 "registrar",
                 CapabilityCodes.PatientsWrite,
                 revokedBy: "admin",
+                scope: CapabilityScopes.Hospital,
                 CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GrantAsync_PlatformScope_ConflictsGlobally()
+    {
+        var issuingHospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = Guid.NewGuid(),
+            ActorId = "registrar",
+            Capability = CapabilityCodes.PatientsWrite,
+            Scope = CapabilityScopes.Platform,
+            AssignedAt = Now,
+        });
+        CapabilityAssignmentService service = BuildService(
+            issuingHospitalId,
+            repository);
+
+        _ = await Assert.ThrowsAsync<ConflictException>(
+            () => service.GrantAsync(
+                new GrantCapabilityRequest(
+                    "registrar",
+                    CapabilityCodes.PatientsWrite,
+                    CapabilityScopes.Platform),
+                assignedBy: "admin",
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GrantAsync_PlatformScope_Succeeds_WhenOnlyHospitalRowHeld()
+    {
+        var hospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = hospitalId,
+            ActorId = "registrar",
+            Capability = CapabilityCodes.PatientsWrite,
+            AssignedAt = Now,
+        });
+        CapabilityAssignmentService service = BuildService(
+            hospitalId,
+            repository);
+
+        _ = await service.GrantAsync(
+            new GrantCapabilityRequest(
+                "registrar",
+                CapabilityCodes.PatientsWrite,
+                CapabilityScopes.Platform),
+            assignedBy: "admin",
+            CancellationToken.None);
+
+        CapabilityAssignment? created = await repository.FindAsync(
+            hospitalId,
+            "registrar",
+            CapabilityCodes.PatientsWrite,
+            CapabilityScopes.Platform,
+            track: false,
+            CancellationToken.None);
+        Assert.NotNull(created);
+        Assert.Equal(hospitalId, created.HospitalId);
+        Assert.Equal(2, repository.Assignments.Count);
+    }
+
+    [Fact]
+    public async Task GrantAsync_HospitalScope_Succeeds_WhenOnlyPlatformRowHeld()
+    {
+        var hospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = hospitalId,
+            ActorId = "registrar",
+            Capability = CapabilityCodes.PatientsWrite,
+            Scope = CapabilityScopes.Platform,
+            AssignedAt = Now,
+        });
+        CapabilityAssignmentService service = BuildService(
+            hospitalId,
+            repository);
+
+        _ = await service.GrantAsync(
+            new GrantCapabilityRequest(
+                "registrar",
+                CapabilityCodes.PatientsWrite),
+            assignedBy: "admin",
+            CancellationToken.None);
+
+        Assert.Equal(2, repository.Assignments.Count);
+    }
+
+    [Fact]
+    public async Task GrantAsync_RejectsUnknownScope()
+    {
+        CapabilityAssignmentService service = BuildService(
+            Guid.NewGuid());
+
+        ValidationException exception = await Assert.ThrowsAsync<
+            ValidationException>(
+            () => service.GrantAsync(
+                new GrantCapabilityRequest(
+                    "registrar",
+                    CapabilityCodes.PatientsWrite,
+                    "galactic"),
+                assignedBy: "admin",
+                CancellationToken.None));
+
+        Assert.Contains(
+            "not recognized",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RevokeAsync_PlatformScope_RemovesGlobalRow()
+    {
+        var issuingHospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        var assignment = new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = issuingHospitalId,
+            ActorId = "registrar",
+            Capability = CapabilityCodes.UsersRead,
+            Scope = CapabilityScopes.Platform,
+            AssignedAt = Now,
+            AssignedBy = "admin",
+        };
+        repository.Seed(assignment);
+        var auditWriter = new RecordingAuditWriter();
+        CapabilityAssignmentService service = BuildService(
+            Guid.NewGuid(),
+            repository,
+            auditWriter);
+
+        await service.RevokeAsync(
+            "registrar",
+            CapabilityCodes.UsersRead,
+            revokedBy: "admin",
+            scope: CapabilityScopes.Platform,
+            CancellationToken.None);
+
+        CapabilityAssignment? remaining = await repository.FindAsync(
+            issuingHospitalId,
+            "registrar",
+            CapabilityCodes.UsersRead,
+            CapabilityScopes.Platform,
+            track: false,
+            CancellationToken.None);
+        Assert.Null(remaining);
+        RecordingAuditWriter.AuditEntry entry = Assert.Single(
+            auditWriter.Entries);
+        Assert.Equal("capability.revoked", entry.Action);
+        Assert.Equal(assignment.Id, entry.ResourceId);
+    }
+
+    [Fact]
+    public async Task RevokeAsync_HospitalScope_DoesNotMatchPlatformRow()
+    {
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(new CapabilityAssignment
+        {
+            Id = Guid.NewGuid(),
+            HospitalId = Guid.NewGuid(),
+            ActorId = "registrar",
+            Capability = CapabilityCodes.UsersRead,
+            Scope = CapabilityScopes.Platform,
+            AssignedAt = Now,
+        });
+        CapabilityAssignmentService service = BuildService(
+            Guid.NewGuid(),
+            repository);
+
+        _ = await Assert.ThrowsAsync<NotFoundException>(
+            () => service.RevokeAsync(
+                "registrar",
+                CapabilityCodes.UsersRead,
+                revokedBy: "admin",
+                scope: null,
+                CancellationToken.None));
+
+        Assert.Single(repository.Assignments);
+    }
+
+    [Fact]
+    public async Task RevokeAsync_RejectsUnknownScope()
+    {
+        CapabilityAssignmentService service = BuildService(
+            Guid.NewGuid());
+
+        ValidationException exception = await Assert.ThrowsAsync<
+            ValidationException>(
+            () => service.RevokeAsync(
+                "registrar",
+                CapabilityCodes.PatientsWrite,
+                revokedBy: "admin",
+                scope: "galactic",
+                CancellationToken.None));
+
+        Assert.Contains(
+            "not recognized",
+            exception.Message,
+            StringComparison.Ordinal);
     }
 
     [Fact]

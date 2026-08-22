@@ -34,8 +34,11 @@ public static partial class InfrastructureServiceCollectionExtensions
 {
     /// <summary>
     /// Provisioned only when baselining a legacy database that predates the
-    /// capabilities feature; keep this DDL aligned with the InitialCreate
-    /// migration so future schema changes apply cleanly.
+    /// capabilities feature; keep this DDL aligned with the latest migration
+    /// so future schema changes apply cleanly. Every statement is guarded:
+    /// tables provisioned by earlier baselines predate the Scope column and
+    /// the partial unique indexes, and this script must converge them onto
+    /// the current schema instead of failing.
     /// </summary>
     private const string CapabilityAssignmentsTableSql = """
         CREATE TABLE IF NOT EXISTS "capability_assignments" (
@@ -43,18 +46,32 @@ public static partial class InfrastructureServiceCollectionExtensions
             "HospitalId" uuid NOT NULL,
             "ActorId" character varying(128) NOT NULL,
             "Capability" character varying(64) NOT NULL,
+            "Scope" character varying(16) NOT NULL DEFAULT 'hospital',
             "AssignedAt" timestamp with time zone NOT NULL,
             "AssignedBy" character varying(128) NULL,
             "RowVersion" bigint NOT NULL,
             CONSTRAINT "PK_capability_assignments" PRIMARY KEY ("Id")
         );
 
+        ALTER TABLE "capability_assignments"
+            ADD COLUMN IF NOT EXISTS "Scope"
+                character varying(16) NOT NULL DEFAULT 'hospital';
+
         CREATE INDEX IF NOT EXISTS "IX_capability_assignments_HospitalId"
             ON "capability_assignments" ("HospitalId");
 
+        DROP INDEX IF EXISTS
+            "IX_capability_assignments_HospitalId_ActorId_Capability";
+
         CREATE UNIQUE INDEX IF NOT EXISTS
             "IX_capability_assignments_HospitalId_ActorId_Capability"
-            ON "capability_assignments" ("HospitalId", "ActorId", "Capability");
+            ON "capability_assignments" ("HospitalId", "ActorId", "Capability")
+            WHERE "Scope" = 'hospital';
+
+        CREATE UNIQUE INDEX IF NOT EXISTS
+            "IX_capability_assignments_ActorId_Capability"
+            ON "capability_assignments" ("ActorId", "Capability")
+            WHERE "Scope" = 'platform';
         """;
 
     public static IServiceCollection AddCynaraInfrastructure(

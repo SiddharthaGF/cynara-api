@@ -23,7 +23,8 @@ public sealed class EffectiveCapabilityResolverTests
     private static CapabilityAssignment Assignment(
         Guid hospitalId,
         string actorId,
-        string capability)
+        string capability,
+        string? scope = null)
     {
         return new CapabilityAssignment
         {
@@ -31,6 +32,7 @@ public sealed class EffectiveCapabilityResolverTests
             HospitalId = hospitalId,
             ActorId = actorId,
             Capability = capability,
+            Scope = scope ?? CapabilityScopes.Hospital,
             AssignedAt = DateTimeOffset.UtcNow,
         };
     }
@@ -107,6 +109,80 @@ public sealed class EffectiveCapabilityResolverTests
         EffectiveCapabilityResolver resolver = BuildResolver(
             hospitalId,
             "registrar",
+            repository);
+
+        IReadOnlySet<string> effective = await resolver
+            .ResolveAsync(CancellationToken.None);
+
+        Assert.Empty(effective);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_IncludesPlatformGrants_UnderAnyHospital()
+    {
+        var issuingHospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(Assignment(
+            issuingHospitalId,
+            "registrar",
+            CapabilityCodes.PatientsRead,
+            CapabilityScopes.Platform));
+        EffectiveCapabilityResolver first = BuildResolver(
+            Guid.NewGuid(),
+            "registrar",
+            repository);
+        EffectiveCapabilityResolver second = BuildResolver(
+            Guid.NewGuid(),
+            "registrar",
+            repository);
+
+        IReadOnlySet<string> underFirstHospital = await first
+            .ResolveAsync(CancellationToken.None);
+        IReadOnlySet<string> underSecondHospital = await second
+            .ResolveAsync(CancellationToken.None);
+
+        Assert.Contains(CapabilityCodes.PatientsRead, underFirstHospital);
+        Assert.Contains(CapabilityCodes.PatientsRead, underSecondHospital);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_HospitalGrant_ConfinedToItsHospital()
+    {
+        var grantedHospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(Assignment(
+            grantedHospitalId,
+            "registrar",
+            CapabilityCodes.PatientsWrite));
+        repository.Seed(Assignment(
+            grantedHospitalId,
+            "registrar",
+            CapabilityCodes.PatientsRead,
+            CapabilityScopes.Platform));
+        EffectiveCapabilityResolver resolver = BuildResolver(
+            Guid.NewGuid(),
+            "registrar",
+            repository);
+
+        IReadOnlySet<string> effective = await resolver
+            .ResolveAsync(CancellationToken.None);
+
+        Assert.Single(effective, CapabilityCodes.PatientsRead);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_PlatformGrant_DoesNotLeak_ToOtherActors()
+    {
+        var issuingHospitalId = Guid.NewGuid();
+        var repository = new FakeCapabilityAssignmentRepository();
+        repository.Seed(Assignment(
+            issuingHospitalId,
+            "registrar",
+            CapabilityCodes.PatientsRead,
+            CapabilityScopes.Platform));
+        EffectiveCapabilityResolver resolver = BuildResolver(
+            issuingHospitalId,
+            "doctor",
             repository);
 
         IReadOnlySet<string> effective = await resolver
