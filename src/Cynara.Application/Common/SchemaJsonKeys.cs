@@ -76,4 +76,5 @@ public static class AuditEntityTypes
     public const string WorkflowVersion = "workflow-version";
     public const string Pipeline = "pipeline";
     public const string Task = "task";
+    public const string Invitation = "invitation";
 }

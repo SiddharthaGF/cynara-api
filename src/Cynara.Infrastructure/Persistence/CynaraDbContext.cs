@@ -9,6 +9,7 @@ using Cynara.Domain.Failures;
 using Cynara.Domain.FormAi;
 using Cynara.Domain.Forms;
 using Cynara.Domain.Hospitals;
+using Cynara.Domain.Invitations;
 using Cynara.Domain.Patients;
 using Cynara.Domain.Tasks;
 using Cynara.Domain.Workflows;
@@ -55,6 +56,8 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
     public DbSet<Encounter> Encounters => Set<Encounter>();
 
     public DbSet<CapabilityAssignment> CapabilityAssignments => Set<CapabilityAssignment>();
+
+    public DbSet<Invitation> Invitations => Set<Invitation>();
 
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
 

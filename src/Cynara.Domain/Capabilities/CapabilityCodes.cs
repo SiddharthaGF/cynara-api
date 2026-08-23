@@ -65,6 +65,20 @@ public static class CapabilityCodes
     public const string UsersRead = "users.read";
 
     /// <summary>
+    /// Gates the administrative invitation read surface (listing and
+    /// lifecycle inspection). Hospital-scoped holders are also the
+    /// recipients of invitation expiration notifications.
+    /// </summary>
+    public const string UserInvitationsRead = "user-invitations.read";
+
+    /// <summary>
+    /// Gates the administrative invitation mutation surface (create, cancel,
+    /// resend). The same code serves both grant scopes: breadth comes from
+    /// the assignment's scope dimension, never from a scope-encoded variant.
+    /// </summary>
+    public const string UserInvitationsWrite = "user-invitations.write";
+
+    /// <summary>
     /// The complete Stage 2 catalog. Assignment requests are validated
     /// against this list so an unknown code can never be persisted.
     /// </summary>
@@ -92,5 +106,7 @@ public static class CapabilityCodes
         CapabilitiesRead,
         CapabilitiesWrite,
         UsersRead,
+        UserInvitationsRead,
+        UserInvitationsWrite,
     ];
 }
