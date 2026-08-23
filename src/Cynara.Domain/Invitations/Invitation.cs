@@ -1,3 +1,5 @@
+using JsonApiDotNetCore.Resources.Annotations;
+
 namespace Cynara.Domain.Invitations;
 
 /// <summary>
@@ -12,6 +14,7 @@ namespace Cynara.Domain.Invitations;
 /// references (identity data lives in <c>CynaraIdentityDbContext</c>); no
 /// foreign key exists across persistence tracks by design.
 /// </remarks>
+[NoResource]
 public sealed class Invitation
 {
     public Guid Id { get; set; }
