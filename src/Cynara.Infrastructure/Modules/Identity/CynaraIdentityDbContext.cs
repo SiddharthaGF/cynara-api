@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,8 @@ namespace Cynara.Infrastructure.Modules.Identity;
 /// </summary>
 public sealed class CynaraIdentityDbContext(
     DbContextOptions<CynaraIdentityDbContext> options)
-    : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>(options),
+        IDataProtectionKeyContext
 {
     /// <summary>
     /// EF migrations history table for the identity track. Distinct from
@@ -26,11 +28,20 @@ public sealed class CynaraIdentityDbContext(
 
     public DbSet<Membership> Memberships => Set<Membership>();
 
+    /// <summary>
+    /// DataProtection key ring storage. Persisting keys here keeps refresh
+    /// tokens and authorization artifacts valid across restarts, deploys,
+    /// and horizontally scaled instances instead of regenerating an
+    /// ephemeral ring on every boot.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         base.OnModelCreating(builder);
         _ = builder.UseOpenIddict();
         _ = builder.ApplyConfiguration(new MembershipEntityConfiguration());
+        _ = builder.ApplyConfiguration(new DataProtectionKeyEntityConfiguration());
     }
 }

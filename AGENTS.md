@@ -137,9 +137,17 @@ confidential `cynara-web` client through `AuthDevSeeder`
 never runs in production.
 
 Production must supply the issuer (`OpenIddict__Issuer`) and rotated
-signing/encryption certificates (Key Vault/KMS/mounted certificates) plus a
-shared DataProtection key ring across instances; startup fails fast when
-production issuer or keys are missing.
+signing/encryption certificates (Key Vault/KMS/mounted certificates); startup
+fails fast when production issuer or keys are missing.
+
+The DataProtection key ring persists in the identity database
+(`data_protection_keys`, created by the `AddDataProtectionKeys` identity
+migration and wired through `PersistKeysToDbContext<CynaraIdentityDbContext>`
+in the composition root). Refresh tokens and authorization artifacts stay
+valid across restarts, deploys, and horizontally scaled instances — no disk,
+environment variable, or extra storage service is required. Do not swap it
+back to ephemeral keys: every boot would invalidate all outstanding refresh
+tokens and force users to sign in again.
 
 ## Implementation Rules
 

@@ -10,6 +10,7 @@ using Cynara.Api.JsonApi.Services;
 using Cynara.Application;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Infrastructure;
+using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Persistence;
 
 using JsonApiDotNetCore.Configuration;
@@ -17,6 +18,7 @@ using JsonApiDotNetCore.OpenApi.Swashbuckle;
 using JsonApiDotNetCore.Resources.Annotations;
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -57,6 +59,7 @@ internal static class ServiceCollectionExtensions
             })
             .AddCynaraForwardedHeaders(configuration)
             .AddCynaraApplication()
+            .AddCynaraDataProtection()
             .AddCynaraInfrastructure(configuration)
             .AddCynaraHospitalContext(configuration)
             .AddCynaraIdentity(configuration, environment)
@@ -135,6 +138,20 @@ internal static class ServiceCollectionExtensions
 
         services = AddCynaraOpenApi(services);
 
+        return services;
+    }
+
+    internal static IServiceCollection AddCynaraDataProtection(
+        this IServiceCollection services)
+    {
+        // The key ring lives in the identity database: refresh tokens and
+        // authorization artifacts stay valid across restarts, deploys, and
+        // scaled instances instead of dying with an ephemeral ring on every
+        // boot. The table is created by the identity migration track and
+        // applied automatically at startup.
+        _ = services.AddDataProtection()
+            .PersistKeysToDbContext<CynaraIdentityDbContext>()
+            .SetApplicationName("cynara-api");
         return services;
     }
 
