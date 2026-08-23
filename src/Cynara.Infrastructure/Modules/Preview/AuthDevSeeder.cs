@@ -138,13 +138,50 @@ public static class AuthDevSeeder
 
             IOpenIddictApplicationManager applications = provider
                 .GetRequiredService<IOpenIddictApplicationManager>();
-            await EnsureWebClientAsync(applications, cancellationToken)
+            await EnsureWebClientAsync(
+                    applications,
+                    provider.GetRequiredService<IConfiguration>(),
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
         {
             await scope.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Merges the fixed localhost redirect URIs with one en/es pair derived
+    /// from each configured <c>Preview:WebAppOrigins</c> entry.
+    /// </summary>
+    internal static IReadOnlyList<string> ResolveWebRedirectUris(
+        IConfiguration? configuration)
+    {
+        List<string> uris = [.. WebRedirectUris];
+        string[]? origins = configuration?
+            .GetSection("Preview:WebAppOrigins")
+            .Get<string[]>();
+        foreach (string origin in origins ?? [])
+        {
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? parsed)
+                || (!string.Equals(
+                        parsed.Scheme,
+                        Uri.UriSchemeHttps,
+                        StringComparison.Ordinal)
+                    && !string.Equals(
+                        parsed.Scheme,
+                        Uri.UriSchemeHttp,
+                        StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            string normalized = parsed.GetLeftPart(UriPartial.Authority);
+            uris.Add($"{normalized}/en/login");
+            uris.Add($"{normalized}/es/login");
+        }
+
+        return uris;
     }
 
     private static async Task<Hospital> EnsurePrimaryHospitalAsync(
@@ -315,8 +352,11 @@ public static class AuthDevSeeder
 
     private static async Task EnsureWebClientAsync(
         IOpenIddictApplicationManager applications,
+        IConfiguration? configuration,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<string> redirectUris =
+            ResolveWebRedirectUris(configuration);
         object? existing = await applications
             .FindByClientIdAsync(WebClientId, cancellationToken)
             .ConfigureAwait(false);
@@ -326,7 +366,7 @@ public static class AuthDevSeeder
             await applications
                 .PopulateAsync(descriptor, existing, cancellationToken)
                 .ConfigureAwait(false);
-            foreach (string redirectUri in WebRedirectUris)
+            foreach (string redirectUri in redirectUris)
             {
                 Uri uri = new(redirectUri, UriKind.Absolute);
                 _ = descriptor.RedirectUris.Add(uri);
@@ -338,37 +378,37 @@ public static class AuthDevSeeder
             return;
         }
 
-        _ = await applications.CreateAsync(
-            new OpenIddictApplicationDescriptor
+        var webClient = new OpenIddictApplicationDescriptor
+        {
+            ClientId = WebClientId,
+            ClientSecret = WebClientSecret,
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+            DisplayName = "Cynara Web",
+            ClientType = OpenIddictConstants.ClientTypes.Confidential,
+            Permissions =
             {
-                ClientId = WebClientId,
-                ClientSecret = WebClientSecret,
-                ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
-                DisplayName = "Cynara Web",
-                ClientType = OpenIddictConstants.ClientTypes.Confidential,
-                Permissions =
-                {
-                    OpenIddictConstants.Permissions.Endpoints.Authorization,
-                    OpenIddictConstants.Permissions.Endpoints.Token,
-                    OpenIddictConstants.Permissions.Endpoints.Revocation,
-                    OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-                    OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
-                    OpenIddictConstants.Permissions.ResponseTypes.Code,
-                    OpenIddictConstants.Permissions.Scopes.Email,
-                    OpenIddictConstants.Permissions.Scopes.Profile,
-                    "scp:openid",
-                    "scp:offline_access",
-                    "scp:cynara_api",
-                },
-                RedirectUris =
-                {
-                    new Uri(WebRedirectUriEnglish, UriKind.Absolute),
-                    new Uri(WebRedirectUriSpanish, UriKind.Absolute),
-                    new Uri(WebRedirectUriLoopbackEnglish, UriKind.Absolute),
-                    new Uri(WebRedirectUriLoopbackSpanish, UriKind.Absolute),
-                },
+                OpenIddictConstants.Permissions.Endpoints.Authorization,
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.Revocation,
+                OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                OpenIddictConstants.Permissions.ResponseTypes.Code,
+                OpenIddictConstants.Permissions.Scopes.Email,
+                OpenIddictConstants.Permissions.Scopes.Profile,
+                "scp:openid",
+                "scp:offline_access",
+                "scp:cynara_api",
             },
-            cancellationToken).ConfigureAwait(false);
+        };
+        foreach (string redirectUri in redirectUris)
+        {
+            _ = webClient.RedirectUris.Add(
+                new Uri(redirectUri, UriKind.Absolute));
+        }
+
+        _ = await applications
+            .CreateAsync(webClient, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

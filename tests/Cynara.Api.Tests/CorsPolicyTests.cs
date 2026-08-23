@@ -76,6 +76,60 @@ public sealed class CorsPolicyTests : IDisposable
             Assert.Single(values ?? []));
     }
 
+    [Fact]
+    public async Task Preflight_PreviewWorkersOrigin_IsAllowedByPattern()
+    {
+        using HttpRequestMessage request = BuildPreflight(
+            "https://e7d47474-cynara-web.livesanty.workers.dev");
+        using HttpResponseMessage response = await Client
+            .SendAsync(request)
+            .ConfigureAwait(false);
+
+        Assert.True(
+            response.Headers.TryGetValues(
+                "Access-Control-Allow-Origin",
+                out IEnumerable<string>? values),
+            "Preview Workers origins matching the account pattern must be allowed.");
+        Assert.Equal(
+            "https://e7d47474-cynara-web.livesanty.workers.dev",
+            Assert.Single(values ?? []));
+    }
+
+    [Fact]
+    public async Task Preflight_ArbitraryWorkerNameUnderAccount_IsAllowed()
+    {
+        using HttpRequestMessage request = BuildPreflight(
+            "https://pr-42-fix-login-cynara-web.livesanty.workers.dev");
+        using HttpResponseMessage response = await Client
+            .SendAsync(request)
+            .ConfigureAwait(false);
+
+        Assert.True(
+            response.Headers.TryGetValues(
+                "Access-Control-Allow-Origin",
+                out IEnumerable<string>? values),
+            "Any worker name under the trusted account subdomain must be allowed.");
+        Assert.Equal(
+            "https://pr-42-fix-login-cynara-web.livesanty.workers.dev",
+            Assert.Single(values ?? []));
+    }
+
+    [Fact]
+    public async Task Preflight_WorkersOriginOutsideAccount_IsDenied()
+    {
+        using HttpRequestMessage request = BuildPreflight(
+            "https://anything.other-account.workers.dev");
+        using HttpResponseMessage response = await Client
+            .SendAsync(request)
+            .ConfigureAwait(false);
+
+        Assert.False(
+            response.Headers.TryGetValues(
+                "Access-Control-Allow-Origin",
+                out _),
+            "Workers origins outside the configured account must stay denied.");
+    }
+
     private static HttpRequestMessage BuildPreflight(string origin)
     {
         var request = new HttpRequestMessage(

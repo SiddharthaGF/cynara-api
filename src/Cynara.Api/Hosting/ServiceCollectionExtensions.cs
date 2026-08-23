@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 
 using Cynara.Api.CapabilityAuthorization;
@@ -33,6 +34,8 @@ internal static class ServiceCollectionExtensions
     /// <summary>
     /// Registers cross-cutting API services. Missing or empty
     /// <c>Cors:AllowedOrigins</c> rejects every cross-origin request.
+    /// <c>Cors:AllowedOriginPatterns</c> adds regex-based origin matching
+    /// for ephemeral preview deployments (e.g. per-PR Workers subdomains).
     /// </summary>
     public static IServiceCollection AddCynaraApi(
         this IServiceCollection services,
@@ -51,8 +54,21 @@ internal static class ServiceCollectionExtensions
                         string[]? allowedOrigins = configuration
                             .GetSection("Cors:AllowedOrigins")
                             .Get<string[]>();
+                        string[]? allowedPatterns = configuration
+                            .GetSection("Cors:AllowedOriginPatterns")
+                            .Get<string[]>();
+                        Regex[] patterns = [..
+                            (allowedPatterns ?? [])
+                                .Select(pattern =>
+                                    new Regex(
+                                        pattern,
+                                        RegexOptions.Compiled,
+                                        TimeSpan.FromSeconds(1)))];
                         _ = policy
-                            .WithOrigins(allowedOrigins ?? [])
+                            .SetIsOriginAllowed(origin => IsAllowedOrigin(
+                                origin,
+                                allowedOrigins,
+                                patterns))
                             .AllowAnyHeader()
                             .AllowAnyMethod();
                     });
@@ -312,5 +328,18 @@ internal static class ServiceCollectionExtensions
         {
             swagger.IncludeXmlComments(path, includeControllerComments);
         }
+    }
+
+    /// <summary>
+    /// Allows an origin when it is listed explicitly or matches one of the
+    /// configured regex patterns; empty lists deny every cross-origin call.
+    /// </summary>
+    private static bool IsAllowedOrigin(
+        string origin,
+        string[]? allowedOrigins,
+        Regex[] allowedPatterns)
+    {
+        return (allowedOrigins ?? []).Contains(origin)
+            || allowedPatterns.Any(pattern => pattern.IsMatch(origin));
     }
 }
