@@ -24,6 +24,11 @@ namespace Cynara.Api.Hosting;
 
 internal static class WebApplicationExtensions
 {
+    /// <summary>
+    /// Builds the middleware pipeline, initializes storage, seeds
+    /// development/preview auth data (idempotent; never runs in production),
+    /// then maps all endpoints.
+    /// </summary>
     public static async Task<WebApplication> UseCynaraApiAsync(
         this WebApplication app,
         CancellationToken cancellationToken = default)
@@ -58,10 +63,6 @@ internal static class WebApplicationExtensions
             .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
             .ConfigureAwait(false);
 
-        // Development and preview instances seed real users, hospital
-        // memberships, capability assignments, and the confidential
-        // cynara-web client so the demo login works end to end. The seed is
-        // idempotent and never runs in production.
         if (app.Environment.IsDevelopment() || IsPreviewEnvironment(app.Configuration))
         {
             await app.Services.SeedAuthDevDataAsync(cancellationToken)
@@ -76,10 +77,6 @@ internal static class WebApplicationExtensions
 
         if (app.Environment.IsDevelopment())
         {
-            // Serve /swagger/{document}/swagger.json ourselves (before the
-            // default Swashbuckle middleware) so the live Development document
-            // matches the committed contracts/openapi.json exactly: same compact
-            // serialization and the same security-requirement transform.
             _ = app.UseCynaraSwaggerJson();
             _ = app.UseSwagger();
             _ = app.MapScalarApiReference(options =>
@@ -90,7 +87,6 @@ internal static class WebApplicationExtensions
             });
         }
 
-        // Probe/root endpoints stay out of Scalar; JSON:API is the contract UI.
         _ = app.MapHealthEndpoints();
         _ = app.MapSchemaEndpoints();
         _ = app.MapMinimalApiEndpoints();
@@ -100,13 +96,11 @@ internal static class WebApplicationExtensions
     }
 
     /// <summary>
-    /// Intercepts <c>GET /swagger/{documentName}/swagger.json</c> and responds
-    /// with the compact, security-correct document produced by
-    /// <see cref="OpenApiDocumentSerializer"/>, mirroring the committed
-    /// <c>contracts/openapi.json</c>. Non-JSON Swagger requests fall through to
-    /// the regular Swashbuckle middleware. This is required because the
-    /// Swashbuckle middleware serializes with its own writer and would otherwise
-    /// emit degenerate empty security requirements.
+    /// Serves <c>GET /swagger/{documentName}/swagger.json</c> using
+    /// <see cref="OpenApiDocumentSerializer"/> so the live Development
+    /// document matches the committed contract; other requests fall through
+    /// to Swashbuckle, whose writer emits degenerate empty security
+    /// requirements.
     /// </summary>
     public static IApplicationBuilder UseCynaraSwaggerJson(
         this IApplicationBuilder app)
@@ -157,25 +151,28 @@ internal static class WebApplicationExtensions
         });
     }
 
+    /// <summary>
+    /// Maps the minimal-API modules included in the OpenAPI contract. The
+    /// exporter calls this too, so a module mapped here is automatically
+    /// reflected in <c>contracts/openapi.json</c>.
+    /// </summary>
     public static WebApplication MapMinimalApiEndpoints(
         this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        // Single source of truth for the minimal-API modules that appear in
-        // the OpenAPI contract. The exporter calls this too so a new module
-        // mapped here is automatically included in contracts/openapi.json.
         _ = app.MapPipelinesEndpoints();
         _ = app.MapTasksEndpoints();
         _ = app.MapUsersEndpoints();
         return app;
     }
 
+    /// <summary>
+    /// Returns true on Render PR previews, which set
+    /// <c>IS_PULL_REQUEST=true</c>; the variable is absent in local dev.
+    /// </summary>
     private static bool IsPreviewEnvironment(IConfiguration configuration)
     {
-        // Render sets `IS_PULL_REQUEST=true` on every PR preview instance and
-        // `IS_PULL_REQUEST=false` on the main service; the variable is not
-        // present in local dev.
         string? value = configuration["IS_PULL_REQUEST"];
         return bool.TryParse(value, out bool isPreview) && isPreview;
     }

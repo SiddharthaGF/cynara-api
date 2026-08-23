@@ -6,11 +6,9 @@ namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
 /// Pipeline lifecycle facade over the shared terminal state machine: only
-/// running pipelines can be completed, canceled, or entered-in-error.
-/// Terminal states are irreversible; invalid transitions throw
-/// <see cref="InvalidStateException"/> without mutating the entity so the
-/// unit of work can roll back cleanly. Reaching an end node is completed by
-/// the advance workflow, not here.
+/// running pipelines can be completed, canceled, or entered-in-error;
+/// terminal states are irreversible. Invalid transitions throw without
+/// mutating the entity. End-node completion belongs to the advance workflow.
 /// </summary>
 internal static class PipelineLifecycle
 {

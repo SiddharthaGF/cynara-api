@@ -379,6 +379,12 @@ internal static class TokenFlowHelper
         return await ExchangeAsync(client, body, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The first interaction is intercepted by the authorization-request
+    /// cache: it returns an opaque transaction redirect instead of completing.
+    /// The cached transaction is then completed with the credentials, like a
+    /// user agent submitting the login form.
+    /// </summary>
     public static async Task<AuthTokenResult> GetAuthorizationCodeTokenAsync(
         CynaraWebApplicationFactory factory,
         string clientId,
@@ -418,10 +424,6 @@ internal static class TokenFlowHelper
             .PostAsync("/connect/authorize", authorizeContent, cancellationToken)
             .ConfigureAwait(false);
 
-        // The first interaction is intercepted by the authorization-request
-        // cache: it returns an opaque transaction redirect instead of
-        // completing. Complete the cached transaction with the credentials,
-        // like a user agent submitting the login form.
         if (IsOpaqueTransactionRedirect(response, out string? requestUri))
         {
             response.Dispose();

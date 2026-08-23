@@ -39,6 +39,11 @@ internal static class SchemaEndpoints
         return endpoints;
     }
 
+    /// <summary>
+    /// Serves one contract document. A document is immutable within its major
+    /// version directory, so cache headers let CDNs and browsers reuse the
+    /// bytes and the ETag supports revalidation across patch deploys.
+    /// </summary>
     private static IResult ServeContract(
         string contract,
         SchemaFilePaths paths,
@@ -77,9 +82,6 @@ internal static class SchemaEndpoints
             });
         }
 
-        // Schemas are versioned by directory (v1), so a document is immutable
-        // within its major version. Cache headers let CDNs and browsers reuse
-        // the bytes; ETag supports revalidation across patch deploys.
         string json = File.ReadAllText(filePath);
         http.Response.Headers.ETag = ComputeEtag(json);
         http.Response.Headers.CacheControl = "public, max-age=300";

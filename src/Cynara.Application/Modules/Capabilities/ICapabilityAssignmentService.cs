@@ -2,11 +2,9 @@ namespace Cynara.Application.Modules.Capabilities;
 
 /// <summary>
 /// Capability administration workflow. Grants and revocations validate
-/// against the known capability catalog and an explicit or default hospital
-/// scope, and emit audit events that commit in the same unit-of-work
-/// transaction as the assignment change. Hospital-scoped grants bind to the
-/// resolved tenant context; platform-scoped grants authorize in every
-/// hospital context while keeping the issuing hospital for traceability.
+/// against the capability catalog and an explicit or default scope, emit
+/// audit events in the same unit-of-work transaction, and bind hospital
+/// grants to the resolved tenant; platform grants authorize everywhere.
 /// </summary>
 public interface ICapabilityAssignmentService
 {

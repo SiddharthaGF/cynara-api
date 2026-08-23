@@ -28,19 +28,13 @@ public sealed class PostgreSqlDatabaseFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Truncates every table in the shared Postgres container so each test
-    /// instance starts from a clean slate. Schema, indexes, and sequences
-    /// are preserved so concurrent test classes sharing the connection string
-    /// keep working. Tests that bypass the WebApplicationFactory should call
-    /// this from their setup.
+    /// Truncates every table in the shared Postgres container (schema and
+    /// sequences preserved so concurrent test classes keep working) and
+    /// excludes both EF migration-history tables so applied stamps stay valid.
+    /// Tests bypassing the WebApplicationFactory should call this from setup.
     /// </summary>
     public async Task ResetAsync()
     {
-        // Exclude both EF migrations history tables so the schema is reset
-        // without invalidating applied migration stamps. The identity track
-        // keeps its own history table; truncating it would make the next
-        // host startup re-apply the identity migrations against tables that
-        // already exist.
         const string MigrationHistoryTable = "__EFMigrationsHistory";
         const string IdentityMigrationHistoryTable =
             CynaraIdentityDbContext.MigrationsHistoryTableName;

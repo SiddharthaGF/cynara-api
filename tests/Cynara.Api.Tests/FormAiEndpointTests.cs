@@ -171,7 +171,6 @@ public sealed class FormAiEndpointTests : IDisposable
                 model = "gpt-4o-mini",
             }).ConfigureAwait(false);
 
-        // DB secret cleared; factory env key becomes the active source.
         Assert.Equal("env", JsonApiClient.AttrString(cleared, "source"));
         Assert.DoesNotContain(
             "sk-test-upsert-key",

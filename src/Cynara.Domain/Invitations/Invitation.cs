@@ -5,14 +5,11 @@ namespace Cynara.Domain.Invitations;
 /// <summary>
 /// A single-use member invitation bound to exactly one hospital. Only the
 /// latest issued link activates: resend regenerates the token hash and bumps
-/// <see cref="LinkVersion"/>, so superseded tokens can never resolve again.
-/// The token itself never persists — only its SHA-256 hash — and carries no
-/// user, role, or capability data.
+/// <see cref="LinkVersion"/>. The token never persists — only its SHA-256
+/// hash — and carries no user, role, or capability data.
 /// </summary>
 /// <remarks>
-/// <see cref="HospitalId"/> and <see cref="UserId"/> are bare cross-track
-/// references (identity data lives in <c>CynaraIdentityDbContext</c>); no
-/// foreign key exists across persistence tracks by design.
+/// Identity references are bare cross-track ids (no foreign key by design).
 /// </remarks>
 [NoResource]
 public sealed class Invitation

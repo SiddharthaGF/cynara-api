@@ -82,11 +82,10 @@ public sealed class WorkspaceController(
     /// code, and creation timestamp are immutable.
     /// </summary>
     /// <remarks>
-    /// Requests that try to override immutable fields
-    /// (<c>hospitalId</c>, <c>tenantId</c>, <c>id</c>, <c>code</c>,
-    /// <c>createdAt</c>) are rejected with 400. Stale <c>rowVersion</c>
-    /// values return 409. Tenant failure payloads are described inline on
-    /// the 400/403 response codes.
+    /// Requests that try to override immutable fields (<c>hospitalId</c>,
+    /// <c>code</c>, <c>createdAt</c>) are rejected with 400; stale
+    /// <c>rowVersion</c> values return 409. Tenant failure payloads are
+    /// described inline on the 400/403 response codes.
     /// </remarks>
     [HttpPatch(Name = "patchWorkspace")]
     [RequireCapability(CapabilityCodes.WorkspaceWrite)]

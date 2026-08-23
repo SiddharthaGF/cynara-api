@@ -5,10 +5,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Documents;
 
 /// <summary>
-/// Catalog entry that allows a hospital to configure which clinical
-/// documents can be created from a published form definition. Each entry
-/// pins exactly one published <c>FormVersion</c> so historical documents
-/// continue to resolve against the form version they were started on.
+/// Catalog entry configuring which clinical documents a hospital can create
+/// from a published form definition. Each entry pins exactly one published
+/// form version so historical documents keep resolving against the version
+/// they were started on.
 /// </summary>
 [Resource(
     PublicName = "documentDefinitions",

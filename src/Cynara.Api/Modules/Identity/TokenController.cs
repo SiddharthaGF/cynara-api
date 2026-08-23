@@ -13,12 +13,10 @@ using OpenIddict.Server.AspNetCore;
 namespace Cynara.Api.Modules.Identity;
 
 /// <summary>
-/// OpenIddict token endpoint. Implements the authorization-code (+PKCE),
-/// refresh token, client credentials, and (Development-only) password grants
-/// using the canonical OpenIddict <c>SignIn</c>-based exchange pattern.
-/// Client authentication is performed automatically by OpenIddict before this
-/// action runs; revocation is handled by the OpenIddict server itself, so no
-/// controller action is required for <c>POST /connect/revocation</c>.
+/// OpenIddict token endpoint: authorization-code (+PKCE), refresh, client
+/// credentials, and Development-only password grants. Client authentication
+/// runs automatically before each action; revocation is handled entirely by
+/// the OpenIddict server.
 /// </summary>
 [ApiController]
 [AllowAnonymous]
@@ -59,11 +57,14 @@ public sealed class TokenController(
         };
     }
 
+    /// <summary>
+    /// ROPC is unsafe for cynara-web (which uses authorization-code + PKCE
+    /// exclusively) and is refused outside Development, mirroring the
+    /// server-side registration guard in IdentityHostingExtensions.
+    /// </summary>
     private async Task<IActionResult> HandlePasswordGrantAsync(
         OpenIddictRequest request)
     {
-        // ROPC is unsafe for cynara-web and must never be available in
-        // production; cynara-web uses authorization-code + PKCE exclusively.
         if (!environment.IsDevelopment())
         {
             return BadRequest(new OpenIddictResponse

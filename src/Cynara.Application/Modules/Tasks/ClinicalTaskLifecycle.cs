@@ -3,12 +3,10 @@ using Cynara.Domain.Tasks;
 namespace Cynara.Application.Modules.Tasks;
 
 /// <summary>
-/// Explicit lifecycle for the clinical task aggregate: open tasks can be
-/// claimed, completed, or canceled; claimed tasks can be completed or
-/// canceled; terminal states are irreversible. Invalid transitions throw
-/// <see cref="InvalidStateException"/> without mutating the entity so the
-/// unit of work can roll back cleanly. Documents and pipeline hooks use the
-/// same transitions as the task API.
+/// Explicit lifecycle for the clinical task aggregate: open → claimed →
+/// terminal completed or canceled; terminal states are irreversible.
+/// Invalid transitions throw <see cref="InvalidStateException"/> without
+/// mutating the entity so the unit of work rolls back cleanly.
 /// </summary>
 internal static class ClinicalTaskLifecycle
 {

@@ -20,30 +20,31 @@ public sealed class CynaraOpenApiDocumentFilter : IDocumentFilter
         RemoveProbePaths(swaggerDoc);
     }
 
+    /// <summary>
+    /// Registers reusable error/pagination component schemas under the same
+    /// camelCase ids Swashbuckle generates for CLR contract types, keeping
+    /// exactly one schema per concept; these fallbacks guarantee the shapes
+    /// exist even if an endpoint stops referencing them directly.
+    /// </summary>
     private static void RegisterContractSchemas(OpenApiDocument swaggerDoc)
     {
         swaggerDoc.Components ??= new OpenApiComponents();
         swaggerDoc.Components.Schemas ??=
             new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
 
-        // Reusable error/pagination shapes, keyed by the same camelCase ids
-        // Swashbuckle generates for the CLR contract types so there is always
-        // exactly one schema per concept. Swashbuckle normally emits these from
-        // the [ProducesResponseType] references below; these fallbacks guarantee
-        // the shapes exist even if an endpoint stops referencing them directly.
         IDictionary<string, IOpenApiSchema> schemas = swaggerDoc.Components.Schemas;
         TryRegister(schemas, "jsonApiErrorDocument", BuildJsonApiErrorDocumentSchema);
         TryRegister(schemas, "jsonApiError", BuildJsonApiErrorSchema);
         TryRegister(schemas, "jsonApiErrorSource", BuildJsonApiErrorSourceSchema);
         TryRegister(schemas, "paginationMeta", BuildPaginationMetaSchema);
 
-        // Share the reusable pagination schema with the patient list response
-        // instead of duplicating the three counters inline. JADNC removes
-        // component schemas with no references, so a real reference keeps the
-        // pagination shape in the committed contract.
         SharePaginationMetaWithPatientList(schemas);
     }
 
+    /// <summary>
+    /// References paginationMeta from the patient list response via allOf so
+    /// the shape survives JADNC's removal of unreferenced component schemas.
+    /// </summary>
     private static void SharePaginationMetaWithPatientList(
         IDictionary<string, IOpenApiSchema> schemas)
     {

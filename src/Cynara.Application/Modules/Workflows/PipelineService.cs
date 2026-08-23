@@ -12,14 +12,10 @@ using Cynara.Domain.Workflows;
 namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
-/// Default implementation of <see cref="IPipelineService"/>. Starting a
-/// pipeline pins the exact published workflow version (read from the
-/// immutable schema at every transition), validates the subject record in
-/// the resolved hospital, advance evaluates decision conditions server-side
-/// and moves the cursor along the graph, and the lifecycle operations
-/// complete, cancel, or enter a pipeline in error. Every transition appends
-/// to the immutable progression history and its audit event commits in the
-/// same unit-of-work boundary.
+/// Default implementation of <see cref="IPipelineService"/>. Starting pins
+/// the exact published workflow version and validates the subject; every
+/// transition re-reads the immutable schema graph, appends immutable
+/// progression history, and commits its audit event in one unit of work.
 /// </summary>
 public sealed class PipelineService(
     IPipelineRepository pipelines,
@@ -175,8 +171,6 @@ public sealed class PipelineService(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
-        // A soft-deleted patient stays queryable so historical journeys
-        // keep rendering; only an unknown or cross-tenant id is a 404.
         await subjectResolver.EnsureSubjectExistsAsync(
                 PipelineSubjectType.Patient,
                 patientId,
@@ -241,8 +235,6 @@ public sealed class PipelineService(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
-        // Resolve the pipeline first so an unknown or cross-tenant id is a
-        // 404 rather than an empty history.
         _ = await RequirePipelineAsync(
                 pipelineId,
                 track: false,

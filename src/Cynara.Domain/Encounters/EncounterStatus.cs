@@ -3,10 +3,8 @@ using System.Text.Json.Serialization;
 namespace Cynara.Domain.Encounters;
 
 /// <summary>
-/// Lifecycle status for a clinical encounter. <see cref="Open"/> encounters
-/// accept transitions; terminal states
-/// (<see cref="Completed"/>, <see cref="Canceled"/>,
-/// <see cref="EnteredInError"/>) remain historically queryable.
+/// Lifecycle status for a clinical encounter. Open encounters accept
+/// transitions; terminal states remain historically queryable.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EncounterStatus

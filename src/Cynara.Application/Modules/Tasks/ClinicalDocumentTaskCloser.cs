@@ -6,10 +6,9 @@ using Cynara.Domain.Tasks;
 namespace Cynara.Application.Modules.Tasks;
 
 /// <summary>
-/// Default implementation of <see cref="IClinicalDocumentTaskCloser"/> that
-/// completes the open tasks for a just-completed clinical document through
-/// the task repository and stages <c>task.completed</c> audit events through
-/// the same unit of work as the calling workflow.
+/// Default <see cref="IClinicalDocumentTaskCloser"/> that completes open
+/// tasks for a just-completed clinical document and stages
+/// <c>task.completed</c> audit events in the caller's unit of work.
 /// </summary>
 public sealed class ClinicalDocumentTaskCloser(
     ITaskRepository tasks,

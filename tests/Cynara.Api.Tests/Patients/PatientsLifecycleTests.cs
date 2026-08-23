@@ -557,10 +557,12 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
             ?? throw new InvalidOperationException("Missing id"));
     }
 
+    /// <summary>
+    /// Patients endpoints return the DTO directly (no JSON:API envelope), so
+    /// attributes live on the root element.
+    /// </summary>
     private static JsonElement ExtractAttributes(JsonDocument document)
     {
-        // Patients endpoints return the DTO directly (no JSON:API envelope),
-        // so attributes live on the root element.
         return document.RootElement;
     }
 

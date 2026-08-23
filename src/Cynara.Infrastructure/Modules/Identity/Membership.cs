@@ -1,10 +1,8 @@
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
-/// Bridges an identity user to a Cynara actor within a hospital workspace.
-/// A user may hold one membership per hospital; the unique
-/// <c>(UserId, HospitalId)</c> pair enforces that rule at the database
-/// boundary. Presence of a membership plus an active hospital is the
+/// Bridges an identity user to a Cynara actor within a hospital workspace;
+/// the unique (UserId, HospitalId) pair plus an active hospital forms the
 /// active-membership rule used by actor resolution.
 /// </summary>
 public sealed class Membership

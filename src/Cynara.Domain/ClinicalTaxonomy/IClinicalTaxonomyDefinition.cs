@@ -1,11 +1,9 @@
 namespace Cynara.Domain.ClinicalTaxonomy;
 
 /// <summary>
-/// Contract shared by every clinical taxonomy definition
-/// (<see cref="Facility"/>, <see cref="ClinicalArea"/>,
-/// <see cref="Discipline"/>). Exposes the shared identity, tenant, and
-/// code shape used by the repository's generic query helpers, plus the
-/// lifecycle <see cref="Status"/> for the shared active-status filter.
+/// Contract shared by every clinical taxonomy definition (facility,
+/// clinical area, discipline): the identity, tenant, and code shape used by
+/// generic repository helpers plus the lifecycle status for shared filters.
 /// </summary>
 public interface IClinicalTaxonomyDefinition
 {

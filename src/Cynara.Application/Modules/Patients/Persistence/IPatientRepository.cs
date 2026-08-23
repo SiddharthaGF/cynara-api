@@ -33,11 +33,9 @@ public interface IPatientRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Lists patients in the resolved hospital workspace that match the
-    /// supplied filter. Soft-deleted records are excluded unless
-    /// <c>criteria.IncludeDeleted</c> is <see langword="true"/>. Results
-    /// are ordered by family name, given name, then MRN, and sliced to
-    /// the requested page.
+    /// Lists matching patients in the workspace, excluding soft-deleted
+    /// records unless <c>criteria.IncludeDeleted</c>, ordered by family
+    /// name, given name, then MRN, and sliced to the requested page.
     /// </summary>
     public Task<PatientSearchPage> SearchAsync(
         Guid hospitalId,
@@ -51,11 +49,10 @@ public interface IPatientRepository
 }
 
 /// <summary>
-/// Filter criteria for the patient search endpoint. All fields are
-/// optional; a fully empty criteria returns the active roster.
-/// MRN and national ID filters match exactly. <see cref="NameTokens"/>
-/// must each appear as a substring of the concatenated normalized
-/// given + family name (diacritic-folded).
+/// Filter criteria for the patient search endpoint. All fields optional;
+/// empty criteria returns the active roster. MRN and national ID match
+/// exactly; <see cref="NameTokens"/> must each appear as a substring of the
+/// concatenated normalized given + family name (diacritic-folded).
 /// </summary>
 public sealed record PatientSearchCriteria(
     string? NormalizedMrn,

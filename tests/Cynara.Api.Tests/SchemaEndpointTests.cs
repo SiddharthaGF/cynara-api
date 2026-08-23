@@ -79,11 +79,13 @@ public sealed class SchemaEndpointTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Schema documents are public contract artifacts; they must not require
+    /// the X-Hospital-Code tenant header.
+    /// </summary>
     [Fact]
     public async Task GetContract_WorksWithoutHospitalContext()
     {
-        // Schema documents are public contract artifacts; they must not
-        // require the X-Hospital-Code tenant header.
         using var response = await client
             .GetAsync(new Uri("/schemas/v1/workflow-schema.schema.json", UriKind.Relative))
             .ConfigureAwait(false);

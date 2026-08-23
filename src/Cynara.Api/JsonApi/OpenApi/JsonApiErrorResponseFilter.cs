@@ -8,11 +8,8 @@ namespace Cynara.Api.JsonApi.OpenApi;
 
 /// <summary>
 /// Attaches the reusable <c>JsonApiErrorDocument</c> schema to every error
-/// response (400/401/403/404/409/422/500) that does not already document a
-/// response body. JSON:API workflow actions on <c>JsonApiController</c>
-/// derivatives and custom controllers return errors through the shared
-/// exception mapping, so every documented error status resolves to the same
-/// contract schema instead of an untyped 200-only body.
+/// response (400–500) lacking a documented body, so all errors resolve to
+/// the shared contract schema instead of an untyped 200-only body.
 /// </summary>
 /// <remarks>
 /// Responses that already carry a typed body (e.g.

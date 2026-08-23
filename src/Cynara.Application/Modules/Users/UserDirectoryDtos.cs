@@ -2,10 +2,9 @@ namespace Cynara.Application.Modules.Users;
 
 /// <summary>
 /// Wire shapes of the administrative user directory. The list item exposes
-/// exactly the identifier, email, and in-scope membership hospitals; the
-/// detail adds the user name, membership records, capability codes, and
-/// Identity account flags. No roles field exists anywhere: roles are out of
-/// scope for this increment and must never appear as invented placeholders.
+/// exactly identifier, email, and in-scope membership hospitals; the detail
+/// adds name, memberships, capability codes, and Identity flags. No roles
+/// field exists — roles are out of scope and must never appear.
 /// </summary>
 public sealed record UserDirectoryListItem(
     Guid Id,

@@ -105,10 +105,9 @@ public static class DemoShowcaseSeeder
     }
 
     /// <summary>
-    /// Seeds the whole demo workspace: hospital, capabilities, component,
-    /// published form, published workflow, clinical taxonomy, patients,
-    /// encounters, document catalog, clinical documents, form responses, AI
-    /// provider settings, and a sample failure log.
+    /// Seeds the entire demo workspace end to end: hospital, capabilities,
+    /// published component/form/workflow, clinical data, responses, AI
+    /// settings, and a sample failure log.
     /// </summary>
     public static async Task SeedFullDatabaseAsync(
         this IServiceProvider services,
@@ -667,6 +666,10 @@ public static class DemoShowcaseSeeder
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Seeds one sample failure-log entry because failure logs are
+    /// append-only operational data that fresh workspaces otherwise lack.
+    /// </summary>
     private static async Task EnsureFailureLogAsync(
         CynaraDbContext dbContext,
         IFailureLogWriter writer,
@@ -682,8 +685,6 @@ public static class DemoShowcaseSeeder
             return;
         }
 
-        // Failure logs are append-only operational data; seed one sample
-        // entry so the table is not empty in fresh workspaces.
         await writer.RecordAsync(
             new NotFoundException(
                 "Fixture de seed: fallo no encontrado simulado para la demo."),
@@ -790,6 +791,10 @@ public static class DemoShowcaseSeeder
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Grants the demo actor the full capability catalog because it drives
+    /// every client flow; already-held grants are skipped.
+    /// </summary>
     private static async Task EnsureCapabilitiesAsync(
         ICapabilityAssignmentService capabilities,
         CancellationToken cancellationToken)
@@ -805,8 +810,6 @@ public static class DemoShowcaseSeeder
             .Select(item => item.Capability)
             .ToHashSet(StringComparer.Ordinal);
 
-        // The demo actor drives every client flow, so seed the full Stage 2
-        // capability catalog rather than a subset; assignments are idempotent.
         foreach (string capability in CapabilityCodes.All)
         {
             if (held.Contains(capability))

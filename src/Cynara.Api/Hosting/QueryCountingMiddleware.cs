@@ -6,11 +6,9 @@ namespace Cynara.Api.Hosting;
 
 /// <summary>
 /// Surfaces the per-request read-command count as the <c>X-Query-Count</c>
-/// response header and logs a warning when a single request executes more
-/// than <see cref="WarningThreshold"/> commands — the classic fingerprint of
-/// an N+1 regression. The header keeps the count observable to integration
-/// tests so a query-budget regression can fail the build, not just alert
-/// at runtime.
+/// response header and warns past <see cref="WarningThreshold"/> commands —
+/// the classic fingerprint of an N+1 regression that integration tests can
+/// fail on instead of merely alerting at runtime.
 /// </summary>
 internal sealed class QueryCountingMiddleware(
     RequestDelegate next,
@@ -18,15 +16,16 @@ internal sealed class QueryCountingMiddleware(
 {
     internal const int WarningThreshold = 50;
 
+    /// <summary>
+    /// Registers the header callback before awaiting the pipeline so it runs
+    /// in OnStarting — after the handler and its queries have completed —
+    /// making the final count observable even though the body streams.
+    /// </summary>
     public async Task InvokeAsync(HttpContext context)
     {
         QueryCounter counter = context.RequestServices
             .GetRequiredService<QueryCounter>();
 
-        // Register before awaiting the pipeline so the header is written in
-        // OnStarting — which runs just before headers are sent, after the
-        // handler (and its queries) have completed. Setting it here is what
-        // makes the count observable even though the response body streams.
         context.Response.OnStarting(() =>
         {
             context.Response.Headers["X-Query-Count"] = counter.Count.ToString(

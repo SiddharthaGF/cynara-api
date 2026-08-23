@@ -5,11 +5,9 @@ using Cynara.Domain.Documents;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Shared validation helpers for the clinical document catalog workflows.
-/// Keeps the lifecycle service free of repeated parameter sanitation while
-/// preserving the rules described in CYN-36: stable codes, optimistic
-/// concurrency, rejection of duplicate codes, and prohibition of edits
-/// against retired catalog entries.
+/// Shared validation helpers for the document catalog workflows: stable
+/// codes, optimistic concurrency, duplicate-code rejection, and prohibition
+/// of edits against retired catalog entries.
 /// </summary>
 internal static class DocumentCatalogWorkflowHelpers
 {

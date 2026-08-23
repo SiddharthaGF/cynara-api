@@ -8,17 +8,9 @@ namespace Cynara.Api.JsonApi.OpenApi;
 
 /// <summary>
 /// Post-JsonApiDotNetCore Swagger tweaks that must run after
-/// <c>ConfigureSwaggerGenOptions</c>:
-/// <list type="bullet">
-/// <item>
-/// Title-case OpenAPI tags so Scalar matches controller tags like "Form AI".
-/// </item>
-/// <item>
-/// Register the bearer/OAuth2 security schemes and their operation filter last
-/// so JADNC's documentation filter can still distinguish collection (0 params)
-/// vs get-by-id (1 param) before the security requirement is applied.
-/// </item>
-/// </list>
+/// <c>ConfigureSwaggerGenOptions</c>: title-cases OpenAPI tags and registers
+/// the bearer/OAuth2 security schemes plus operation filters, so JADNC's
+/// documentation filter still distinguishes collection vs get-by-id first.
 /// </summary>
 internal sealed class CynaraSwaggerGenConfigureOptions(
     IConfiguration configuration)
@@ -42,8 +34,6 @@ internal sealed class CynaraSwaggerGenConfigureOptions(
             return [.. tags.Select(OpenApiTagNames.ToTitleCase)];
         });
 
-        // Bearer access tokens issued by the /connect surface. Clients use the
-        // OAuth2 flow below; the bearer scheme is what protects each operation.
         options.AddSecurityDefinition(
             OpenApiSecurity.Bearer,
             new OpenApiSecurityScheme
@@ -104,10 +94,12 @@ internal sealed class CynaraSwaggerGenConfigureOptions(
             relativePath.TrimStart('/'));
     }
 
+    /// <summary>
+    /// Mirrors IdentityHostingExtensions: absent config falls back to the
+    /// local Development listen URL so the exporter and the host agree.
+    /// </summary>
     private string ResolveIssuer()
     {
-        // Mirrors IdentityHostingExtensions: absent config falls back to the
-        // local Development listen URL so the exporter and local host agree.
         return configuration["OpenIddict:Issuer"] ?? "http://localhost:5000";
     }
 

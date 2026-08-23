@@ -3,36 +3,11 @@ using Cynara.Application.OpenApi;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Public read and write shapes for clinical document instances.
+/// Public read shape for a clinical document instance. Identity and
+/// provenance fields (definition, patient, encounter, pinned form version,
+/// response) are immutable; <c>Status</c> is inProgress/completed/canceled/
+/// enteredInError; <c>RowVersion</c> guards optimistic concurrency.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>DocumentDefinitionId</c> – catalog entry the document was
-/// started from; immutable.</item>
-/// <item><c>PatientId</c> – patient from the bound encounter; immutable.</item>
-/// <item><c>EncounterId</c> – encounter the document belongs to;
-/// immutable.</item>
-/// <item><c>FormVersionId</c> – exact published form version captured at
-/// creation; immutable so historical documents stay resolvable.</item>
-/// <item><c>FormResponseId</c> – form response carrying the document's
-/// answers; immutable.</item>
-/// <item><c>AuthorId</c> – actor that started the document; optional.</item>
-/// <item><c>Status</c> – one of <c>inProgress</c>, <c>completed</c>,
-/// <c>canceled</c>, <c>enteredInError</c>.</item>
-/// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
-/// <item><c>CompletedAt</c> – UTC timestamp when completed; null while
-/// in progress.</item>
-/// <item><c>CanceledAt</c> – UTC timestamp when canceled; null unless
-/// canceled.</item>
-/// <item><c>EnteredInErrorReason</c> / <c>EnteredInErrorById</c> /
-/// <c>EnteredInErrorAt</c> – read-only attribution for entered-in-error
-/// records; null otherwise.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// future transitions.</item>
-/// </list>
-/// </remarks>
 public sealed record ClinicalDocumentDto(
     Guid Id,
     Guid DocumentDefinitionId,

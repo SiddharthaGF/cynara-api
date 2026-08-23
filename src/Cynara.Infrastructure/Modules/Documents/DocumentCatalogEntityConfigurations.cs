@@ -8,10 +8,8 @@ namespace Cynara.Infrastructure.Modules.Documents;
 
 /// <summary>
 /// EF entity configuration for the <see cref="DocumentDefinition"/>
-/// aggregate. Codes are unique within the hospital workspace; the
-/// <c>FormVersionId</c> snapshot is preserved through retirement so
-/// historical documents remain resolvable and is constrained with
-/// <see cref="DeleteBehavior.Restrict"/> to prevent orphaned deletions.
+/// aggregate; codes are unique per hospital and the FormVersionId snapshot
+/// is restrict-deleted so historical documents stay resolvable.
 /// </summary>
 public sealed class DocumentDefinitionConfiguration
     : IEntityTypeConfiguration<DocumentDefinition>

@@ -8,13 +8,10 @@ using Cynara.Domain.Patients;
 namespace Cynara.Api.Tests.Patients.UnitTests;
 
 /// <summary>
-/// Unit coverage for <see cref="PatientService"/>. The service is the
-/// boundary that enforces the CYN-49 invariants: tenant scoping,
-/// hospital-scoped MRN uniqueness, demographic validation, optimistic
-/// concurrency, soft-delete behaviour, and audit emission. The
-/// integration tests cover the happy path against Postgres; these tests
-/// pin each branch that the integration suite does not exercise (cross-
-/// tenant, soft-deleted, unknown id, validation, concurrency).
+/// Unit coverage for <see cref="PatientService"/>, the boundary enforcing the
+/// CYN-49 invariants: tenant scoping, hospital-scoped MRN uniqueness,
+/// demographic validation, optimistic concurrency, soft delete, and audit.
+/// Pins each branch the Postgres integration suite does not exercise.
 /// </summary>
 public sealed class PatientsServiceTests
 {

@@ -10,31 +10,25 @@ namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
 /// Read-only implementation of <see cref="IUserDirectoryReader"/> over the
-/// identity and domain persistence contexts. The identity context drives
-/// paging and counting so a multi-hospital user appears exactly once: the
-/// driving query joins members to users, projects the narrow directory
-/// shape, and applies <c>DISTINCT</c>, count, and deterministic ordering
-/// (<see cref="IdentityUser{TKey}.NormalizedEmail"/> then id) in SQL before
-/// slicing the page. Bounded untracked follow-ups fetch only what the page
-/// or detail needs: membership rows for the page's users plus their
-/// hospital codes, and — for details — the effective capability union over
-/// the target's in-scope actor identities. The join between contexts runs
-/// in memory because they live on separate EF contexts. No tracking, no
-/// staging, no commits: directory reads never mutate state.
+/// identity and domain persistence contexts. Identity drives paging and
+/// counting so a multi-hospital user appears once; cross-context joins run
+/// in memory, and no read tracks or mutates state.
 /// </summary>
 public sealed class UserDirectoryReader(
     CynaraIdentityDbContext identity,
     CynaraDbContext domain) : IUserDirectoryReader
 {
     /// <inheritdoc />
+    /// <remarks>
+    /// Scopes via an EXISTS semi-join (no DISTINCT stage) so each user
+    /// matches once and the ordered Skip/Take page stays translatable, and
+    /// orders entity columns before projection since EF cannot reorder
+    /// through constructed types.
+    /// </remarks>
     public async Task<DirectoryPage> SearchAsync(
         DirectoryQuery query,
         CancellationToken cancellationToken)
     {
-        // Filter and page on the identity entities directly. The scope
-        // restriction is an EXISTS semi-join, so each user appears exactly
-        // once by construction — no DISTINCT stage, which keeps the ordered
-        // Skip/Take page translatable end to end.
         IQueryable<IdentityUser<Guid>> scopedUsers = identity.Users
             .AsNoTracking()
             .Where(user => ScopedMemberships(
@@ -56,8 +50,6 @@ public sealed class UserDirectoryReader(
             .CountAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        // Ordering runs on entity columns before projection: EF cannot bind
-        // an ordering back through a constructed projection type.
         List<UserPageRow> page = await scopedUsers
             .OrderBy(user => user.NormalizedEmail)
             .ThenBy(user => user.Id)
@@ -137,8 +129,6 @@ public sealed class UserDirectoryReader(
             .ConfigureAwait(false);
         if (memberships.Count == 0)
         {
-            // Out-of-scope collapses onto unknown: the caller learns nothing
-            // about users beyond its grant breadth.
             return null;
         }
 
@@ -170,10 +160,8 @@ public sealed class UserDirectoryReader(
     }
 
     /// <summary>
-    /// Restricts membership queries to the caller's scope. A hospital-scoped
-    /// caller is pinned to the resolved workspace; only a platform-scope
-    /// caller may supply a narrowing filter, which this method enforces even
-    /// though the service already drops foreign filters.
+    /// Restricts memberships to the caller's scope: hospital callers are
+    /// pinned to their workspace; only platform scope may narrow by filter.
     /// </summary>
     private static IQueryable<Membership> ScopedMemberships(
         IQueryable<Membership> source,
@@ -212,10 +200,8 @@ public sealed class UserDirectoryReader(
     }
 
     /// <summary>
-    /// Unions the capability codes effectively held by the target's in-scope
-    /// actor identities: platform rows authorize globally while hospital
-    /// rows count only inside their own hospital, mirroring the resolver's
-    /// union semantics.
+    /// Unions capabilities across the target's in-scope actor identities;
+    /// platform rows apply globally, hospital rows within their hospital.
     /// </summary>
     private async Task<string[]> LoadEffectiveCapabilitiesAsync(
         IReadOnlyList<Membership> memberships,

@@ -1,12 +1,10 @@
 namespace Cynara.Application.Common;
 
 /// <summary>
-/// Shared terminal-state machine for runtime aggregates (encounter, pipeline,
-/// and clinical document): complete, cancel, and enter-in-error are terminal
-/// and irreversible. Each aggregate lifecycle keeps its own thin Fire facade
-/// with its allowed-transition table and message label; this class owns the
-/// shared trigger vocabulary, verb formatting, and the allowed-transition
-/// check.
+/// Shared terminal-state machine for runtime aggregates (encounter,
+/// pipeline, clinical document): complete, cancel, and enter-in-error are
+/// terminal and irreversible. Each aggregate keeps a thin Fire facade with
+/// its transition table; this class owns triggers, verbs, and the check.
 /// </summary>
 internal static class TerminalLifecycle
 {

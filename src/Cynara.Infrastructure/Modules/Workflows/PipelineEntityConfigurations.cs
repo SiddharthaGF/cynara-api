@@ -6,10 +6,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Workflows;
 
 /// <summary>
-/// EF entity configuration for the <see cref="Pipeline"/> aggregate. Indexes
-/// support hospital-scoped list filters by subject type, subject, and status.
-/// The workflow version link is restricted so a pinned published version can
-/// never be deleted out from under a running pipeline.
+/// EF entity configuration for the <see cref="Pipeline"/> aggregate;
+/// indexes support hospital-scoped filters and the restricted version link
+/// pins a published version against deletion.
 /// </summary>
 public sealed class PipelineConfiguration
     : IEntityTypeConfiguration<Pipeline>

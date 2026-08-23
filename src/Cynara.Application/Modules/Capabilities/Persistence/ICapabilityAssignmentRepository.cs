@@ -9,11 +9,9 @@ namespace Cynara.Application.Modules.Capabilities.Persistence;
 public interface ICapabilityAssignmentRepository
 {
     /// <summary>
-    /// Returns every capability code currently granted to
-    /// <paramref name="actorId"/> for <paramref name="hospitalId"/>: the
-    /// union of hospital-scoped grants assigned to that hospital and the
-    /// actor's platform-scoped grants, which authorize in every hospital
-    /// context.
+    /// Returns every capability code granted to <paramref name="actorId"/>
+    /// for <paramref name="hospitalId"/>: the union of that hospital's
+    /// hospital-scoped grants and the actor's platform grants.
     /// </summary>
     public Task<IReadOnlyList<string>> ListCapabilityCodesAsync(
         Guid hospitalId,
@@ -45,10 +43,9 @@ public interface ICapabilityAssignmentRepository
 
     /// <summary>
     /// Returns <see langword="true"/> when the actor holds a platform-scope
-    /// grant for the capability. Platform rows are hospital-independent by
-    /// definition, so no hospital parameter participates in the match.
-    /// Read-only callers (for example the user directory) use this to decide
-    /// listing breadth without duplicating grant storage knowledge.
+    /// grant for the capability. Platform rows are hospital-independent, so
+    /// no hospital parameter participates; read-only callers use this to
+    /// decide listing breadth without duplicating grant-storage knowledge.
     /// </summary>
     public Task<bool> HasPlatformScopeAsync(
         string actorId,

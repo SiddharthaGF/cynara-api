@@ -21,16 +21,16 @@ public sealed class FormAiStreamHardeningTests
 
     private const string EmptyRules = /*lang=json,strict*/ """{"schemaVersion":"1.0.0","clinicalSchemaVersion":"1.0.0","fields":{},"validations":[]}""";
 
+    /// <summary>
+    /// The UI schema enforces layout items, so a field referencing a missing
+    /// clinical id fails validation; clearing only the layout restores a
+    /// valid state and exercises the layout-only fallback branch.
+    /// </summary>
     [Fact]
     public void TryValidateWithFallback_DropsLayout_ReportsOutcome()
     {
         JsonSchemaValidator validator = CreateValidator();
 
-        // The UI schema enforces layout items: a field referencing a clinical
-        // id that doesn't exist in the clinical schema makes the first
-        // validate() fail. Clearing the layout (only) is enough to bring
-        // the UI back to a valid state, exercising the layout-only fallback
-        // branch.
         JsonObject ui = ParseJsonObject(/*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
@@ -60,6 +60,10 @@ public sealed class FormAiStreamHardeningTests
         Assert.Contains("\"layout\":[]", finalUi, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A bogus validation op fails the rules schema; clearing the layout alone
+    /// cannot fix it, so the fallback keeps stripping down to the rules layer.
+    /// </summary>
     [Fact]
     public void TryValidateWithFallback_DropsRules_ReportsOutcome()
     {
@@ -75,8 +79,6 @@ public sealed class FormAiStreamHardeningTests
             }
             """);
 
-        // validations list with a bogus op that the rules schema rejects;
-        // clearing layout alone won't fix it, so the fallback keeps stripping.
         JsonObject rules = ParseJsonObject(/*lang=json,strict*/ """
             {
               "schemaVersion": "1.0.0",
@@ -413,6 +415,7 @@ public sealed class FormAiStreamHardeningTests
         }
     }
 
+    /// <summary>Simulates a hanging provider: <c>never</c> blocks until cancelled.</summary>
     private sealed class StubAsyncEnumerator : IAsyncEnumerator<ChatResponseUpdate>
     {
         private readonly bool never;
@@ -439,7 +442,6 @@ public sealed class FormAiStreamHardeningTests
         {
             if (never)
             {
-                // Block until the caller cancels us — simulates a hanging provider.
                 try
                 {
                     await Task.Delay(Timeout.Infinite, linkedCts.Token).ConfigureAwait(false);

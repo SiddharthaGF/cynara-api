@@ -1,10 +1,9 @@
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
-/// Public constants for patient registry field length bounds. Lives in
-/// the Application layer so both workflows and EF entity configurations
-/// can share the same authoritative values without reaching into the
-/// internal <see cref="PatientWorkflowHelpers"/>.
+/// Public constants for patient registry field length bounds, shared by
+/// workflows and EF configurations without reaching into the internal
+/// <see cref="PatientWorkflowHelpers"/>.
 /// </summary>
 public static class PatientFieldLimits
 {

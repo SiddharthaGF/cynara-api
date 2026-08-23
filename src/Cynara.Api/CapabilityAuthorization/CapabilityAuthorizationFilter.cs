@@ -9,22 +9,21 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace Cynara.Api.CapabilityAuthorization;
 
 /// <summary>
-/// Endpoint-boundary authorization filter. Runs before model binding and
-/// action invocation and enforces the capability declared by
-/// <see cref="RequireCapabilityAttribute"/> (method-level metadata wins over
-/// the controller-level declaration). Evaluation flows through the native
-/// <see cref="IAuthorizationService"/> pipeline — the policy is synthesized
-/// on demand by <see cref="CapabilityPolicyProvider"/> and checked by
-/// <see cref="CapabilityAuthorizationHandler"/>. Denials throw
-/// <see cref="CapabilityForbiddenException"/>; the shared exception handler
-/// turns that into a 403 and records the denied-access audit event. Requests
-/// with no actor identity or no grant resolve to deny, and the filter never
-/// reveals whether the protected resource exists.
+/// Endpoint-boundary filter enforcing <see cref="RequireCapabilityAttribute"/>
+/// (method-level metadata wins over the controller level) through the native
+/// <see cref="IAuthorizationService"/> pipeline; denials produce a 403 with a
+/// denied-access audit event, never revealing that the resource exists.
 /// </summary>
 public sealed class CapabilityAuthorizationFilter(
     ICurrentActor currentActor,
     IAuthorizationService authorizationService) : IAsyncAuthorizationFilter
 {
+    /// <summary>
+    /// Challenges anonymous requests with 401 before evaluating the
+    /// capability so absent authentication is reported as such; the test seam
+    /// authenticates every request, so header-based actor suites behave as
+    /// before.
+    /// </summary>
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -42,10 +41,6 @@ public sealed class CapabilityAuthorizationFilter(
             return;
         }
 
-        // Challenge anonymous requests with 401 before evaluating the
-        // capability so absent authentication is reported as such. The test
-        // seam authenticates every request, so the header-based actor suites
-        // keep behaving as before.
         if (context.HttpContext.User.Identity?.IsAuthenticated is not true)
         {
             context.Result = new ChallengeResult();

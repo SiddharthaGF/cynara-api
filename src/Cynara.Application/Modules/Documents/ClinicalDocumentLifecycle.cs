@@ -5,11 +5,10 @@ using Cynara.Domain.Documents;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Clinical document lifecycle facade over the shared terminal state machine.
-/// Completed content is immutable; terminal states are irreversible. Invalid
-/// transitions throw <see cref="InvalidStateException"/> without mutating the
-/// entity so the unit of work can roll back cleanly and the bound response
-/// stays intact.
+/// Clinical document lifecycle facade over the shared terminal state
+/// machine. Completed content is immutable; terminal states are
+/// irreversible. Invalid transitions throw without mutating the entity so
+/// the unit of work rolls back and the bound response stays intact.
 /// </summary>
 internal static class ClinicalDocumentLifecycle
 {

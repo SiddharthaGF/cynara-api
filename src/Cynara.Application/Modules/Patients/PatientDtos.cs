@@ -3,30 +3,11 @@ using Cynara.Application.OpenApi;
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
-/// Public read and write shapes for the patient registry.
+/// Public read shape for a patient registry row. <c>Mrn</c> is stored
+/// verbatim; names and national ID are trimmed at write time; status is
+/// active/retired with <c>DeletedAt</c> null while active; RowVersion
+/// guards PATCH and soft-delete.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>Mrn</c> – medical record number as supplied by the caller;
-/// stored verbatim.</item>
-/// <item><c>NationalId</c> – optional national identifier (passport,
-/// government ID); trimmed at write time.</item>
-/// <item><c>GivenName</c> / <c>FamilyName</c> – trimmed at write time.</item>
-/// <item><c>BirthDate</c> – UTC date of birth (no time zone).</item>
-/// <item><c>Sex</c> – one of <c>female</c>, <c>male</c>, <c>unknown</c>.</item>
-/// <item><c>BloodType</c> – ABO/Rh type in clinical notation
-/// (<c>a+</c>, <c>o-</c>, …); captured at registration and editable
-/// through the update contract.</item>
-/// <item><c>Status</c> – one of <c>active</c>, <c>retired</c>.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// PATCH and soft-delete.</item>
-/// <item><c>DeletedAt</c> – UTC timestamp when the patient was
-/// soft-deleted; <see langword="null"/> while active.</item>
-/// <item><c>CreatedAt</c> / <c>UpdatedAt</c> – UTC timestamps.</item>
-/// </list>
-/// </remarks>
 public sealed record PatientDto(
     Guid Id,
     string Mrn,
@@ -48,9 +29,7 @@ public sealed record PatientDto(
 /// <summary>
 /// Create contract for patients. The MRN is the business identifier within
 /// the resolved hospital workspace and must be unique across the hospital;
-/// the <c>Sex</c> and <c>BloodType</c> values are stored in lowercase
-/// clinical notation. <c>BloodType</c> is always captured at registration
-/// and remains editable through the update contract.
+/// sex and blood type values use lowercase clinical notation.
 /// </summary>
 public sealed record CreatePatientRequest(
     string Mrn,
@@ -83,13 +62,10 @@ public sealed record UpdatePatientRequest(
 public sealed record SoftDeletePatientRequest(uint RowVersion);
 
 /// <summary>
-/// Search filter contract for the patient registry. All criteria are
-/// optional; an empty filter returns the active, non-deleted roster for
-/// the resolved hospital workspace. Name filters are tokenized across
-/// given and family fields and matched against the full normalized name
-/// (diacritic-folded substrings). MRN and national ID remain exact.
-/// <c>Page</c> is 1-based; <c>PageSize</c> is clamped to
-/// <see cref="PatientFieldLimits.MaxPageSize"/>.
+/// Search filter contract for the patient registry. All criteria optional;
+/// an empty filter returns the active, non-deleted roster. Name filters are
+/// tokenized and matched diacritic-folded against the full normalized name;
+/// MRN and national ID stay exact. Page is 1-based; PageSize is clamped.
 /// </summary>
 public sealed record PatientSearchRequest(
     string? Mrn,

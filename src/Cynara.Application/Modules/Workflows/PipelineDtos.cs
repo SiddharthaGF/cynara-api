@@ -4,24 +4,11 @@ using System.Text.Json.Serialization;
 namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
-/// Public read and write shapes for workflow pipelines and their
-/// append-only progression history.
+/// Public read shape for a workflow pipeline. The pinned published workflow
+/// (code/version/schema) is immutable after start; subject type is
+/// encounter or patient; status is running/completed/canceled/
+/// enteredInError; RowVersion guards transitions.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>WorkflowCode</c> / <c>WorkflowVersion</c> – the pinned published
-/// workflow; immutable after start.</item>
-/// <item><c>SubjectType</c> – one of <c>encounter</c>, <c>patient</c>.</item>
-/// <item><c>Status</c> – one of <c>running</c>, <c>completed</c>,
-/// <c>canceled</c>, <c>enteredInError</c>.</item>
-/// <item><c>CurrentNodeId</c> – node id of the pinned workflow graph the
-/// pipeline currently sits on.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// transitions.</item>
-/// </list>
-/// </remarks>
 public sealed record PipelineDto(
     Guid Id,
     string WorkflowCode,

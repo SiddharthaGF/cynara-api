@@ -2,10 +2,9 @@ namespace Cynara.Application.Modules.Users;
 
 /// <summary>
 /// Administrative read workflows over identity data, gated by the
-/// <c>users.read</c> capability. The caller's grant scope decides breadth:
-/// hospital-scoped callers see only their resolved hospital's members;
-/// platform-scope callers span all hospitals. Listing is never audited; the
-/// HTTP surface audits successful detail reads after they succeed.
+/// <c>users.read</c> capability. Grant scope decides breadth (hospital vs.
+/// platform). Listing is never audited; the HTTP surface audits successful
+/// detail reads after they succeed.
 /// </summary>
 public interface IUserDirectoryService
 {

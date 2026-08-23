@@ -3,9 +3,8 @@ namespace Cynara.Application.Modules.Patients;
 /// <summary>
 /// Tenant-aware lifecycle service for the patient registry.
 /// Implementations stamp ownership from <c>IHospitalContext</c> so clients
-/// cannot move patient records between tenants, enforce hospital-scoped
-/// MRN uniqueness, honor optimistic concurrency for updates, and emit
-/// audit events through the shared unit-of-work boundary.
+/// cannot move records between tenants, enforce hospital-scoped MRN
+/// uniqueness, honor concurrency, and emit audit events in the boundary.
 /// </summary>
 public interface IPatientService
 {
@@ -24,11 +23,9 @@ public interface IPatientService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Searches the patient roster for the resolved hospital workspace.
-    /// Soft-deleted records are hidden unless
-    /// <see cref="PatientSearchRequest.IncludeDeleted"/> is
-    /// <see langword="true"/>. Results are paged via
-    /// <see cref="PatientSearchRequest.Page"/> and
+    /// Searches the roster for the resolved workspace. Soft-deleted records
+    /// are hidden unless <see cref="PatientSearchRequest.IncludeDeleted"/> is
+    /// true; results page via <see cref="PatientSearchRequest.Page"/> and
     /// <see cref="PatientSearchRequest.PageSize"/>.
     /// </summary>
     public Task<PatientListResponse> SearchAsync(

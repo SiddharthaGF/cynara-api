@@ -6,9 +6,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Invitations;
 
 /// <summary>
-/// EF entity configuration for <see cref="Invitation"/>. The unique index on
-/// the token hash is the activation gate: only the current link of an
-/// invitation can resolve, so resend instantly and irreversibly supersedes
+/// EF entity configuration for <see cref="Invitation"/>; the unique
+/// token-hash index gates activation so resending instantly supersedes
 /// every previously issued link.
 /// </summary>
 public sealed class InvitationEntityConfiguration

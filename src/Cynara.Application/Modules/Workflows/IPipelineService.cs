@@ -1,11 +1,10 @@
 namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
-/// Contract for the workflow pipeline runtime: start pins the exact published
-/// workflow version, advance evaluates transition conditions server-side and
-/// moves the cursor along the graph, and the lifecycle operations complete,
-/// cancel, or enter a pipeline in error. Every transition appends to the
-/// immutable progression history.
+/// Contract for the workflow pipeline runtime: start pins the exact
+/// published version, advance evaluates conditions server-side and moves
+/// the cursor, lifecycle operations complete/cancel/enter-in-error, and
+/// every transition appends to the immutable progression history.
 /// </summary>
 public interface IPipelineService
 {
@@ -29,7 +28,10 @@ public interface IPipelineService
         PipelineListRequest request,
         CancellationToken cancellationToken);
 
-    /// <summary>Returns the append-only progression history for one pipeline.</summary>
+    /// <summary>
+    /// Returns the append-only progression history for one pipeline; an
+    /// unknown or cross-tenant id is a 404, not an empty history.
+    /// </summary>
     public Task<PipelineHistoryResponse> ListHistoryAsync(
         Guid pipelineId,
         CancellationToken cancellationToken);
@@ -37,9 +39,8 @@ public interface IPipelineService
     /// <summary>
     /// Returns the full pipeline journey for a patient record: every
     /// pipeline bound to the patient (directly or through its encounters),
-    /// rendered from the exact published workflow version at start time
-    /// with the immutable progression history. Soft-deleted patients remain
-    /// queryable for historical rendering.
+    /// rendered from the pinned published version with its history.
+    /// Soft-deleted patients remain queryable for historical rendering.
     /// </summary>
     public Task<PatientJourneyResponse> GetPatientJourneyAsync(
         Guid patientId,

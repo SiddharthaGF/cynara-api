@@ -3,11 +3,10 @@ using Cynara.Application.Modules.Hospitals;
 namespace Cynara.Application.Common;
 
 /// <summary>
-/// Ambient workflow context that groups the tenant scope and the clock.
+/// Ambient workflow context grouping the tenant scope and the clock.
 /// Workflows with many collaborators use this port instead of taking
-/// <see cref="IHospitalContext"/> and <see cref="TimeProvider"/> separately,
-/// keeping constructor surfaces within the parameter budget. It delegates to
-/// the resolved hospital context and the injected clock; it owns no state.
+/// <see cref="IHospitalContext"/> and <see cref="TimeProvider"/> separately;
+/// it owns no state.
 /// </summary>
 public interface IWorkflowContext
 {

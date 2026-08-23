@@ -3,10 +3,9 @@ using System.Text.Json.Serialization;
 namespace Cynara.Domain.Documents;
 
 /// <summary>
-/// Lifecycle status of a clinical document catalog entry.
-/// <see cref="Active"/> entries can be used to start new document instances;
-/// <see cref="Retired"/> entries remain resolvable for historical references
-/// but must be rejected by new clinical activity.
+/// Lifecycle status of a clinical document catalog entry. Active entries
+/// start new document instances; retired ones stay resolvable for history
+/// but reject new clinical activity.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum DocumentDefinitionStatus

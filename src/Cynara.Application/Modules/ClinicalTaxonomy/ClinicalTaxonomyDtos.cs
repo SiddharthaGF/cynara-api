@@ -3,24 +3,9 @@ using Cynara.Application.OpenApi;
 namespace Cynara.Application.Modules.ClinicalTaxonomy;
 
 /// <summary>
-/// Public read and write shapes for facility definitions.
+/// Public read shape for a facility definition. Code is immutable;
+/// status is active or retired; RowVersion guards PATCH and retire.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>Code</c> – stable business code (pattern
-/// <c>^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$</c>); immutable.</item>
-/// <item><c>Name</c> – human-readable facility name; mutable.</item>
-/// <item><c>Status</c> – one of <c>active</c>, <c>retired</c>.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// PATCH/retire.</item>
-/// <item><c>RetiredAt</c> – UTC timestamp set when the facility is
-/// retired; immutable after retirement.</item>
-/// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
-/// <item><c>UpdatedAt</c> – UTC timestamp of the last metadata change.</item>
-/// </list>
-/// </remarks>
 public sealed record FacilityDto(
     Guid Id,
     string Code,
@@ -49,24 +34,10 @@ public sealed record UpdateFacilityRequest(
 public sealed record RetireFacilityRequest(uint RowVersion);
 
 /// <summary>
-/// Public read and write shapes for clinical area definitions.
+/// Public read shape for a clinical area definition. Code and owning
+/// facility are immutable; status is active or retired; RowVersion guards
+/// PATCH and retire.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>Code</c> – stable business code unique within the hospital;
-/// immutable.</item>
-/// <item><c>Name</c> – human-readable clinical area name; mutable.</item>
-/// <item><c>FacilityId</c> – owning facility identifier; immutable.</item>
-/// <item><c>Status</c> – one of <c>active</c>, <c>retired</c>.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// PATCH/retire.</item>
-/// <item><c>RetiredAt</c> – UTC timestamp when the area was retired.</item>
-/// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
-/// <item><c>UpdatedAt</c> – UTC timestamp of the last metadata change.</item>
-/// </list>
-/// </remarks>
 public sealed record ClinicalAreaDto(
     Guid Id,
     string Code,
@@ -97,24 +68,10 @@ public sealed record UpdateClinicalAreaRequest(
 public sealed record RetireClinicalAreaRequest(uint RowVersion);
 
 /// <summary>
-/// Public read and write shapes for discipline definitions.
+/// Public read shape for a discipline definition. Code and owning clinical
+/// area are immutable; status is active or retired; RowVersion guards
+/// PATCH and retire.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>Code</c> – stable business code unique within the hospital;
-/// immutable.</item>
-/// <item><c>Name</c> – human-readable discipline name; mutable.</item>
-/// <item><c>ClinicalAreaId</c> – owning clinical area identifier; immutable.</item>
-/// <item><c>Status</c> – one of <c>active</c>, <c>retired</c>.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// PATCH/retire.</item>
-/// <item><c>RetiredAt</c> – UTC timestamp when the discipline was retired.</item>
-/// <item><c>CreatedAt</c> – UTC timestamp; immutable.</item>
-/// <item><c>UpdatedAt</c> – UTC timestamp of the last metadata change.</item>
-/// </list>
-/// </remarks>
 public sealed record DisciplineDto(
     Guid Id,
     string Code,

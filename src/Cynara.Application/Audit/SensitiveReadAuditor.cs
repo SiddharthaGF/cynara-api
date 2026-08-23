@@ -4,13 +4,10 @@ using Cynara.Application.Persistence;
 namespace Cynara.Application.Audit;
 
 /// <summary>
-/// Default sensitive-read auditor. Stages a <c>*.read</c> audit event
-/// through the current unit of work and commits it immediately, mirroring
-/// the denied-access auditor. Reads are non-mutating workflows, so the
-/// committed changes are limited to the audit event itself. The metadata
-/// carries only the request path; the clinical payload is deliberately not
-/// captured. All failures are swallowed so an audit write can never turn a
-/// successful read into an error response.
+/// Default sensitive-read auditor. Stages and commits a <c>*.read</c> audit
+/// event immediately; metadata carries only the request path, never the
+/// clinical payload. All failures are swallowed so an audit write can never
+/// turn a successful read into an error response.
 /// </summary>
 public sealed class SensitiveReadAuditor(
     IAuditWriter auditWriter,
@@ -50,7 +47,6 @@ public sealed class SensitiveReadAuditor(
         catch (Exception exception) when (
             exception is not OperationCanceledException)
         {
-            // Best-effort: a failed audit must never change the read outcome.
             _ = exception;
         }
     }

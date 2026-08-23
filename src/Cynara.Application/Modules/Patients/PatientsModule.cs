@@ -3,10 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
-/// Composition extensions that wire the patient registry application
-/// services. The repository is registered in
-/// <c>Cynara.Infrastructure.Modules.Patients</c> so the application layer
-/// remains persistence-agnostic.
+/// Composition extensions wiring the patient registry application services;
+/// the repository registers in Infrastructure so Application stays
+/// persistence-agnostic.
 /// </summary>
 public static class PatientsModule
 {

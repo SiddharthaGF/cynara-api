@@ -5,11 +5,9 @@ using Microsoft.OpenApi;
 namespace Cynara.Api.Tests;
 
 /// <summary>
-/// Behavioral tests for the OpenAPI serialization-support work unit:
-/// <see cref="OpenApiSecurityJsonTransform"/> (byte-preserving, degenerate-only
-/// security-requirement rewrite) and <see cref="OpenApiDocumentSerializer"/>
-/// (compact, canonical, deterministic JSON). These directly cover behaviour that
-/// previously relied only on the end-to-end snapshot/contract suites.
+/// Behavioral tests for <see cref="OpenApiSecurityJsonTransform"/> and
+/// <see cref="OpenApiDocumentSerializer"/> covering the degenerate-only,
+/// byte-preserving security rewrite and compact deterministic serialization.
 /// </summary>
 public sealed class OpenApiSerializationTests
 {
@@ -28,8 +26,6 @@ public sealed class OpenApiSerializationTests
     {
         string result = OpenApiSecurityJsonTransform.Apply(input);
 
-        // The empty requirement object(s) are replaced by the single canonical
-        // AND-ed bearer + hospital requirement; no stray empty requirement remains.
         Assert.Contains(CanonicalRequirement, result, StringComparison.Ordinal);
         Assert.DoesNotContain("[{}]", result, StringComparison.Ordinal);
     }
@@ -42,11 +38,13 @@ public sealed class OpenApiSerializationTests
 
         string result = OpenApiSecurityJsonTransform.Apply(json);
 
-        // Arrays that already carry a quoted scheme name are not degenerate and
-        // must survive byte-for-byte.
         Assert.Equal(json, result);
     }
 
+    /// <summary>
+    /// The tenant-exempt listing is the one authenticated route that must never
+    /// advertise the hospital header, so it rewrites to bearer-only.
+    /// </summary>
     [Fact]
     public void Apply_RewritesListingRouteDegenerateRequirementToBearerOnly()
     {
@@ -55,9 +53,6 @@ public sealed class OpenApiSerializationTests
 
         string result = OpenApiSecurityJsonTransform.Apply(input);
 
-        // The tenant-exempt listing is the one authenticated route that must
-        // never advertise the hospital header: a degenerate requirement under
-        // it rewrites to the bearer-only shape, not the canonical AND-ed pair.
         Assert.Contains(/*lang=json,strict*/ "[{\"Bearer\":[]}]", result, StringComparison.Ordinal);
         Assert.DoesNotContain("HospitalCode", result, StringComparison.Ordinal);
     }
@@ -70,8 +65,6 @@ public sealed class OpenApiSerializationTests
 
         string result = OpenApiSecurityJsonTransform.Apply(input);
 
-        // Tenant-owned routes keep the canonical AND-ed bearer + hospital
-        // requirement even after the writer drops the scheme names.
         Assert.Contains(CanonicalRequirement, result, StringComparison.Ordinal);
         Assert.DoesNotContain("[{}]", result, StringComparison.Ordinal);
     }
@@ -84,8 +77,6 @@ public sealed class OpenApiSerializationTests
 
         string result = OpenApiSecurityJsonTransform.Apply(input);
 
-        // One document, two routes: the listing becomes bearer-only while the
-        // tenant-owned route keeps the canonical pair.
         Assert.Contains(
             "\"/api/me/hospitals\":{\"get\":{\"security\":[{\"Bearer\":[]}]}}",
             result,
@@ -106,9 +97,6 @@ public sealed class OpenApiSerializationTests
 
         string result = OpenApiSecurityJsonTransform.Apply(json);
 
-        // Only a JSON `security` key whose value is a degenerate array is
-        // rewritten; arrays under other keys, null values, and the literal text
-        // "security: [{}]" inside a string value are all preserved exactly.
         Assert.Equal(json, result);
     }
 
@@ -133,11 +121,7 @@ public sealed class OpenApiSerializationTests
     {
         string json = OpenApiDocumentSerializer.Serialize(BuildDocument());
 
-        // Terse serialization is a single line (no indentation newlines).
         Assert.DoesNotContain('\n', json);
-
-        // The security requirement is emitted with its scheme names restored in
-        // the canonical AND-ed bearer + hospital shape.
         Assert.Contains(
             "\"Bearer\":[],\"HospitalCode\":[]",
             json,

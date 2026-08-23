@@ -5,13 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Cynara.Api.Modules.Identity;
 
 /// <summary>
-/// Anonymous account recovery without account enumeration. The request
-/// endpoint answers with the same success body for known and unknown
-/// accounts and only issues a token for eligible users, handing it to the
-/// configured <see cref="IEmailSender{TUser}"/>; the reset endpoint accepts
-/// only a valid, single-use Identity token and answers with a bounded generic
-/// failure otherwise. Routes live under <c>/connect</c> so they inherit the
-/// public path classification and never demand a hospital context.
+/// Anonymous account recovery without account enumeration: the request
+/// endpoint answers uniformly and only emails a token for eligible accounts;
+/// reset accepts only a valid single-use Identity token. Routes live under
+/// <c>/connect</c> so they stay public and never demand a hospital context.
 /// </summary>
 [ApiController]
 [AllowAnonymous]
@@ -52,9 +49,9 @@ public sealed class AccountRecoveryController(
     }
 
     /// <summary>
-    /// Applies a password reset for a valid single-use token. Unknown
-    /// accounts, invalid or replayed tokens, and non-compliant passwords all
-    /// yield the same bounded generic failure and never change the password.
+    /// Applies a password reset for a valid single-use token; all failure
+    /// modes yield one bounded generic error. On success the security stamp
+    /// rotates so every outstanding token dies with this reset.
     /// </summary>
     [HttpPost("reset")]
     [ProducesResponseType(typeof(AccountRecoveryResponse), StatusCodes.Status200OK)]
@@ -76,8 +73,6 @@ public sealed class AccountRecoveryController(
                 .ConfigureAwait(false);
             if (result.Succeeded)
             {
-                // Rotate the security stamp so every outstanding token dies
-                // with this reset: a consumed token cannot be replayed.
                 _ = await userManager
                     .UpdateSecurityStampAsync(user)
                     .ConfigureAwait(false);

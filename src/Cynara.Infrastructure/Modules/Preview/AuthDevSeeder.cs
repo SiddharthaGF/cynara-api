@@ -16,17 +16,13 @@ using OpenIddict.Abstractions;
 namespace Cynara.Infrastructure.Modules.Preview;
 
 /// <summary>
-/// Development / preview authentication seed. Provisions real users, hospital
-/// memberships, capability assignments, and the confidential
-/// <c>cynara-web</c> OpenIddict client so a rendered demo can log in end to
-/// end with authorization-code + PKCE. Idempotent: safe to run on every
-/// startup and never runs in production.
+/// Development/preview authentication seed: provisions real users,
+/// memberships, capability grants, and the confidential cynara-web
+/// OpenIddict client whose fixed credential and loopback redirect URIs form
+/// the demo contract. Idempotent, never runs outside Development.
 /// </summary>
 public static class AuthDevSeeder
 {
-    // Development-only seed fixtures: the fixed demo credential and loopback
-    // redirect URIs ARE the contract of this seeder. It never runs outside
-    // Development and exists so local cynara-web works out of the box.
 #pragma warning disable S2068 // Encrypted credential: intentional demo seed value
 #pragma warning disable S1075 // URIs should not be hardcoded: registered dev redirect URIs
 
@@ -75,10 +71,9 @@ public static class AuthDevSeeder
 #pragma warning restore S2068 // Encrypted credential: intentional demo seed value
 
     /// <summary>
-    /// Seeds the authentication demo data. Resolves the bootstrap hospital and
-    /// a secondary hospital, creates the demo user with memberships in both,
-    /// grants per-hospital capability assignments, and registers the
-    /// cynara-web client. All operations are idempotent.
+    /// Seeds the bootstrap and secondary hospitals, the demo user with
+    /// memberships, capability grants, and the web client registration.
+    /// All operations are idempotent.
     /// </summary>
     public static async Task SeedAuthDevDataAsync(
         this IServiceProvider services,
@@ -267,6 +262,10 @@ public static class AuthDevSeeder
         _ = await identity.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Grants missing capabilities best-effort: a ConflictException from an
+    /// already-held grant is swallowed so repeated seeds stay idempotent.
+    /// </summary>
     private static async Task GrantCapabilitiesAsync(
         IServiceProvider provider,
         Hospital hospital,
@@ -310,7 +309,6 @@ public static class AuthDevSeeder
             }
             catch (ConflictException)
             {
-                // Best-effort intersection with grantAll is idempotent.
             }
         }
     }

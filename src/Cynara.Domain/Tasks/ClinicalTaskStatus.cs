@@ -1,10 +1,8 @@
 namespace Cynara.Domain.Tasks;
 
 /// <summary>
-/// Lifecycle status of a clinical task. Tasks start <see cref="Open"/>, may
-/// transition to <see cref="Claimed"/> by an actor, and reach a terminal
-/// <see cref="Completed"/> or <see cref="Canceled"/> state. Terminal states
-/// are irreversible.
+/// Lifecycle status of a clinical task: open → claimed → terminal
+/// completed or canceled. Terminal states are irreversible.
 /// </summary>
 public enum ClinicalTaskStatus
 {

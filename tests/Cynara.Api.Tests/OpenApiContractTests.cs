@@ -25,6 +25,11 @@ public sealed class OpenApiContractTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// JADNC docs distinguish collection (0 params) vs get-by-id (1 param);
+    /// the security requirement is injected after that filter so summaries
+    /// keep their collection/individual distinction.
+    /// </summary>
     [Fact]
     public async Task OpenApiDocument_IsAvailableAndValidJson()
     {
@@ -97,11 +102,7 @@ public sealed class OpenApiContractTests : IDisposable
                 "/api/ai/forms/{formDefinitionId}/chat/stream",
                 out _));
 
-        // JADNC docs distinguish collection (0 params) vs get-by-id (1 param).
-        // The bearer/hospital security requirement is injected after that filter
-        // so summaries keep their collection/individual distinction.
-        Assert.True(
-            paths.TryGetProperty("/api/aiProviderSettings", out JsonElement coll));
+        Assert.True(paths.TryGetProperty("/api/aiProviderSettings", out JsonElement coll));
         Assert.True(coll.TryGetProperty("get", out JsonElement collGet));
         Assert.Contains(
             "collection",
@@ -157,6 +158,12 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Contains("Capabilities", tagNames);
     }
 
+    /// <summary>
+    /// Bearer replaces the legacy X-Actor-Id scheme; OAuth2 mirrors the
+    /// /connect flows. Protected operations require Bearer + HospitalCode
+    /// together, while the tenant-exempt listing stays bearer-only so clients
+    /// can enumerate hospitals before choosing one.
+    /// </summary>
     [Fact]
     public async Task OpenApiDocument_DescribesBearerAndOAuth2Security()
     {
@@ -171,13 +178,10 @@ public sealed class OpenApiContractTests : IDisposable
             .GetProperty("components")
             .GetProperty("securitySchemes");
 
-        // Bearer HTTP scheme replaces the legacy X-Actor-Id api-key scheme.
         JsonElement bearer = schemes.GetProperty("Bearer");
         Assert.Equal("http", bearer.GetProperty("type").GetString());
         Assert.Equal("bearer", bearer.GetProperty("scheme").GetString());
 
-        // OAuth2 describes the authorization-code + PKCE and client-credentials
-        // flows that the /connect surface implements.
         JsonElement oauth2 = schemes.GetProperty("OAuth2");
         Assert.Equal("oauth2", oauth2.GetProperty("type").GetString());
         JsonElement flows = oauth2.GetProperty("flows");
@@ -198,8 +202,6 @@ public sealed class OpenApiContractTests : IDisposable
 
         Assert.False(schemes.TryGetProperty("ActorId", out _));
 
-        // A protected operation requires both a bearer token and the hospital
-        // header in a single security requirement (AND semantics).
         JsonElement requirement = Assert.Single(
             document.RootElement
                 .GetProperty("paths")
@@ -210,9 +212,6 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(requirement.TryGetProperty("Bearer", out _));
         Assert.True(requirement.TryGetProperty("HospitalCode", out _));
 
-        // The tenant-exempt membership listing is bearer-only: it must carry
-        // the bearer scheme but never advertise the hospital header scheme or
-        // parameter, so clients can enumerate hospitals before a tenant exists.
         JsonElement listing = document.RootElement
             .GetProperty("paths")
             .GetProperty("/api/me/hospitals")
@@ -223,8 +222,6 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.False(listingRequirement.TryGetProperty("HospitalCode", out _));
         Assert.False(listing.TryGetProperty("parameters", out _));
 
-        // Public authentication surface is documented without any security
-        // requirement or hospital/actor header parameter.
         JsonElement tokenOp = document.RootElement
             .GetProperty("paths")
             .GetProperty("/connect/token")
@@ -316,6 +313,10 @@ public sealed class OpenApiContractTests : IDisposable
             $"Duplicate operationIds: {string.Join(", ", duplicateOperationIds)}");
     }
 
+    /// <summary>
+    /// Every Stage 3 mutation must declare an application/json request body so
+    /// client generators produce a usable payload contract.
+    /// </summary>
     [Fact]
     public async Task OpenApiDocument_Stage3Inventory_IsComplete()
     {
@@ -353,8 +354,6 @@ public sealed class OpenApiContractTests : IDisposable
                 }
             }
 
-            // Every Stage 3 mutation must declare an application/json request
-            // body so client generators produce a usable payload contract.
             if (method is "post"
                 && (!operation.TryGetProperty("requestBody", out JsonElement requestBody)
                     || !requestBody.TryGetProperty("required", out JsonElement required)

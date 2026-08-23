@@ -45,15 +45,16 @@ internal class CynaraWebApplicationFactory(
         };
     }
 
+    /// <summary>
+    /// F1 seam (default): keeps the header-driven actor and marks every request
+    /// authenticated so X-Actor-Id suites run without real tokens. Real-auth
+    /// factories opt out and use genuine OpenIddict tokens end to end.
+    /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _ = builder.UseEnvironment(environment ?? "Development");
         _ = builder.UseCynaraTestDatabase(database);
 
-        // F1 seam (default): keep the header-driven actor and mark every
-        // request authenticated so the existing X-Actor-Id suites keep
-        // working without real tokens. Real-auth factories opt out and use
-        // genuine OpenIddict tokens end to end.
         if (!useRealAuthentication)
         {
             _ = builder.ConfigureServices(services =>
@@ -150,24 +151,17 @@ internal class CynaraWebApplicationFactory(
     }
 
     /// <summary>
-    /// Truncates every table in the shared Postgres container so each test
-    /// class starts from a clean slate. Schema, indexes, and sequences are
-    /// preserved so other tests sharing the connection string keep working.
-    /// The bootstrap hospital is re-seeded afterwards. The first
-    /// <c>CreateClient</c> call on a given factory instance triggers this
-    /// automatically; tests that bypass <c>CreateClient</c> can call it
-    /// directly (e.g. from <see cref="IAsyncLifetime.InitializeAsync"/>).
+    /// Truncates every table in the shared Postgres container (schema and
+    /// sequences preserved), re-seeds the bootstrap hospital, and excludes
+    /// both EF migration-history tables so applied stamps stay valid. The
+    /// first <c>CreateClient</c> call triggers this; tests bypassing it can
+    /// call directly (e.g. from <see cref="IAsyncLifetime.InitializeAsync"/>).
     /// </summary>
     public async Task ResetDatabaseAsync()
     {
         await resetLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            // Exclude both EF migrations history tables so the schema is
-            // reset without invalidating applied migration stamps. The
-            // identity track keeps its own history table; truncating it
-            // would make the next host startup re-apply the identity
-            // migrations against tables that already exist.
             const string MigrationHistoryTable = "__EFMigrationsHistory";
             const string IdentityMigrationHistoryTable =
                 CynaraIdentityDbContext.MigrationsHistoryTableName;

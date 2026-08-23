@@ -1,10 +1,9 @@
 namespace Cynara.Domain.Invitations;
 
 /// <summary>
-/// Lifecycle states of a member invitation. <see cref="Pending"/> is the
-/// only active state; <see cref="Accepted"/>, <see cref="AlreadyUsed"/>,
-/// and <see cref="Cancelled"/> are terminal. Transitions are owned by the
-/// application-layer invitation lifecycle authority.
+/// Lifecycle states of a member invitation. Pending is the only active
+/// state; accepted, already-used, and cancelled are terminal. Transitions
+/// are owned by the application-layer lifecycle.
 /// </summary>
 public enum InvitationStatus
 {

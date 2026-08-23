@@ -1,13 +1,10 @@
 namespace Cynara.Domain.Capabilities;
 
 /// <summary>
-/// Scope dimension of a capability assignment. A <see cref="Hospital"/> grant
-/// authorizes its capability only inside the assigned hospital; a
-/// <see cref="Platform"/> grant authorizes it in every hospital context.
-/// Scope breadth lives exclusively on the grant row — capability codes never
-/// encode it. Platform rows keep the issuing hospital in
-/// <see cref="CapabilityAssignment.HospitalId"/> for traceability; that value
-/// is authorization-irrelevant for platform scope.
+/// Scope dimension of a capability assignment: hospital grants authorize
+/// only inside the assigned hospital; platform grants authorize everywhere.
+/// Breadth lives exclusively on the grant row — codes never encode it.
+/// Platform rows keep the issuing hospital id for traceability only.
 /// </summary>
 public static class CapabilityScopes
 {

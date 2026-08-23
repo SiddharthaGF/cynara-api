@@ -6,12 +6,9 @@ namespace Cynara.Domain.Tasks;
 
 /// <summary>
 /// A single clinical task generated when a pipeline enters a task node,
-/// derived exclusively from the pinned published workflow definition. The
-/// task carries the assignee (actor/role/discipline) and the referenced
-/// form (code/version) from the node, an optional due date, and is closed
-/// when the referenced clinical document completes or the pipeline
-/// terminates. Lifecycle transitions are authoritative on the application
-/// layer; terminal states remain historically queryable.
+/// derived exclusively from the pinned published workflow definition. It
+/// snapshots the node's assignee, form reference, and due date, and closes
+/// when the document completes or the pipeline terminates.
 /// </summary>
 [NoResource]
 public sealed class ClinicalTask

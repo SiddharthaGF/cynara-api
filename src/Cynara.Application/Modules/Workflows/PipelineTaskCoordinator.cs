@@ -9,10 +9,9 @@ namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
 /// Owns the clinical-task side effects a pipeline drives: generating a task
-/// when advancing into a task node and canceling outstanding tasks when the
-/// pipeline terminates. Task mutations and their audit events are staged on
-/// the current unit of work; the coordinating workflow owns the single
-/// commit boundary.
+/// when advancing into a task node and canceling outstanding tasks on
+/// termination. Mutations and audit events stage on the current unit of
+/// work; the coordinating workflow owns the commit.
 /// </summary>
 public sealed class PipelineTaskCoordinator(
     ITaskRepository tasks,

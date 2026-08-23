@@ -6,12 +6,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Tasks;
 
 /// <summary>
-/// EF entity configuration for the <see cref="ClinicalTask"/> aggregate.
-/// Indexes support hospital-scoped list filters by status, patient,
-/// encounter, pipeline, and the (encounter, status) pairing used to close
-/// tasks when the referenced clinical document completes. The pipeline link
-/// is restricted so a terminating pipeline can never be deleted out from
-/// under its tasks.
+/// EF entity configuration for the <see cref="ClinicalTask"/> aggregate;
+/// indexes support hospital-scoped filters and the restricted pipeline link
+/// prevents deleting a terminating pipeline under its tasks.
 /// </summary>
 public sealed class ClinicalTaskConfiguration
     : IEntityTypeConfiguration<ClinicalTask>

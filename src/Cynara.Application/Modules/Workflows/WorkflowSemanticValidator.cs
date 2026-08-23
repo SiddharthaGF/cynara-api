@@ -4,12 +4,10 @@ using System.Text.Json;
 namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
-/// Semantic rules WORK-001..WORK-016 from the Stage 3 semantic-rules contract.
-/// Structural JSON Schema validation runs first (see
-/// <c>Cynara.Infrastructure.Schemas.JsonSchemaValidator</c>); this class
-/// enforces the graph rules a schema cannot express: unique node ids, entry/
-/// exit points, per-node output arity, transition conditions, connectivity,
-/// acyclicity, and form-version pinning for published workflows.
+/// Semantic rules WORK-001..WORK-016 of the Stage 3 contract, enforcing
+/// what JSON Schema cannot: unique node ids, entry/exit points, per-node
+/// output arity, transition conditions, connectivity, acyclicity, and
+/// form-version pinning for published workflows.
 /// </summary>
 public static class WorkflowSemanticValidator
 {

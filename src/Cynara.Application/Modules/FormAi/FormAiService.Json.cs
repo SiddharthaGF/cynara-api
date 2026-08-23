@@ -219,8 +219,6 @@ public sealed partial class FormAiService
 
                     break;
                 default:
-                    // Any other character (whitespace, punctuation, content)
-                    // leaves the bracket depth untouched.
                     break;
             }
         }

@@ -5,13 +5,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Patients;
 
 /// <summary>
-/// Tenant-scoped patient registry entry. Each patient belongs to exactly
-/// one hospital workspace (resolved from <c>IHospitalContext</c>) and is
-/// identified within that workspace by an upper-cased MRN. National ID is
-/// optional but, when present, is also normalized for cross-field
-/// uniqueness checks. Records can be soft-deleted: deletions only set
-/// <see cref="DeletedAt"/>; the row remains resolvable for historical
-/// form responses and audit continuity.
+/// Tenant-scoped patient registry entry, unique per workspace by an
+/// upper-cased MRN (national ID optional but normalized for uniqueness).
+/// Soft-delete only sets <see cref="DeletedAt"/>; the row stays resolvable
+/// for historical form responses and audit.
 /// </summary>
 [NoResource]
 public sealed class Patient

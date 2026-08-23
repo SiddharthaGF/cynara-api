@@ -11,10 +11,10 @@ namespace Cynara.Api.Tests.Invitations.UnitTests;
 /// </summary>
 public sealed class InvitationTokenHasherUnitTests
 {
+    /// <summary>Pre-computed SHA-256 of ASCII "abc".</summary>
     [Fact]
     public void Hash_KnownVector_ProducesCanonicalUppercaseSha256Hex()
     {
-        // Pre-computed SHA-256 of ASCII "abc".
         string expected =
             "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD";
 
@@ -55,14 +55,16 @@ public sealed class InvitationTokenHasherUnitTests
         Assert.NotEqual(first, second);
     }
 
+    /// <summary>
+    /// ThrowIfNullOrWhiteSpace raises ArgumentNullException for null and
+    /// ArgumentException for blank strings; both derive from the base.
+    /// </summary>
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
     public void Hash_NullOrWhitespaceToken_Throws(string? token)
     {
-        // ThrowIfNullOrWhiteSpace raises ArgumentNullException for null and
-        // ArgumentException for blank strings; both derive from the base.
         Assert.ThrowsAny<ArgumentException>(
             () => InvitationTokenHasher.Hash(token!));
     }

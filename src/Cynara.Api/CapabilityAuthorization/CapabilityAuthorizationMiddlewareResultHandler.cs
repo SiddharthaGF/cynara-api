@@ -7,16 +7,11 @@ using Microsoft.AspNetCore.Authorization.Policy;
 namespace Cynara.Api.CapabilityAuthorization;
 
 /// <summary>
-/// Minimal-API counterpart of <see cref="CapabilityAuthorizationFilter"/>.
-/// The native <c>RequireAuthorization(policy)</c> path short-circuits in the
-/// authorization middleware, so a denied request never reaches the exception
-/// handler that MVC denials flow through. This handler closes that gap for
-/// any policy carrying a <see cref="CapabilityRequirement"/>: it records the
-/// <c>access.denied</c> audit event through <see cref="IDeniedAccessAuditor"/>
-/// and emits the same 403 envelope as a raised
-/// <see cref="CapabilityForbiddenException"/>, so Stage 3 workflow denials
-/// are audited and shaped exactly like Stage 2 endpoint denials. Non-
-/// capability policies fall through to the framework default handler.
+/// Minimal-API counterpart of <see cref="CapabilityAuthorizationFilter"/>:
+/// native <c>RequireAuthorization</c> denials bypass the exception handler,
+/// so this records the denied-access audit event and emits the same 403
+/// envelope as <see cref="CapabilityForbiddenException"/> for capability
+/// policies; other policies fall through to the framework default handler.
 /// </summary>
 public sealed class CapabilityAuthorizationMiddlewareResultHandler
     : IAuthorizationMiddlewareResultHandler

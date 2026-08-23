@@ -43,6 +43,11 @@ public sealed class UserDirectoryPaginationTests : IDisposable
 
     private TestDatabaseSettings Database { get; }
 
+    /// <summary>
+    /// A multi-membership user must not inflate any page or total, and the
+    /// caller's own resolved-hospital membership stays in the distinct-user
+    /// count per spec: every member of the scope is listed, admins included.
+    /// </summary>
     [Fact]
     public async Task WalkPages_HitsEachUserOnce_InNormalizedEmailOrder()
     {
@@ -75,7 +80,6 @@ public sealed class UserDirectoryPaginationTests : IDisposable
                 $"actor-{index.ToString(CultureInfo.InvariantCulture)}");
         }
 
-        // A multi-membership user must not inflate any page or total.
         IdentityUser<Guid> shared = await Factory.CreateUserAsync(
             "shared@cynara.dev",
             Password);
@@ -131,9 +135,6 @@ public sealed class UserDirectoryPaginationTests : IDisposable
             }
         }
 
-        // The caller holds its own resolved-hospital membership, so the
-        // in-scope distinct-user total includes the caller per spec: every
-        // member of the scope is listed, admins included.
         Assert.Equal(9, firstTotalCount);
         Assert.Equal(9, seenEmails.Count);
         Assert.Equal(9, seenEmails.Distinct(StringComparer.Ordinal).Count());
@@ -261,6 +262,10 @@ public sealed class UserDirectoryPaginationTests : IDisposable
                 .GetProperty("id").GetGuid());
     }
 
+    /// <summary>
+    /// The caller's own membership stays in view; the foreign hospital filter
+    /// never widens the result set beyond the resolved hospital.
+    /// </summary>
     [Fact]
     public async Task HospitalFilter_CannotWidenHospitalScope()
     {
@@ -311,8 +316,6 @@ public sealed class UserDirectoryPaginationTests : IDisposable
             2,
             widenedDocument.RootElement.GetProperty("totalCount").GetInt32());
 
-        // The caller's own membership stays in view; the foreign hospital
-        // filter never widens the result set beyond the resolved hospital.
         Assert.Contains(memberA.Id, widenedIds);
     }
 

@@ -4,9 +4,8 @@ namespace Cynara.Domain.ClinicalTaxonomy;
 
 /// <summary>
 /// Lifecycle status shared by facilities, clinical areas, and disciplines.
-/// <see cref="Active"/> definitions accept new clinical activity;
-/// <see cref="Retired"/> definitions remain resolvable for historical
-/// records but must be rejected by new activity unless explicitly
+/// Active definitions accept new clinical activity; retired ones stay
+/// resolvable for history but reject new references unless explicitly
 /// overridden.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]

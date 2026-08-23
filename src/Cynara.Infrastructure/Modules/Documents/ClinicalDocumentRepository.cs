@@ -7,11 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Documents;
 
 /// <summary>
-/// EF Core implementation of the clinical document repository. All reads are
-/// hospital-scoped; tracked reads return tracked entities for workflow
-/// mutations, and untracked reads are used for list projections. The
-/// multiplicity existence check is used by start workflows before creating
-/// a new instance.
+/// EF Core implementation of the clinical document repository; all reads
+/// are hospital-scoped, tracked for workflow mutations and untracked for
+/// list projections. The existence check supports start workflows.
 /// </summary>
 public sealed class ClinicalDocumentRepository(CynaraDbContext dbContext)
     : IClinicalDocumentRepository

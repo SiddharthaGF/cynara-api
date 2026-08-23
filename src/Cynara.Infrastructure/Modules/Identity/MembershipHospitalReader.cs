@@ -6,14 +6,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
-/// Read-only implementation of <see cref="IHospitalMembershipReader"/> over
-/// the identity and domain persistence contexts. Reads the user's
-/// <see cref="Membership"/> rows without tracking, joins the hospital
-/// workspaces by id, and projects each pair to its public code/name shape.
-/// The identity track and the domain hospital table live on separate EF
-/// contexts, so the join is performed in memory after two untracked queries;
-/// no schema change is required. Memberships whose hospital row no longer
-/// exists are skipped.
+/// Read-only implementation of <see cref="IHospitalMembershipReader"/>
+/// joining identity membership rows to domain hospitals in memory (they
+/// live on separate contexts); untracked reads, missing hospitals skipped.
 /// </summary>
 public sealed class MembershipHospitalReader(
     CynaraIdentityDbContext identity,

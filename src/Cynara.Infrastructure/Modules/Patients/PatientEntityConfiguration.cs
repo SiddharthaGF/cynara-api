@@ -7,12 +7,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Patients;
 
 /// <summary>
-/// EF entity configuration for the <see cref="Patient"/> aggregate. The
-/// <c>(HospitalId, NormalizedMrn)</c> composite index enforces the
-/// hospital-scoped uniqueness rule mandated by CYN-49. The
-/// <c>(HospitalId, NormalizedFamilyName, NormalizedGivenName)</c> and
-/// <c>(HospitalId, NormalizedNationalId)</c> indexes support the search
-/// endpoint.
+/// EF entity configuration for the <see cref="Patient"/> aggregate; the
+/// composite MRN index enforces hospital-scoped uniqueness (CYN-49) and
+/// the name/national-id indexes support the search endpoint.
 /// </summary>
 public sealed class PatientEntityConfiguration
     : IEntityTypeConfiguration<Patient>

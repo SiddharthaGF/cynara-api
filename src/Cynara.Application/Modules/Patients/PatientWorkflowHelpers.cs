@@ -8,11 +8,9 @@ using Cynara.Domain.Patients;
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
-/// Shared validation and normalization helpers for the patient lifecycle.
-/// Keeps the patient service free of repeated string sanitation while
-/// preserving the rules described in CYN-49: hospital-scoped MRN
-/// uniqueness, optimistic concurrency, and rejection of demographic edits
-/// against soft-deleted records.
+/// Shared validation and normalization helpers for the patient lifecycle:
+/// hospital-scoped MRN uniqueness inputs, optimistic concurrency, and
+/// rejection of demographic edits against soft-deleted records.
 /// </summary>
 internal static class PatientWorkflowHelpers
 {

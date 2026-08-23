@@ -4,12 +4,10 @@ using System.Text.Json;
 namespace Cynara.Application.Modules.Workflows;
 
 /// <summary>
-/// Server-side evaluator for workflow transition conditions. Conditions are
-/// restricted declarative expressions (see the workflow schema contract):
-/// field references, literals, comparisons (eq/neq/gt/gte/lt/lte), boolean
-/// combinators (and/or/not), and utilities (empty/coalesce). Only boolean
-/// results are meaningful for guards; <see cref="Evaluate"/> throws
-/// <see cref="ValidationException"/> for malformed expressions.
+/// Server-side evaluator for workflow transition conditions — restricted
+/// declarative expressions of field refs, literals, comparisons, boolean
+/// combinators, and utilities. Only boolean results are meaningful for
+/// guards; malformed expressions throw <see cref="ValidationException"/>.
 /// </summary>
 internal static class WorkflowConditionEvaluator
 {

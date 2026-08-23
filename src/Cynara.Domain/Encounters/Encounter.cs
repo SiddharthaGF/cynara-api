@@ -4,9 +4,8 @@ namespace Cynara.Domain.Encounters;
 
 /// <summary>
 /// Tenant-scoped clinical encounter linked to a patient and organizational
-/// definitions (facility and clinical area) from the same hospital.
-/// Lifecycle transitions are authoritative on the application layer;
-/// terminal states remain historically queryable.
+/// definitions from the same hospital. Lifecycle transitions live in the
+/// application layer; terminal states remain historically queryable.
 /// </summary>
 [NoResource]
 public sealed class Encounter

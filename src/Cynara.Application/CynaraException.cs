@@ -5,13 +5,10 @@ using Cynara.Application.Forms;
 namespace Cynara.Application;
 
 /// <summary>
-/// Base type for all application-level exceptions. Subtypes declare the
-/// HTTP status and JSON:API title the shared error mapping must emit. The
-/// Api layer (<c>Cynara.Api.Common.ErrorHandling.ProblemDetailsMapping</c>
-/// for the minimal-API pipeline and the JsonAPI pipeline's
-/// <c>CynaraJsonApiExceptionHandler</c>) reads these properties so a single
-/// mapping definition drives both transports and every error response stays
-/// byte-identical regardless of which endpoint raised the exception.
+/// Base type for all application-level exceptions. Subtypes declare the HTTP
+/// status and JSON:API title that both error pipelines (minimal-API and
+/// JsonAPI) read, so every error response stays identical regardless of
+/// which endpoint raised the exception.
 /// </summary>
 public abstract class CynaraException : Exception
 {

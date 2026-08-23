@@ -3,13 +3,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Workflows;
 
 /// <summary>
-/// Runtime progression of a single subject (encounter or patient record)
-/// through a pinned published workflow version. The workflow graph is read
-/// from the immutable <see cref="WorkflowVersion"/> at runtime, so a
-/// pipeline always reflects the exact workflow version it started on.
-/// Every transition is appended to <see cref="History"/> and is never
-/// rewritten. Lifecycle transitions are authoritative on the application
-/// layer; terminal states remain historically queryable.
+/// Runtime progression of a single subject through a pinned published
+/// workflow version. The graph is always read from the immutable version it
+/// started on; every transition appends to <see cref="History"/> and is
+/// never rewritten. Terminal states remain historically queryable.
 /// </summary>
 [NoResource]
 public sealed class Pipeline

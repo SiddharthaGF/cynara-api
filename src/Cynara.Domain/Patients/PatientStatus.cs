@@ -3,10 +3,9 @@ using System.Text.Json.Serialization;
 namespace Cynara.Domain.Patients;
 
 /// <summary>
-/// Lifecycle status for a patient registry entry. <see cref="Active"/>
-/// records are visible through the patient search and detail endpoints.
-/// <see cref="Retired"/> records remain in the database for historical
-/// audit and form-response continuity.
+/// Lifecycle status for a patient registry entry. Active records are
+/// visible through search and detail; retired records stay in the database
+/// for historical audit and form-response continuity.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PatientStatus

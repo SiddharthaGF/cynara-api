@@ -5,10 +5,9 @@ using Microsoft.Extensions.Logging;
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
-/// Development-only <see cref="IEmailSender{TUser}"/> sink. Records the
-/// would-be recovery message to the logger and performs no external
-/// transport. Production email-provider configuration is future scope; this
-/// sender never invents one and is dormant outside Development.
+/// Development-only <see cref="IEmailSender{TUser}"/> sink that records
+/// recovery messages in the log without external transport; dormant
+/// outside Development.
 /// </summary>
 public sealed partial class DevelopmentEmailSender(
     ILogger<DevelopmentEmailSender> logger,

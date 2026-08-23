@@ -2,10 +2,9 @@ namespace Cynara.Application.Modules.ClinicalTaxonomy;
 
 /// <summary>
 /// Tenant-aware CRUD lifecycle for the clinical taxonomy aggregates.
-/// Implementations stamp ownership from <see cref="Hospitals.IHospitalContext"/>
-/// so clients cannot move definitions between tenants, honor optimistic
-/// concurrency for updates, keep codes unique within the hospital, and
-/// preserve retired definitions for historical references.
+/// Implementations stamp ownership from
+/// <see cref="Hospitals.IHospitalContext"/>, honor concurrency, keep codes
+/// unique within the hospital, and preserve retired definitions for history.
 /// </summary>
 public interface IClinicalTaxonomyService
 {

@@ -13,13 +13,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cynara.Api.Tests.Capabilities;
 
 /// <summary>
-/// End-to-end capability enforcement against the real Postgres-backed host.
-/// The factory is built with <c>grantAllCapabilities: false</c> so the real
-/// <see cref="Application.Modules.Capabilities.EffectiveCapabilityResolver"/>
-/// and repository drive both the endpoint-level authorization filter and the
-/// domain-boundary guards. Coverage: allowed / denied / write-denied /
-/// cross-tenant / revocation / <c>api/me/capabilities</c> /
-/// HTTP grant-and-revoke workflow.
+/// End-to-end capability enforcement on the real Postgres-backed host with
+/// <c>grantAllCapabilities: false</c>, so the real resolver and repository
+/// drive endpoint filters and domain-boundary guards. Coverage: allowed /
+/// denied / write-denied / cross-tenant / revocation / grant-revoke flow.
 /// </summary>
 [Collection(PostgresFixtureDefinition.Name)]
 public sealed class CapabilityEnforcementTests : IAsyncDisposable

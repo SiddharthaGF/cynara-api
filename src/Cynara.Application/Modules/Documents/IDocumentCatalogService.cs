@@ -2,11 +2,9 @@ namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
 /// Tenant-aware lifecycle service for the clinical document catalog.
-/// Implementations stamp ownership from <c>IHospitalContext</c> so clients
-/// cannot move catalog entries between tenants, enforce that only published
-/// form versions can be assigned, validate facility / clinical area /
-/// discipline references against the resolved hospital, and emit audit
-/// events through the shared unit-of-work boundary.
+/// Implementations stamp ownership from <c>IHospitalContext</c>, enforce
+/// published-only form versions, validate taxonomy references against the
+/// resolved hospital, and emit audit events in the shared boundary.
 /// </summary>
 public interface IDocumentCatalogService
 {

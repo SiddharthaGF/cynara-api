@@ -7,6 +7,11 @@ namespace Cynara.Application.Modules.FormAi;
 
 public sealed partial class FormAiService
 {
+    /// <summary>
+    /// Tries validation with a progressive degradation ladder: first drop
+    /// layout only, then field rules, and finally validations too, keeping
+    /// as much model output as the schema validator accepts.
+    /// </summary>
     private static bool TryValidateWithFallback(
         ISchemaValidator schemaValidator,
         string clinical,
@@ -16,7 +21,6 @@ public sealed partial class FormAiService
         out string rules,
         out FormAiFallbackReport fallback)
     {
-        // 1) Drop layout only — keep field rules and validations.
         var layoutClearedUi = (JsonObject)uiObject.DeepClone();
         layoutClearedUi[SchemaJsonKeys.Layout] = new JsonArray();
         if (TryValidate(
@@ -33,7 +37,6 @@ public sealed partial class FormAiService
             return true;
         }
 
-        // 2) Drop field rules only — keep validations.
         var fieldsClearedRules = (JsonObject)rulesObject.DeepClone();
         fieldsClearedRules[SchemaJsonKeys.Fields] = new JsonObject();
         if (TryValidate(
@@ -50,7 +53,6 @@ public sealed partial class FormAiService
             return true;
         }
 
-        // 3) Last resort: empty rules validations too.
         fieldsClearedRules[SchemaJsonKeys.Validations] = new JsonArray();
         bool ok = TryValidate(
             schemaValidator,

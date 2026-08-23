@@ -16,15 +16,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cynara.Api.Tests.Capabilities;
 
 /// <summary>
-/// End-to-end capability enforcement for the Stage 3 workflow surface:
-/// workflow configuration (define/review/publish/retire), pipeline actions
-/// (start/advance/complete/cancel/enter-in-error), and task actions
-/// (view/claim/complete). The factory runs with
-/// <c>grantAllCapabilities: false</c>, so the real effective-capability
-/// resolver drives the MVC filter for JSON:API workflow endpoints and the
-/// native ASP.NET Core authorization middleware for the minimal-API pipeline
-/// and task endpoints — including the auditing result handler. Coverage:
-/// allowed / denied / write-denied / cross-tenant isolation / audit.
+/// End-to-end capability enforcement for the Stage 3 workflow surface
+/// (workflow config, pipeline actions, task actions) with the real
+/// effective-capability resolver driving MVC filters, authorization
+/// middleware, and the auditing result handler. Coverage: allowed / denied /
+/// write-denied / cross-tenant isolation / audit.
 /// </summary>
 [Collection(PostgresFixtureDefinition.Name)]
 public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
@@ -652,6 +648,10 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         };
     }
 
+    /// <summary>
+    /// JsonApiDotNetCore rejects media-type parameters such as charset=utf-8,
+    /// so the content type is set explicitly without encoding parameters.
+    /// </summary>
     private static async Task<HttpResponseMessage> PostJsonApiAsync(
         HttpClient client,
         string path,
@@ -661,8 +661,6 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
             JsonSerializer.Serialize(payload),
             Encoding.UTF8);
 
-        // JsonApiDotNetCore rejects parameters such as charset=utf-8 on the
-        // media type, so set it explicitly without encoding parameters.
         content.Headers.ContentType = new MediaTypeHeaderValue(
             JsonApiMedia.ContentType);
         return await client

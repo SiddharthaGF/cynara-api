@@ -30,6 +30,10 @@ namespace Cynara.Api.Hosting;
 
 internal static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers cross-cutting API services. Missing or empty
+    /// <c>Cors:AllowedOrigins</c> rejects every cross-origin request.
+    /// </summary>
     public static IServiceCollection AddCynaraApi(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -44,10 +48,6 @@ internal static class ServiceCollectionExtensions
                 options.AddDefaultPolicy(
                     policy =>
                     {
-                        // Only configured origins may call the API cross-origin.
-                        // Calls from any other origin are stripped of CORS
-                        // response headers. Missing/empty config rejects all
-                        // cross-origin requests (safe default for the API).
                         string[]? allowedOrigins = configuration
                             .GetSection("Cors:AllowedOrigins")
                             .Get<string[]>();
@@ -141,24 +141,30 @@ internal static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Persists the DataProtection key ring in the identity database so
+    /// refresh tokens and authorization artifacts survive restarts and
+    /// scaled instances.
+    /// </summary>
     internal static IServiceCollection AddCynaraDataProtection(
         this IServiceCollection services)
     {
-        // The key ring lives in the identity database: refresh tokens and
-        // authorization artifacts stay valid across restarts, deploys, and
-        // scaled instances instead of dying with an ephemeral ring on every
-        // boot. The table is created by the identity migration track and
-        // applied automatically at startup.
         _ = services.AddDataProtection()
             .PersistKeysToDbContext<CynaraIdentityDbContext>()
             .SetApplicationName("cynara-api");
         return services;
     }
 
+    /// <summary>
+    /// Configures the JADNC Swagger document. Bearer and OAuth2 security
+    /// schemes are registered by <see
+    /// cref="CynaraSwaggerGenConfigureOptions"/>, which is also added after
+    /// JADNC's ConfigureSwaggerGenOptions so get-by-id documentation applies
+    /// first.
+    /// </summary>
     private static IServiceCollection AddCynaraOpenApi(
         IServiceCollection services)
     {
-        // Returns void; must not be chained.
         services.AddOpenApiForJsonApi(swagger =>
         {
             swagger.SwaggerDoc(
@@ -204,15 +210,11 @@ internal static class ServiceCollectionExtensions
                     Type = SecuritySchemeType.ApiKey,
                 });
 
-            // The bearer and OAuth2 security schemes are registered in
-            // CynaraSwaggerGenConfigureOptions (after JADNC docs filter).
             swagger.DocumentFilter<CynaraOpenApiDocumentFilter>();
 
             IncludeXmlDocumentation(swagger);
         });
 
-        // After JADNC ConfigureSwaggerGenOptions: title-case tags and add
-        // X-Actor-Id only after get-by-id documentation is applied.
         _ = services.AddSingleton<
             IConfigureOptions<SwaggerGenOptions>,
             CynaraSwaggerGenConfigureOptions>();
@@ -220,14 +222,14 @@ internal static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Replaces the Application-layer DefaultCurrentActor registration: the
+    /// host must win regardless of add-after ordering. Production resolves
+    /// the actor from token sub + hospital and never reads X-Actor-Id.
+    /// </summary>
     private static IServiceCollection AddHostCurrentActor(
         IServiceCollection services)
     {
-        // The Application layer registers DefaultCurrentActor for hostless
-        // composition roots (the seed tool); this host must win, so replace
-        // the registration instead of relying on add-after ordering. The
-        // production actor is membership-resolved (token sub + hospital) and
-        // never reads the spoofable X-Actor-Id header.
         return services.Replace(
             ServiceDescriptor.Scoped<ICurrentActor, PrincipalCurrentActor>());
     }
@@ -243,16 +245,18 @@ internal static class ServiceCollectionExtensions
                     StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Registers capability authorization with a fallback policy requiring an
+    /// authenticated user, so endpoints lacking explicit authorization
+    /// metadata still challenge anonymous callers with 401; public paths opt
+    /// out explicitly.
+    /// </summary>
     private static IServiceCollection AddCynaraCapabilityAuthorization(
         IServiceCollection services)
     {
         return services
             .AddAuthorization(options =>
             {
-                // Every endpoint without explicit authorization metadata must
-                // still require an authenticated user, so anonymous requests
-                // to protected API surface are challenged with 401. Public
-                // paths (auth, health, schemas, swagger) opt out explicitly.
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
                     .Build();

@@ -3,11 +3,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Documents;
 
 /// <summary>
-/// Clinical document instance that binds the form-response engine to a
-/// patient and encounter. Each instance preserves the exact published form
-/// version it was started on, so historical documents keep resolving against
-/// the snapshot they captured even after the catalog entry is updated or
-/// retired.
+/// Clinical document instance binding the form-response engine to a patient
+/// and encounter. Each instance preserves the exact published form version
+/// captured at start, so historical documents keep resolving against their
+/// snapshot even after the catalog entry changes or retires.
 /// </summary>
 [NoResource]
 public sealed class ClinicalDocument

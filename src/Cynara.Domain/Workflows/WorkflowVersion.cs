@@ -5,10 +5,9 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Workflows;
 
 /// <summary>
-/// Immutable-published clinical workflow version with draft/review lifecycle.
-/// The workflow graph JSON payload is validated before review and publish
-/// transitions; published snapshots are immutable and remain readable after
-/// retirement.
+/// Clinical workflow version with draft/review lifecycle. The graph JSON
+/// payload is validated before review and publish transitions; published
+/// snapshots are immutable and remain readable after retirement.
 /// </summary>
 [Resource(
     PublicName = "workflowVersions",

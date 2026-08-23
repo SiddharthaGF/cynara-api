@@ -4,21 +4,17 @@ namespace Cynara.Application.Modules.Workflows.Persistence;
 
 /// <summary>
 /// Persistence port for workflow pipelines and their append-only history.
-/// All read paths are hospital-scoped; reads include the pinned workflow
-/// version so mappers can project the workflow code and semver without
-/// extra round trips. Write operations return tracked entities the
-/// workflows can mutate without committing; the unit-of-work boundary is
-/// owned by the workflow, not by the repository.
+/// All reads are hospital-scoped and include the pinned workflow version so
+/// mappers project code/semver without extra round trips; writes return
+/// tracked entities and never commit — the workflow owns that boundary.
 /// </summary>
 public interface IPipelineRepository
 {
     /// <summary>
     /// Returns the pipeline matching the supplied identifier in the
-    /// resolved hospital workspace, or <see langword="null"/> when no
-    /// record exists. Terminal states remain resolvable. Tracked reads
-    /// include the pinned workflow version, its definition (for the code
-    /// and semver projection), and the append-only history so transitions
-    /// can compute the next history sequence within the same round trip.
+    /// resolved hospital workspace, or <see langword="null"/> when none
+    /// exists; terminal states stay resolvable. Tracked reads include the
+    /// pinned version, definition, and history for one-round-trip advances.
     /// </summary>
     public Task<Pipeline?> FindByIdAsync(
         Guid hospitalId,

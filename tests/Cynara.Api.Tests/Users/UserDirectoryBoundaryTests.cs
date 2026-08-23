@@ -135,8 +135,6 @@ public sealed class UserDirectoryBoundaryTests : IDisposable
             .ConfigureAwait(false);
         JsonElement items = document.RootElement.GetProperty("items");
 
-        // The hospital-scoped admin is itself a member of the resolved
-        // hospital, so the listing includes the caller.
         Assert.Equal(2, document.RootElement.GetProperty("totalCount").GetInt32());
         Assert.Equal(2, items.GetArrayLength());
         List<Guid> ids = [];

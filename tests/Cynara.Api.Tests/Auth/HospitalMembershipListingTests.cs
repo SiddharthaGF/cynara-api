@@ -52,7 +52,6 @@ public sealed class HospitalMembershipListingTests : IDisposable
         await Factory.RegisterClientAsync();
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
 
-        // No X-Hospital-Code header is sent: the listing must not require it.
         HttpClient client = Factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
 
@@ -123,6 +122,10 @@ public sealed class HospitalMembershipListingTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// Sending the outsider's hospital header must neither leak nor re-scope
+    /// the listing to the outsider's hospital.
+    /// </summary>
     [Fact]
     public async Task Caller_CannotSeeAnotherUsersMemberships_ByChangingHeader()
     {
@@ -140,15 +143,12 @@ public sealed class HospitalMembershipListingTests : IDisposable
         await Factory.SeedMembershipAsync(owner, primary, "doctor-primary");
         await Factory.SeedMembershipAsync(owner, secondary, "doctor-secondary");
 
-        // The outsider only belongs to a third hospital; the owner does not.
         var outsider = await Factory.CreateUserAsync(outsiderEmail, password);
         Guid third = (await Factory.EnsureHospitalAsync(ThirdCode, "Third")).Id;
         await Factory.SeedMembershipAsync(outsider, third, "doctor-third");
         await Factory.RegisterClientAsync();
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(ownerEmail, password);
 
-        // Sending the outsider's hospital header must neither leak nor
-        // re-scope the listing to the outsider's hospital.
         HttpClient client = Factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
         client.DefaultRequestHeaders.TryAddWithoutValidation(

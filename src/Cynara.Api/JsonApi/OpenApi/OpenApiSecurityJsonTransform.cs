@@ -3,17 +3,9 @@ using System.Text;
 namespace Cynara.Api.JsonApi.OpenApi;
 
 /// <summary>
-/// Restores security requirement scheme names that Microsoft.OpenApi 2.4.1
-/// drops when serializing programmatically generated documents. The framework's
-/// requirement serializer skips every key whose <c>Target</c> is unresolved and
-/// writes only the resolved name, so generated requirements render as empty
-/// objects (<c>[{}]</c>). This transform rewrites each operation-level
-/// <c>security</c> array to its canonical AND-ed bearer + hospital shape while
-/// leaving every other byte of the document untouched. The single
-/// tenant-exempt exception is the membership listing
-/// (<c>GET /api/me/hospitals</c>), whose degenerate requirement rewrites to
-/// the bearer-only shape so the contract never advertises the hospital header
-/// for the one authenticated route that must not require it.
+/// Repairs per-operation <c>security</c> requirements that Microsoft.OpenApi
+/// serializes as empty objects (<c>[{}]</c>) for programmatically generated
+/// documents, rewriting them in place to their canonical scheme shapes.
 /// </summary>
 internal static class OpenApiSecurityJsonTransform
 {
@@ -27,10 +19,14 @@ internal static class OpenApiSecurityJsonTransform
     /// <summary>
     /// Returns <paramref name="json"/> with every degenerate per-operation
     /// <c>security</c> requirement replaced by the canonical bearer + hospital
-    /// requirement, except under the tenant-exempt membership listing, which
-    /// becomes bearer-only. Arrays that already carry named schemes are left
-    /// alone.
+    /// requirement; tenant-exempt paths become bearer-only and arrays that
+    /// already carry scheme names are left alone.
     /// </summary>
+    /// <remarks>
+    /// Open object keys are tracked on a stack — the entry pushed directly
+    /// above <c>paths</c> names the route path being described — and recorded
+    /// edits apply from the end so earlier edit indices stay valid.
+    /// </remarks>
     public static string Apply(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -38,10 +34,6 @@ internal static class OpenApiSecurityJsonTransform
         var builder = new StringBuilder(json);
         var edits = new List<Edit>();
 
-        // Object keys of every currently open JSON object, outermost first.
-        // The entry directly above the `paths` container names the route path
-        // being described, which decides how a degenerate security array is
-        // rewritten.
         var contexts = new Stack<string>();
 
         int i = 0;
@@ -50,9 +42,6 @@ internal static class OpenApiSecurityJsonTransform
             char current = builder[i];
             if (current == '"')
             {
-                // Resume just past the token ConsumeValueOrKey consumed
-                // (its return index is inclusive), so closing brackets of
-                // skipped values are never reprocessed here.
                 i = ConsumeValueOrKey(builder, i, contexts, edits) + 1;
                 continue;
             }
@@ -66,7 +55,6 @@ internal static class OpenApiSecurityJsonTransform
             i++;
         }
 
-        // Apply from the end so earlier edit indices stay valid.
         for (int edit = edits.Count - 1; edit >= 0; edit--)
         {
             builder.Remove(edits[edit].Start, edits[edit].Length)
@@ -92,7 +80,6 @@ internal static class OpenApiSecurityJsonTransform
 
         if (colonIndex >= builder.Length || builder[colonIndex] != ':')
         {
-            // A string value, not a key.
             return keyEnd;
         }
 
@@ -159,7 +146,10 @@ internal static class OpenApiSecurityJsonTransform
         return valueEnd >= 0 ? valueEnd : keyEnd;
     }
 
-    /// <summary>Skips over a non-security value according to its opening shape.</summary>
+    /// <summary>
+    /// Skips over a non-security value according to its opening shape;
+    /// scalars (number, boolean, null) scan to the next delimiter.
+    /// </summary>
     private static int SkipValue(
         StringBuilder builder,
         int valueStart,
@@ -185,7 +175,6 @@ internal static class OpenApiSecurityJsonTransform
             return SkipString(builder, valueStart);
         }
 
-        // Scalar value (number, boolean, null): skip to the next delimiter.
         int index = valueStart;
         while (index < builder.Length
             && builder[index] is not (',' or '}' or ']'))
@@ -197,9 +186,10 @@ internal static class OpenApiSecurityJsonTransform
     }
 
     /// <summary>
-    /// Returns the route path of the operation currently being scanned, or
-    /// <see langword="null"/> when the scan is not inside the <c>paths</c>
-    /// container (for example document-level security).
+    /// Returns the route path of the operation being scanned, or
+    /// <see langword="null"/> outside the <c>paths</c> container. Stack.ToArray
+    /// is top-first (LIFO), so the entry pushed right after <c>paths</c> — the
+    /// route path key — sits below it.
     /// </summary>
     private static string? CurrentPath(Stack<string> contexts)
     {
@@ -208,8 +198,6 @@ internal static class OpenApiSecurityJsonTransform
         {
             if (string.Equals(items[index], "paths", StringComparison.Ordinal))
             {
-                // Stack.ToArray yields top-first (LIFO), so the entry pushed
-                // right after `paths` — the route path key — sits below it.
                 return index > 0 ? items[index - 1] : null;
             }
         }
@@ -258,6 +246,10 @@ internal static class OpenApiSecurityJsonTransform
         return true;
     }
 
+    /// <summary>
+    /// Returns the index of the closing quote; escape pairs advance past the
+    /// escaped character too.
+    /// </summary>
     private static int SkipString(StringBuilder builder, int openQuoteIndex)
     {
         int index = openQuoteIndex + 1;
@@ -265,7 +257,6 @@ internal static class OpenApiSecurityJsonTransform
         {
             if (builder[index] == '\\')
             {
-                // Escape pairs consume the escaped character too.
                 index += 2;
                 continue;
             }
@@ -290,7 +281,6 @@ internal static class OpenApiSecurityJsonTransform
             char c = builder[i];
             if (c == '"')
             {
-                // SkipString returns the closing quote itself; resume past it.
                 i = SkipString(builder, i) + 1;
                 continue;
             }

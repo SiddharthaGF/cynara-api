@@ -5,10 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
-/// EF entity configuration for the <see cref="Membership"/> bridge. The
-/// unique <c>(UserId, HospitalId)</c> index enforces the
-/// one-membership-per-hospital rule; the actor identifier matches the
-/// domain actor identity width used by capability assignments.
+/// EF entity configuration for the <see cref="Membership"/> bridge; the
+/// unique (UserId, HospitalId) index enforces one membership per hospital
+/// and ActorId width matches capability assignments.
 /// </summary>
 public sealed class MembershipEntityConfiguration
     : IEntityTypeConfiguration<Membership>

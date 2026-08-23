@@ -12,12 +12,10 @@ using Cynara.Domain.Forms;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Default implementation of <see cref="IDocumentCatalogService"/>. All
-/// write operations stamp ownership from the resolved hospital context,
-/// validate the published form version and clinical taxonomy references
-/// server-side, and emit audit events that commit in the same
-/// unit-of-work transaction. The pinned <c>FormVersionId</c> snapshot
-/// survives retirement so historical documents remain resolvable.
+/// Default implementation of <see cref="IDocumentCatalogService"/>. Writes
+/// stamp ownership from the resolved hospital context, validate the pinned
+/// form version and taxonomy references server-side, and emit audit events
+/// in the same transaction; the pinned version snapshot survives retirement.
 /// </summary>
 public sealed class DocumentCatalogService(
     IDocumentCatalogRepository repository,

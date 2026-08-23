@@ -39,6 +39,11 @@ public sealed class QueryBudgetTests : IDisposable
         factory.Dispose();
     }
 
+    /// <summary>
+    /// Loading N forms each with a published version must stay O(1): one list
+    /// query eagerly loading versions, not one per form. A regression toward
+    /// lazy loading pushes the count toward SeedFormCount + 1 and fails.
+    /// </summary>
     [Fact]
     public async Task FormDefinitions_list_with_versions_stays_at_constant_query_budget()
     {
@@ -60,10 +65,6 @@ public sealed class QueryBudgetTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         int queryCount = ReadQueryCount(response);
 
-        // Loading N forms each with a published version must stay O(1): one
-        // list query that eagerly loads versions, not one query per form. A
-        // regression toward lazy loading or per-row fetches pushes the count
-        // toward SeedFormCount + 1 and fails the assert.
         Assert.InRange(queryCount, 1, 6);
     }
 

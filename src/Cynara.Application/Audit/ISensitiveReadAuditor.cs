@@ -2,9 +2,9 @@ namespace Cynara.Application.Audit;
 
 /// <summary>
 /// Stages and commits a read audit event for a sensitive clinical record
-/// read. Reads are non-mutating workflows, so unlike the writer-side audit
-/// events that ride the mutation's unit-of-work transaction, the read
-/// auditor owns its own immediate commit.
+/// read. Unlike writer-side audit events riding the mutation's unit-of-work
+/// transaction, reads are non-mutating so this auditor owns its own
+/// immediate commit.
 /// </summary>
 public interface ISensitiveReadAuditor
 {

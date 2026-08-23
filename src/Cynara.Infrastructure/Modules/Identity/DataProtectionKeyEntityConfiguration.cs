@@ -5,11 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
-/// EF entity configuration for the DataProtection key ring table. The
-/// ring persists in the identity database so OpenIddict refresh tokens
-/// and authorization artifacts survive restarts, deploys, and scaled
-/// instances; a friendly-name index bounds lookup cost when the ring
-/// grows through key rotation.
+/// EF entity configuration for the DataProtection key ring table, persisted
+/// in the identity database so refresh tokens survive restarts and scaled
+/// instances; a friendly-name index bounds lookup cost.
 /// </summary>
 public sealed class DataProtectionKeyEntityConfiguration
     : IEntityTypeConfiguration<DataProtectionKey>

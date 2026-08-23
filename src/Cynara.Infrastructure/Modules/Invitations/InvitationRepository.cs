@@ -7,10 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Invitations;
 
 /// <summary>
-/// EF Core implementation of the invitation repository. Reads are tracked
-/// or untracked as requested so lifecycle workflows get row-version
-/// concurrency checks; nothing here commits — the owning workflow's single
-/// <c>SaveChangesAsync</c> persists mutations together with staged audit.
+/// EF Core implementation of the invitation repository; tracked or
+/// untracked reads as requested for row-version concurrency checks, and
+/// nothing commits here — the owning workflow persists mutations together.
 /// </summary>
 public sealed class InvitationRepository(CynaraDbContext dbContext)
     : IInvitationRepository

@@ -39,6 +39,11 @@ internal static class IdentityHostingExtensions
     private const string DefaultEncryptionKeyPath =
         "/etc/secrets/openiddict-encryption.key";
 
+    /// <summary>
+    /// Wires ASP.NET Core Identity and OpenIddict. The Development-only
+    /// email sender guards itself internally, so its registration is
+    /// environment-agnostic.
+    /// </summary>
     public static IServiceCollection AddCynaraIdentity(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -59,10 +64,6 @@ internal static class IdentityHostingExtensions
             .AddEntityFrameworkStores<CynaraIdentityDbContext>()
             .AddDefaultTokenProviders();
 
-        // Development-only email sink for Identity recovery messages. The
-        // Development guard lives inside the sender (it logs locally and
-        // performs no external transport in any environment), so registration
-        // stays environment-agnostic.
         _ = services.AddSingleton<
             IEmailSender<IdentityUser<Guid>>,
             DevelopmentEmailSender>();
@@ -103,6 +104,16 @@ internal static class IdentityHostingExtensions
         return services;
     }
 
+    /// <summary>
+    /// Configures the OpenIddict server. Access tokens are reference tokens
+    /// so revocation actually invalidates them; ROPC is Development-only and
+    /// TokenController enforces the same guard.
+    /// </summary>
+    /// <remarks>
+    /// Interactive authorization requests are cached server-side behind an
+    /// opaque request_uri with a short lifetime; transport security is
+    /// relaxed so HTTP dev/test hosts can exercise the flows.
+    /// </remarks>
     private static void ConfigureServer(
         OpenIddictServerBuilder options,
         IConfiguration configuration,
@@ -119,10 +130,6 @@ internal static class IdentityHostingExtensions
             .AllowRefreshTokenFlow()
             .AllowClientCredentialsFlow();
 
-        // The resource-owner password grant is only ever enabled in
-        // Development; the TokenController enforces the same guard so the
-        // server-side registration and the endpoint both stay closed in
-        // production (ROPC is unsafe for cynara-web).
         if (isDevelopment)
         {
             _ = options.AllowPasswordFlow();
@@ -169,17 +176,10 @@ internal static class IdentityHostingExtensions
                 .AddEncryptionCertificate(encryptionCertificate);
         }
 
-        // Access tokens are stored as reference tokens so revocation actually
-        // invalidates them on local validation. Disable the transport
-        // security requirement so HTTP dev/test hosts can exercise the flows.
         _ = options.UseReferenceAccessTokens();
 
         _ = options.SetIssuer(issuer);
 
-        // Cache interactive authorization requests as server-owned request
-        // tokens so the login form only round-trips the opaque request_uri
-        // transaction handle. Expiry and replay validation stay inside
-        // OpenIddict; bound the lifetime so stale login pages expire fast.
         _ = options.EnableAuthorizationRequestCaching();
         _ = options.Configure(serverOptions =>
             serverOptions.RequestTokenLifetime = TimeSpan.FromMinutes(5));

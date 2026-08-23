@@ -3,10 +3,9 @@ using System.Text.Json.Serialization;
 namespace Cynara.Domain.Patients;
 
 /// <summary>
-/// ABO/Rh blood type classification stored on the patient aggregate.
-/// Values are persisted as strings so the JSON contract stays stable
-/// across the application and infrastructure layers; the canonical
-/// wire form is the clinical notation (<c>a+</c>, <c>o-</c>, …).
+/// ABO/Rh blood type classification on the patient aggregate, persisted as
+/// strings so the JSON contract stays stable; canonical wire form is
+/// clinical notation (a+, o-, …).
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum BloodType

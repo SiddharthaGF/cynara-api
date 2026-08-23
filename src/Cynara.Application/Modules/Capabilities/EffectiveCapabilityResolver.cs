@@ -4,12 +4,10 @@ using Cynara.Application.Modules.Hospitals;
 namespace Cynara.Application.Modules.Capabilities;
 
 /// <summary>
-/// Scoped, memoized resolver of the current actor's effective capabilities.
-/// The resolution is cached on the instance so the endpoint-level
-/// authorization filter, the domain-level <see cref="CapabilityGuard"/>, and
-/// the <c>GET /api/me/capabilities</c> endpoint all reuse a single query per
-/// request. Cross-tenant leakage is structurally impossible: every lookup
-/// filters by the resolved <see cref="IHospitalContext.HospitalId"/>.
+/// Scoped, memoized resolver of the current actor's effective capabilities:
+/// endpoint filter, domain <see cref="CapabilityGuard"/>, and capabilities
+/// endpoint all reuse one query per request. Cross-tenant leakage is
+/// structurally impossible — every lookup filters by the resolved hospital.
 /// </summary>
 public sealed class EffectiveCapabilityResolver(
     ICurrentActor currentActor,

@@ -7,6 +7,10 @@ namespace Cynara.Api.Tests;
 
 public sealed class OpenAiProviderErrorMapperTests
 {
+    /// <summary>
+    /// Status setter is protected; the production SDK sets it from the HTTP
+    /// response, so reflection is used to simulate an unauthorized result.
+    /// </summary>
     [Fact]
     public void Map_UnauthorizedClientResultException_DoesNotLeakApiKey()
     {
@@ -17,7 +21,6 @@ public sealed class OpenAiProviderErrorMapperTests
             "https://platform.openai.com/account/api-keys.";
         var providerError = new ClientResultException(leaked);
 
-        // Status setter is protected; production SDK sets it from the HTTP response.
         typeof(ClientResultException)
             .GetProperty(nameof(ClientResultException.Status))!
             .SetValue(providerError, 401);

@@ -7,11 +7,8 @@ namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
 /// Dedicated persistence context for ASP.NET Core Identity, OpenIddict,
-/// and the user-to-actor <see cref="Membership"/> bridge. Kept separate
-/// from the domain <c>CynaraDbContext</c> so authentication state never
-/// couples to the domain unit of work, and given its own EF migrations
-/// history table so the identity track cannot collide with the domain
-/// migration track.
+/// and the user-to-actor <see cref="Membership"/> bridge, kept separate
+/// from the domain unit of work and given its own migrations history table.
 /// </summary>
 public sealed class CynaraIdentityDbContext(
     DbContextOptions<CynaraIdentityDbContext> options)
@@ -29,10 +26,8 @@ public sealed class CynaraIdentityDbContext(
     public DbSet<Membership> Memberships => Set<Membership>();
 
     /// <summary>
-    /// DataProtection key ring storage. Persisting keys here keeps refresh
-    /// tokens and authorization artifacts valid across restarts, deploys,
-    /// and horizontally scaled instances instead of regenerating an
-    /// ephemeral ring on every boot.
+    /// DataProtection key ring storage; persisting keys here keeps refresh
+    /// tokens valid across restarts, deploys, and scaled instances.
     /// </summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 

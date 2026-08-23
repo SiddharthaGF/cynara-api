@@ -26,6 +26,11 @@ public sealed class DataProtectionHostingTests
 
     private string ConnectionString { get; }
 
+    /// <summary>
+    /// A brand-new provider simulates a restarted or scaled instance: the ring
+    /// must load back from the identity database instead of regenerating an
+    /// ephemeral key set.
+    /// </summary>
     [Fact]
     public async Task KeyRing_PersistsToIdentityDatabase_AndSurvivesRestart()
     {
@@ -45,9 +50,6 @@ public sealed class DataProtectionHostingTests
             Assert.NotEmpty(await identity.DataProtectionKeys.ToListAsync());
         }
 
-        // A brand-new provider simulates a restarted or scaled instance:
-        // the ring must load back from the identity database instead of
-        // regenerating an ephemeral key set.
         await using ServiceProvider restarted = BuildProvider();
         IDataProtector reloaded = restarted
             .GetRequiredService<IDataProtectionProvider>()

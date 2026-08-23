@@ -4,9 +4,8 @@ using System.Text.RegularExpressions;
 namespace Cynara.Application.Modules.FormAi;
 
 /// <summary>
-/// Outcome of the schema-validator fallback chain. The fallback drops layers
-/// of the AI draft in a fixed order until the validator is happy again;
-/// the enum value records the deepest layer that had to be sacrificed.
+/// Outcome of the schema-validator fallback chain: records the deepest
+/// layer of the AI draft that had to be sacrificed for validation.
 /// </summary>
 public enum FormAiFallbackOutcome
 {
@@ -27,14 +26,10 @@ public sealed record FormAiFallbackReport(
 }
 
 /// <summary>
-/// Guards against AI turns that claim (or are expected to produce) draft edits
-/// while returning schemas identical to the open draft. Those turns previously
-/// streamed a confident assistantMessage and a successful <c>done</c> with no
-/// canvas update on the designer.
-/// Also enforces honesty when the validator fallback silently strips layers
-/// (layout, rule fields, validations) — those turns used to keep a confident
-/// assistant claim like "I added the Vitals section" while dropping the
-/// corresponding rules/validations behind the scenes.
+/// Guards against AI turns that claim draft edits while returning schemas
+/// identical to the open draft, and rewrites confident claims when the
+/// validator fallback silently strips layers so the assistant never
+/// overstates what was applied.
 /// </summary>
 internal static partial class FormAiDraftConsistency
 {
@@ -64,6 +59,12 @@ internal static partial class FormAiDraftConsistency
         matchTimeoutMilliseconds: 1000)]
     private static partial Regex ClaimedApplyPattern { get; }
 
+    /// <summary>
+    /// Enforces honesty between assistant claims and actual draft effects.
+    /// The fallback check runs before the unchanged check: dropped layers
+    /// make the returned schemas differ from the draft even though the
+    /// claimed work was partially undone.
+    /// </summary>
     public static FormAiChatResponse EnsureConsistent(EnsureConsistentRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -76,10 +77,6 @@ internal static partial class FormAiDraftConsistency
         string locale = request.Locale;
         bool isRefusal = request.IsRefusal;
 
-        // The fallback is the most interesting honesty bug: schemas may differ
-        // from the draft (so the unchanged check passes), but layers were
-        // dropped to satisfy the validator — and the assistant message still
-        // claims the work happened.
         if (fallback.DiscardedSomething
             && !isRefusal
             && LooksLikeMutationRequest(latestUserContent)
@@ -116,7 +113,6 @@ internal static partial class FormAiDraftConsistency
             return result;
         }
 
-        // Q&A / refusal path: never leave a lying "I added fields" claim.
         return result with
         {
             AssistantMessage = HonestUnchangedMessage(locale),

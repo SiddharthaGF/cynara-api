@@ -130,6 +130,10 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
         Assert.Contains("task.generated", workflowActions);
     }
 
+    /// <summary>
+    /// The publish helper reads the definition while resolving the draft, so a
+    /// workflow.read event exists for every successful definition read.
+    /// </summary>
     [Fact]
     public async Task WorkflowDefinitionRead_EmitsSensitiveReadAuditEvent()
     {
@@ -152,8 +156,6 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
                 "workflow-definition",
                 StringComparison.Ordinal))];
 
-        // The publish helper reads the definition to resolve the draft, so a
-        // workflow.read event exists for every successful definition read.
         Assert.NotEmpty(readEvents);
         JsonElement attributes = readEvents[0].GetProperty("attributes");
         Assert.Equal(
@@ -166,6 +168,10 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The publish helper reads the version while resolving the draft, so a
+    /// workflow.version.read event exists for every version.
+    /// </summary>
     [Fact]
     public async Task WorkflowVersionRead_EmitsSensitiveReadAuditEvent()
     {
@@ -188,8 +194,6 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
                 "workflow-version",
                 StringComparison.Ordinal))];
 
-        // The publish helper reads the version as part of resolving the
-        // draft, so a workflow.version.read event exists for every version.
         Assert.NotEmpty(readEvents);
         JsonElement attributes = readEvents[0].GetProperty("attributes");
         Assert.Equal(
@@ -246,6 +250,11 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
                 item.GetProperty("attributes").GetProperty("actorId").GetString()));
     }
 
+    /// <summary>
+    /// JADNC rejects the mutation before the read-only service runs (422) or
+    /// the service raises InvalidStateException (409); either way the
+    /// append-only audit surface never accepts writes.
+    /// </summary>
     [Fact]
     public async Task AuditEvents_AreReadOnly()
     {
@@ -268,9 +277,6 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
             new Uri("/api/auditEvents", UriKind.Relative), content)
             .ConfigureAwait(false);
 
-        // JADNC rejects the mutation before the read-only resource service
-        // runs (422) or the service raises InvalidStateException (409).
-        // Either way the append-only surface never accepts writes.
         Assert.False(response.IsSuccessStatusCode);
     }
 

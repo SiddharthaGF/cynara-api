@@ -32,6 +32,12 @@ public sealed class AuthorizeController(
     /// to the registered frontend login route; POST validates credentials and
     /// completes the flow through the cached authorization request.
     /// </summary>
+    /// <remarks>
+    /// POST carries the credentials plus the opaque transaction handle, and
+    /// OpenIddict restores the decoded request from its server-side cache;
+    /// GET never renders backend HTML because OpenIddict has already
+    /// validated the registered redirect URI before this action runs.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when the request is not a valid OpenIddict request.</exception>
     [HttpGet("authorize")]
     [HttpPost("authorize")]
@@ -50,8 +56,6 @@ public sealed class AuthorizeController(
             ?? throw new InvalidOperationException(
                 "The request is not a valid OpenIddict request.");
 
-        // POST carries the credentials plus the opaque transaction handle.
-        // OpenIddict restores the decoded request from its server-side cache.
         if (HttpMethods.IsPost(Request.Method))
         {
             string? email = Request.Form["email"].ToString();
@@ -72,8 +76,6 @@ public sealed class AuthorizeController(
             return RedirectToFrontendLogin(request, error: true);
         }
 
-        // GET never renders backend HTML. The registered redirect URI has
-        // already been validated by OpenIddict before this action runs.
         return RedirectToFrontendLogin(request, error: false);
     }
 

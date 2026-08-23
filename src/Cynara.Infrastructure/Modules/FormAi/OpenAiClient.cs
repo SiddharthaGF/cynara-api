@@ -81,6 +81,11 @@ public sealed partial class OpenAiClient(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Streams provider deltas, retrying once when the first chunk fails.
+    /// A silent empty stream (end-of-stream with no chunks and no error) is
+    /// treated as fatal instead of being retried forever.
+    /// </summary>
     internal static async IAsyncEnumerable<OpenAiStreamDelta> EnumerateWithFirstChunkRetryAsync(
         Func<IChatClient> clientFactory,
         Func<List<ChatMessage>> messagesFactory,
@@ -115,15 +120,11 @@ public sealed partial class OpenAiClient(
             retried = true;
             if (!outcome.EmittedAny && outcome.ExhaustedStream)
             {
-                // The provider produced no chunks but the stream signalled an
-                // end-of-stream without raising; treat it as a fatal failure so
-                // we don't loop pointlessly on a healthy-looking empty stream.
                 throw new ValidationException(
                     "OpenAI-compatible provider returned an empty assistant message.");
             }
         }
 
-        // Unreachable: the loop above always either yields, throws, or breaks.
         throw new InvalidOperationException("Unreachable");
     }
 
@@ -234,6 +235,10 @@ public sealed partial class OpenAiClient(
         }
     }
 
+    /// <summary>
+    /// Disposes the enumerator without propagating failures from a race
+    /// with cancellation.
+    /// </summary>
     private static async Task DisposeQuietlyAsync(IAsyncEnumerator<ChatResponseUpdate> inner)
     {
         ValueTask dispose = inner.DisposeAsync();
@@ -248,10 +253,14 @@ public sealed partial class OpenAiClient(
         }
         catch (OperationCanceledException)
         {
-            // Disposal raced with a cancellation; nothing to do.
         }
     }
 
+    /// <summary>
+    /// Waits for the first chunk up to the timeout; on expiry the pending
+    /// MoveNextAsync is left unawaited on purpose, because disposal of the
+    /// enumerator cancels it instead of leaking an unobserved task.
+    /// </summary>
     private static async Task<bool> WaitForFirstChunkAsync(
         IAsyncEnumerator<ChatResponseUpdate> enumerator,
         TimeSpan timeout,
@@ -271,11 +280,6 @@ public sealed partial class OpenAiClient(
             return await moveNextTask.ConfigureAwait(false);
         }
 
-        // Timeout fired before the provider produced any chunk. We deliberately
-        // do not await moveNextTask here; the outer loop's `finally` will dispose
-        // the enumerator, which in turn cancels the inner stream's CTS and lets
-        // the hanging MoveNextAsync resolve cleanly instead of leaking an
-        // unobserved task exception.
         return false;
     }
 

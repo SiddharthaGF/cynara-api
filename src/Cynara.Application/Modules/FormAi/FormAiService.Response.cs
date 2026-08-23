@@ -135,9 +135,6 @@ public sealed partial class FormAiService
         DraftContext draft,
         FocusContext focus)
     {
-        // Only load the full skill body on the first turn of a conversation.
-        // Subsequent turns reuse the contract that was already loaded — the
-        // header reminder explicitly tells the model to keep applying it.
         bool isFirstTurn = messages.Count <= 1;
         string? skillBody = isFirstTurn ? skillLoader.GetSkillBody() : null;
         return

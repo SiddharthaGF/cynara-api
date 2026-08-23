@@ -209,7 +209,6 @@ public sealed class AuthorizeFlowTests : IDisposable
         AuthorizePage page = await GetAuthorizePageAsync(Factory, state, verifier);
         Assert.Equal(HttpStatusCode.Redirect, page.StatusCode);
 
-        // First submission consumes the transaction and issues a code.
         using HttpResponseMessage first = await PostCredentialsAsync(
             Factory,
             page,
@@ -218,8 +217,6 @@ public sealed class AuthorizeFlowTests : IDisposable
         Assert.Equal(HttpStatusCode.Redirect, first.StatusCode);
         Assert.True(IsRedirectWithCode(first));
 
-        // Replaying the exact same form payload must be bounded: no second
-        // code, no redirect loop, and a different (non-code) outcome.
         using HttpResponseMessage replay = await PostCredentialsAsync(
             Factory,
             page,
@@ -255,8 +252,6 @@ public sealed class AuthorizeFlowTests : IDisposable
                 UserEmail,
                 "wrong-password");
 
-            // Each attempt returns to the registered frontend with only a
-            // generic marker and the same opaque transaction handle.
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Uri location = Assert.IsType<Uri>(response.Headers.Location);
             Assert.Equal("invalid_credentials", QueryValue(location, "error"));
@@ -312,6 +307,11 @@ public sealed class AuthorizeFlowTests : IDisposable
         Assert.Null(QueryValue(location, "code"));
     }
 
+    /// <summary>
+    /// OpenIddict caches the authorization request and self-redirects the
+    /// first interaction to an opaque request_uri transaction; following that
+    /// redirect is what surfaces the login form to parse and assert.
+    /// </summary>
     private static async Task<AuthorizePage> GetAuthorizePageAsync(
         CynaraWebApplicationFactory factory,
         string state,
@@ -344,10 +344,6 @@ public sealed class AuthorizeFlowTests : IDisposable
             .GetAsync(new Uri("/connect/authorize?" + queryString, UriKind.Relative))
             .ConfigureAwait(false);
 
-        // OpenIddict caches the authorization request and self-redirects the
-        // first interaction to the endpoint with an opaque request_uri
-        // transaction before the login form can be rendered. Follow that
-        // transaction redirect so the form is what gets parsed and asserted.
         if (TokenFlowHelper.IsOpaqueTransactionRedirect(response, out _))
         {
             Uri location = response.Headers.Location!;

@@ -10,13 +10,10 @@ using Cynara.Domain.Patients;
 namespace Cynara.Application.Modules.Patients;
 
 /// <summary>
-/// Default implementation of <see cref="IPatientService"/>. All write
-/// operations stamp ownership from the resolved hospital context, enforce
-/// hospital-scoped MRN uniqueness, validate demographic fields
-/// server-side, and emit audit events that commit in the same
-/// unit-of-work transaction. Soft-deleted patients are hidden from search
-/// and detail responses but remain resolvable for historical form
-/// responses and audit continuity.
+/// Default implementation of <see cref="IPatientService"/>. All writes stamp
+/// ownership from the resolved hospital context, enforce hospital-scoped
+/// MRN uniqueness, and emit audit events in the same unit-of-work
+/// transaction; soft-deleted patients stay hidden but resolvable for audit.
 /// </summary>
 public sealed class PatientService(
     IPatientRepository repository,

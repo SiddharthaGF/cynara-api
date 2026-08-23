@@ -6,14 +6,10 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Cynara.Infrastructure.Modules.Capabilities;
 
 /// <summary>
-/// EF entity configuration for <see cref="CapabilityAssignment"/>. Uniqueness
-/// is scope-aware: the <c>(HospitalId, ActorId, Capability)</c> composite is
-/// unique among hospital-scoped rows (one grant per actor per capability per
-/// tenant), while <c>(ActorId, Capability)</c> is unique among platform-scoped
-/// rows (one platform grant per actor per capability). Both are partial
-/// indexes on <see cref="CapabilityAssignment.Scope"/>, which keeps the
-/// resolution lookup an index seek and lets hospital and platform grants for
-/// the same capability coexist.
+/// EF entity configuration for <see cref="CapabilityAssignment"/> with
+/// scope-aware partial unique indexes: (HospitalId, ActorId, Capability)
+/// among hospital rows and (ActorId, Capability) among platform rows, so
+/// both grant kinds coexist while lookups stay index seeks.
 /// </summary>
 public sealed class CapabilityAssignmentEntityConfiguration
     : IEntityTypeConfiguration<CapabilityAssignment>

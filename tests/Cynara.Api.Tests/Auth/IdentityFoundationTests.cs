@@ -43,11 +43,13 @@ public sealed class IdentityFoundationTests : IDisposable
 
     private TestDatabaseSettings Database { get; }
 
+    /// <summary>
+    /// The test host runs InitializeDatabaseAsync at startup, so both migration
+    /// tracks must already be applied to the shared database.
+    /// </summary>
     [Fact]
     public async Task Startup_MigratesIdentityTrackToItsOwnHistoryTable()
     {
-        // The test host runs InitializeDatabaseAsync at startup, so both
-        // migration tracks must already be applied to the shared database.
         CynaraIdentityDbContext identity = Scope.ServiceProvider
             .GetRequiredService<CynaraIdentityDbContext>();
 

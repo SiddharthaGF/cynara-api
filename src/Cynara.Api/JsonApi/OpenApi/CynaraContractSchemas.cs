@@ -3,18 +3,11 @@ using System.Text.Json.Serialization;
 namespace Cynara.Api.JsonApi.OpenApi;
 
 /// <summary>
-/// Reusable JSON:API error document envelope. Mirrors the wire shape emitted
-/// by the shared <c>CynaraErrorMapping</c> for both the JSON:API pipeline and
-/// the minimal-API error handler: a top-level <c>errors</c> array whose items
-/// carry <c>status</c> as a string, an optional machine <c>code</c>, a human
-/// <c>title</c>, a <c>detail</c>, and an optional <c>source.pointer</c> for
-/// field-level validation failures.
+/// Reusable JSON:API error document envelope mirroring the wire shape emitted
+/// by <c>CynaraErrorMapping</c> for both transports: a top-level
+/// <c>errors</c> array with string <c>status</c>, optional <c>code</c>,
+/// <c>title</c>, <c>detail</c>, and optional <c>source.pointer</c>.
 /// </summary>
-/// <remarks>
-/// Referenced from <c>[ProducesResponseType]</c> on custom controllers and
-/// injected by <see cref="JsonApiErrorResponseFilter"/> for JSON:API workflow
-/// actions that return untyped <c>IActionResult</c>.
-/// </remarks>
 public sealed record JsonApiErrorDocument(IReadOnlyList<JsonApiError> Errors);
 
 /// <summary>One error object inside a <see cref="JsonApiErrorDocument"/>.</summary>

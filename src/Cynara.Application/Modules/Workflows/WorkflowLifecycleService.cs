@@ -289,6 +289,10 @@ public sealed class WorkflowLifecycleService(
         return WorkflowMappers.ToVersionDto(definition, review);
     }
 
+    /// <summary>
+    /// Publishes the review version, validating in the strict "published"
+    /// context so form versions referenced by task nodes are pinned.
+    /// </summary>
     public async Task<WorkflowVersionDto> PublishDraftAsync(
         string code,
         PublishWorkflowDraftRequest request,
@@ -306,8 +310,6 @@ public sealed class WorkflowLifecycleService(
         WorkflowVersion review = WorkflowWorkflowHelpers.RequireReviewVersion(definition);
         WorkflowWorkflowHelpers.EnsureDraftConcurrency(review, request.RowVersion);
 
-        // Publishing validates in the strict "published" context, which pins
-        // form versions referenced by task nodes.
         schemaValidator.ValidateWorkflowForPublish(review.WorkflowSchemaJson);
 
         string version = SemverRules.NextVersion(

@@ -7,11 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Capabilities;
 
 /// <summary>
-/// EF Core implementation of the capability assignment repository.
-/// Resolution is the union of the actor's hospital-scoped grants for the
-/// resolved hospital and their platform-scoped grants; every tracked read
-/// feeds the grant and revoke workflows so EF can apply the row-version
-/// concurrency token.
+/// EF Core implementation of the capability assignment repository;
+/// resolution unions hospital- and platform-scoped grants, and tracked
+/// reads feed workflows so row-version concurrency applies.
 /// </summary>
 public sealed class CapabilityAssignmentRepository(CynaraDbContext dbContext)
     : ICapabilityAssignmentRepository

@@ -4,11 +4,9 @@ using Cynara.Domain.Forms;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Staging support for the form response bound to a clinical document.
-/// Groups the response lookup, completion-mode validation, and change
-/// staging behind one port so the document lifecycle owns a single unit of
-/// work while keeping the service constructor surface small. Repositories
-/// track and stage changes only; the workflow drives the commit.
+/// Staging support for the form response bound to a clinical document:
+/// lookup, completion-mode validation, and change staging behind one port,
+/// so repositories only stage while the workflow owns the commit.
 /// </summary>
 public interface IClinicalDocumentResponseStage
 {

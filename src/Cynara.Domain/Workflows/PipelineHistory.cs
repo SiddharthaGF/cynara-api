@@ -3,10 +3,8 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Workflows;
 
 /// <summary>
-/// Append-only progression event on a pipeline. Entries are created by the
-/// pipeline runtime only and carry the acting user, UTC timestamp, and
-/// transition metadata. Application APIs can never create, update, or
-/// delete history entries.
+/// Append-only progression event on a pipeline, created by the pipeline
+/// runtime only. APIs can never create, update, or delete history entries.
 /// </summary>
 [NoResource]
 public sealed class PipelineHistory

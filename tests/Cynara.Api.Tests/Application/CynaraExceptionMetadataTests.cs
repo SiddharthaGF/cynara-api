@@ -1,9 +1,6 @@
-// The folder groups Application-layer contracts together; the namespace stays
-// flat as `Cynara.Api.Tests` so it never shadows `Application.Forms.*`
-// references that existing test files resolve via namespace walking from
-// `Cynara.Api.Tests` up to `Cynara.Application.Forms`. Adding a child
-// namespace named `Cynara.Api.Tests.Application` would break that walking
-// resolution for unrelated tests in the same project.
+// Application-layer contracts live in this folder, but the namespace stays
+// flat as Cynara.Api.Tests: a child namespace would shadow the walking
+// resolution existing tests rely on for Cynara.Application.* references.
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 using System.Net;
 using System.Reflection;
@@ -12,12 +9,6 @@ using Cynara.Api.Common.ErrorHandling;
 using Cynara.Application;
 using Cynara.Application.Forms;
 
-// The folder groups Application-layer contracts together; the namespace stays
-// flat as `Cynara.Api.Tests` so it never shadows `Application.Forms.*`
-// references that existing test files resolve via namespace walking from
-// `Cynara.Api.Tests` up to `Cynara.Application.Forms`. Adding a child
-// namespace named `Cynara.Api.Tests.Application` would break that walking
-// resolution for unrelated tests in the same project.
 namespace Cynara.Api.Tests;
 
 /// <summary>

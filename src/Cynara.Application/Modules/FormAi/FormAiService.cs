@@ -106,6 +106,7 @@ public sealed partial class FormAiService(
                 fallback));
     }
 
+    /// <summary>Streams a chat completion as SSE events.</summary>
     public async Task ChatStreamAsync(
         string formCode,
         FormAiChatRequest request,
@@ -186,7 +187,6 @@ public sealed partial class FormAiService(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The client disconnected. Do not write to a cancelled response.
         }
         catch (Exception exception) when (
             exception is HttpRequestException
@@ -364,6 +364,10 @@ public sealed partial class FormAiService(
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Writes one SSE error event; swallows <see cref="IOException"/> when
+    /// the client has already closed the response stream.
+    /// </summary>
     private static async Task TryWriteStreamError(Stream output, Exception exception)
     {
         try
@@ -375,7 +379,6 @@ public sealed partial class FormAiService(
         }
         catch (IOException)
         {
-            // The response was already closed by the client.
         }
     }
 }

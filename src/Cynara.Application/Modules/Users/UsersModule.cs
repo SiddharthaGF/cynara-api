@@ -3,11 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cynara.Application.Modules.Users;
 
 /// <summary>
-/// Composition extensions that wire the user directory application services.
-/// The read-only persistence port implementation is registered in
-/// <c>Cynara.Infrastructure.Modules.Identity</c> beside the other
-/// cross-context identity readers so the application layer stays
-/// persistence-agnostic.
+/// Composition extensions wiring the user directory application services;
+/// the read-only port registers in Infrastructure beside the other
+/// cross-context identity readers so Application stays persistence-agnostic.
 /// </summary>
 public static class UsersModule
 {

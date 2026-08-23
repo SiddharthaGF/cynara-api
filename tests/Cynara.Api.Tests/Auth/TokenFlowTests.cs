@@ -152,6 +152,10 @@ public sealed class TokenFlowTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, protectedResponse.StatusCode);
     }
 
+    /// <summary>
+    /// A client-credentials subject has no user membership, so it resolves to
+    /// no actor and is denied capability-protected work.
+    /// </summary>
     [Fact]
     public async Task ClientCredentialsToken_CannotPerformCapabilityWork()
     {
@@ -172,8 +176,6 @@ public sealed class TokenFlowTests : IDisposable
             .GetAsync(new Uri("/api/patients", UriKind.Relative))
             .ConfigureAwait(false);
 
-        // A client-credentials subject has no user membership, so it resolves
-        // to no actor and is denied capability-protected work.
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 

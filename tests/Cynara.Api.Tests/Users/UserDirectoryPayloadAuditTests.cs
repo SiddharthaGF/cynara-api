@@ -72,6 +72,10 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The spec pins the flag key set, not seeded account values: lockout
+    /// configuration is environment state owned by the auth feature.
+    /// </summary>
     [Fact]
     public async Task Detail_EnrichesWithinPolicy_WithExactKeySets()
     {
@@ -115,8 +119,6 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
                 .Select(capability => capability.GetString()));
         JsonElement flags = detail.GetProperty("flags");
 
-        // The spec pins the flag key set, not seeded account values: lockout
-        // configuration is environment state owned by the auth feature.
         AssertKeySet(flags, "emailConfirmed", "lockoutEnabled", "lockoutEnd");
     }
 

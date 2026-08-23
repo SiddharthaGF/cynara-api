@@ -7,11 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Workflows;
 
 /// <summary>
-/// EF Core implementation of the pipeline repository. Reads are
-/// hospital-scoped and include the pinned workflow version (and its
-/// definition) so mappers can project the workflow code and semver without
-/// extra round trips. Tracked reads also include the append-only history so
-/// transitions can compute the next sequence within the same round trip.
+/// EF Core implementation of the pipeline repository; reads include the
+/// pinned workflow version so mappers avoid round trips, and tracked reads
+/// include history so transitions compute the next sequence in one trip.
 /// </summary>
 public sealed class PipelineRepository(CynaraDbContext dbContext) : IPipelineRepository
 {

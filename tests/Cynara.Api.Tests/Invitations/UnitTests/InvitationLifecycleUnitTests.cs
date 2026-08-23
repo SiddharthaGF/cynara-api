@@ -85,11 +85,13 @@ public sealed class InvitationLifecycleUnitTests
         }
     }
 
+    /// <summary>
+    /// Expired invitations must be resent or cancelled first; direct
+    /// acceptance is not a legal transition.
+    /// </summary>
     [Fact]
     public void Fire_Accept_FromExpired_ThrowsAndLeavesStateUntouched()
     {
-        // Expired invitations must be resent or cancelled first; direct
-        // acceptance is not a legal transition.
         Invitation invitation = ExpiredInvitation();
 
         InvalidStateException exception =

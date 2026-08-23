@@ -2,19 +2,16 @@ namespace Cynara.Application.Modules.Users.Persistence;
 
 /// <summary>
 /// Read-only persistence port for the administrative user directory. The
-/// identity context (users + memberships) drives paging and counting so a
-/// multi-hospital user is one row; hospital display codes and capability
-/// rows live on the domain context and are fetched with bounded untracked
-/// follow-ups. The reader never tracks entities, stages changes, or commits:
-/// directory reads are non-mutating workflows.
+/// identity context drives paging/counting (one row per multi-hospital
+/// user); hospital codes and capability rows come from bounded untracked
+/// follow-ups. Never tracks, stages, or commits: reads are non-mutating.
 /// </summary>
 public interface IUserDirectoryReader
 {
     /// <summary>
     /// Returns one deterministic page of distinct in-scope users plus the
-    /// total count of distinct in-scope users matching the query. Ordering
-    /// is normalized email then user id; the count is computed from the same
-    /// driving query as the page so totals stay stable across pages.
+    /// total count matching the query, ordered by normalized email then id;
+    /// the count uses the same driving query so totals stay stable.
     /// </summary>
     public Task<DirectoryPage> SearchAsync(
         DirectoryQuery query,
@@ -35,10 +32,9 @@ public interface IUserDirectoryReader
 
 /// <summary>
 /// Caller scope context for a directory read: whether the caller's grant is
-/// platform-scope (spans every hospital) and the caller's resolved hospital
-/// (the only visible hospital otherwise). Hospital filters supplied by
-/// platform-scope callers narrow results; they never widen a
-/// hospital-scoped caller's view.
+/// platform-scope and the caller's resolved hospital (the only visible one
+/// otherwise). Platform callers' hospital filters narrow results; they never
+/// widen a hospital-scoped view.
 /// </summary>
 public sealed record DirectoryCallerContext(
     bool PlatformScope,

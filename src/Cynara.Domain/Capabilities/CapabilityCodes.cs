@@ -1,17 +1,10 @@
 namespace Cynara.Domain.Capabilities;
 
 /// <summary>
-/// Stage 2 and Stage 3 capability codes. Each code gates a coherent read or
-/// mutation surface; a read and write pair is defined per resource family so
-/// a tenant can grant read-only access without conferring mutation rights.
-/// Stage 3 adds the workflow family: <see cref="WorkflowsRead"/> /
-/// <see cref="WorkflowsWrite"/> gate workflow configuration (define, review,
-/// publish, retire), while <see cref="PipelinesRead"/> /
-/// <see cref="PipelinesWrite"/> and <see cref="TasksRead"/> /
-/// <see cref="TasksWrite"/> gate the pipeline and task runtimes. The codes
-/// are the stable wire contract for capability assignment (see
-/// <c>Cynara.Api.JsonApi.Controllers.CapabilityAssignmentsController</c>)
-/// and must not be renamed once persisted.
+/// Capability codes. Each code gates a coherent read or mutation surface;
+/// read/write pairs per resource family let a tenant grant read-only access.
+/// Codes are the stable wire contract for capability assignment and must
+/// not be renamed once persisted.
 /// </summary>
 public static class CapabilityCodes
 {
@@ -66,15 +59,15 @@ public static class CapabilityCodes
 
     /// <summary>
     /// Gates the administrative invitation read surface (listing and
-    /// lifecycle inspection). Hospital-scoped holders are also the
-    /// recipients of invitation expiration notifications.
+    /// lifecycle inspection); hospital-scoped holders also receive
+    /// expiration notifications.
     /// </summary>
     public const string UserInvitationsRead = "user-invitations.read";
 
     /// <summary>
     /// Gates the administrative invitation mutation surface (create, cancel,
-    /// resend). The same code serves both grant scopes: breadth comes from
-    /// the assignment's scope dimension, never from a scope-encoded variant.
+    /// resend). Breadth comes from the assignment's scope dimension, never
+    /// from a scope-encoded code variant.
     /// </summary>
     public const string UserInvitationsWrite = "user-invitations.write";
 

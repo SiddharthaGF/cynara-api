@@ -6,11 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Cynara.Api.JsonApi.Controllers;
 
 /// <summary>
-/// Returns the hospital workspaces the authenticated user belongs to. This
-/// surface is tenant-exempt: it requires a valid bearer token but no
-/// <c>X-Hospital-Code</c> header, and it never resolves an actor or checks a
-/// capability. It exists so clients can present the hospital switcher before
-/// any tenant context exists.
+/// Returns the hospital workspaces the authenticated user belongs to.
+/// Tenant-exempt: requires a valid bearer token but no <c>X-Hospital-Code</c>,
+/// and never resolves an actor or checks a capability — it exists so clients
+/// can present the hospital switcher before any tenant context exists.
 /// </summary>
 [ApiController]
 [Route("api/me/hospitals")]
@@ -19,11 +18,9 @@ public sealed class MeHospitalsController(
     HospitalMembershipService memberships) : ControllerBase
 {
     /// <summary>
-    /// Returns the code and name of every hospital the current user belongs
-    /// to, ordered by hospital code. The user is resolved from the token
-    /// <c>sub</c> claim; subjects that are not user ids (for example
-    /// client-credentials clients) receive an empty collection, mirroring the
-    /// deny-by-default posture of the resolution layer.
+    /// Returns every hospital of the current user, resolved from the token
+    /// <c>sub</c> claim (read literally; OpenIddict applies no inbound
+    /// claim-type mapping). Client-credential subjects yield no rows.
     /// </summary>
     [HttpGet(Name = "getMyHospitals")]
     [EndpointDescription(
@@ -39,9 +36,6 @@ public sealed class MeHospitalsController(
     public async Task<ActionResult<IReadOnlyList<HospitalMembershipDto>>> GetAsync(
         CancellationToken cancellationToken)
     {
-        // OpenIddict does not apply the default inbound claim-type mapping,
-        // so the subject claim is read by its literal name. Client-credentials
-        // subjects are client identifiers (not user ids) and yield no rows.
         if (!PrincipalSubject.TryGetUserId(User, out Guid userId))
         {
             return Ok(Array.Empty<HospitalMembershipDto>());

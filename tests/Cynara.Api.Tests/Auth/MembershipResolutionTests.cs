@@ -24,8 +24,6 @@ public sealed class MembershipResolutionTests : IDisposable
     {
         Database = database.Settings;
 
-        // Real capability enforcement: grant-all replaces the resolver and
-        // would mask the membership/capability gates under test here.
         Factory = new IdentityAuthWebApplicationFactory(
             Database,
             grantAllCapabilities: false);
@@ -52,7 +50,6 @@ public sealed class MembershipResolutionTests : IDisposable
         _ = await Factory.CreateUserAsync(email, password);
         _ = await Factory.EnsureHospitalAsync(PrimaryCode, "Primary workspace");
 
-        // No membership is seeded for this user.
         await Factory.RegisterClientAsync();
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
 
@@ -86,8 +83,6 @@ public sealed class MembershipResolutionTests : IDisposable
         await Factory.SeedMembershipAsync(user, secondaryHospital, secondaryActor);
         await Factory.RegisterClientAsync();
 
-        // One real token is used against both hospitals; actor resolution is
-        // per request, so the same token must yield distinct actors.
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
 
         string actorAtPrimary = await ResolveActorAsync(tokens.AccessToken, PrimaryCode);
@@ -98,6 +93,10 @@ public sealed class MembershipResolutionTests : IDisposable
         Assert.NotEqual(actorAtPrimary, actorAtSecondary);
     }
 
+    /// <summary>
+    /// /api/me/* is not wholesale-exempt: only /api/me/hospitals skips the
+    /// tenant gate, so a missing hospital header stays a 400 here.
+    /// </summary>
     [Fact]
     public async Task TenantRoute_WithoutHospitalHeader_StillRejected()
     {
@@ -121,8 +120,6 @@ public sealed class MembershipResolutionTests : IDisposable
             .GetAsync(new Uri("/api/me/capabilities", UriKind.Relative))
             .ConfigureAwait(false);
 
-        // /api/me/* is NOT wholesale-exempt: only /api/me/hospitals skips the
-        // tenant gate, so a missing hospital header stays a 400 here.
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -148,7 +145,6 @@ public sealed class MembershipResolutionTests : IDisposable
         await Factory.RegisterClientAsync();
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
 
-        // Listing works for both the member with and without the capability.
         HttpClient listingClient = Factory.CreateClient();
         listingClient.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
         using HttpResponseMessage listing = await listingClient
@@ -156,8 +152,6 @@ public sealed class MembershipResolutionTests : IDisposable
             .ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, listing.StatusCode);
 
-        // The capability gate on the tenant-owned workspace route is
-        // untouched: only a member who holds WorkspaceRead may proceed.
         using HttpResponseMessage workspace = await GetWorkspaceAsync(
             tokens.AccessToken);
         Assert.Equal(expected, workspace.StatusCode);
@@ -179,7 +173,6 @@ public sealed class MembershipResolutionTests : IDisposable
         await Factory.RegisterClientAsync();
         AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
 
-        // No X-Hospital-Code is sent: the listing is the tenant-exempt route.
         HttpClient listingClient = Factory.CreateClient();
         listingClient.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
 
@@ -189,8 +182,6 @@ public sealed class MembershipResolutionTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, listing.StatusCode);
         Assert.Equal([PrimaryCode], await ReadHospitalCodesAsync(listing));
 
-        // The listing must not leave a selected hospital or actor behind: the
-        // same token still resolves the actor for a tenant-owned request.
         string actorAtPrimary = await ResolveActorAsync(tokens.AccessToken, PrimaryCode);
         Assert.Equal(actor, actorAtPrimary);
     }

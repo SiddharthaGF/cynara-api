@@ -5,13 +5,9 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Cynara.Infrastructure.Persistence.QueryCounting;
 
 /// <summary>
-/// EF Core interceptor that counts every executed read command on the
-/// current <see cref="QueryCounter"/>. Counting readers (not writes) is what
-/// surfaces N+1 patterns: one logical request that issues one SELECT followed
-/// by one SELECT per row appears as an unbounded count, while an eager-loaded
-/// projection stays at a small constant. Registered scoped alongside the
-/// <see cref="Microsoft.EntityFrameworkCore.DbContext"/> so the counter is
-/// per-request and the count dies with the scope.
+/// EF Core interceptor counting every executed read command on the current
+/// <see cref="QueryCounter"/>; counting readers is what surfaces N+1
+/// patterns. Registered scoped so the count dies with the request scope.
 /// </summary>
 public sealed class QueryCountingInterceptor(QueryCounter counter)
     : DbCommandInterceptor

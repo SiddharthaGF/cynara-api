@@ -69,13 +69,15 @@ public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)
 
     public DbSet<ClinicalTask> ClinicalTasks => Set<ClinicalTask>();
 
+    /// <summary>
+    /// Applies every entity configuration in this assembly except the
+    /// Identity module's: auth entities belong exclusively to the dedicated
+    /// identity context and must not leak into the domain model.
+    /// </summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
 
-        // The Identity module owns its dedicated CynaraIdentityDbContext;
-        // its configurations must not leak the auth entities (Membership,
-        // IdentityUser) into the domain model.
         _ = modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(CynaraDbContext).Assembly,
             static configurationType => configurationType.Namespace?.StartsWith(

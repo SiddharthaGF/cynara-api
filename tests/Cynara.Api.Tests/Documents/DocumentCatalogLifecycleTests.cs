@@ -51,6 +51,11 @@ public sealed class DocumentCatalogLifecycleTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// The create response only exposes relationship links; JSON:API populates
+    /// `data` only when the relationship is explicitly included, so re-fetch
+    /// with `include=` to get the FKs in the body.
+    /// </summary>
     [Fact]
     public async Task CreateDocumentDefinition_PersistsAndAudits()
     {
@@ -79,9 +84,6 @@ public sealed class DocumentCatalogLifecycleTests : IDisposable
         Assert.Equal("active", attributes.GetProperty("status").GetString());
         Assert.Equal(0u, attributes.GetProperty("rowVersion").GetUInt32());
 
-        // The create response only exposes relationship links; JSON:API only
-        // populates the `data` field when the relationship is explicitly
-        // included. Re-fetch with `include=` so the FKs are part of the body.
         using JsonDocument included = await Api.GetAsync(
             $"/api/documentDefinitions/{documentDefinitionId}"
                 + "?include=formDefinition,formVersion,facility,clinicalArea,discipline")

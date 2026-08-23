@@ -2,7 +2,7 @@ namespace Cynara.Application.Modules.FormAi;
 
 public static class OpenAiDefaults
 {
-    // Documented default endpoint; production configuration overrides it.
+    /// <summary>Documented default endpoint; production overrides it.</summary>
 #pragma warning disable S1075 // URIs should not be hardcoded: overridable default constant
     public const string BaseUrl = "https://api.openai.com/v1";
 #pragma warning restore S1075 // URIs should not be hardcoded: overridable default constant

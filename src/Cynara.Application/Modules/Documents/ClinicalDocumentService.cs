@@ -14,15 +14,10 @@ using Cynara.Domain.Forms;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Default implementation of <see cref="IClinicalDocumentService"/>. The
-/// start workflow stamps ownership from the resolved hospital context,
-/// delegates reference resolution (active catalog entry, open encounter,
-/// published form snapshot) to
-/// <see cref="IClinicalDocumentReferenceResolver"/>, creates the bound form
-/// response, and enforces the catalog multiplicity policy per encounter.
-/// Transition workflows honor optimistic concurrency, complete the bound
-/// response atomically on completion so recorded content becomes immutable,
-/// and emit audit events that commit in the same unit-of-work transaction.
+/// Default implementation of <see cref="IClinicalDocumentService"/>. Start
+/// delegates reference resolution to
+/// <see cref="IClinicalDocumentReferenceResolver"/> and enforces catalog
+/// multiplicity; transitions complete the bound response atomically and audit.
 /// </summary>
 public sealed class ClinicalDocumentService(
     IClinicalDocumentRepository documents,

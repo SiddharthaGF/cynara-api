@@ -13,11 +13,10 @@ public static class FormAiPromptBuilder
     };
 
     /// <summary>
-    /// Build the system prompt for a chat turn. The header is intentionally
-    /// compact (&lt;800 chars) so it survives long conversations without
-    /// blowing up the request size. The full authoring skill is loaded only on
-    /// the first turn of a conversation; later turns reference it by short
-    /// pointer to keep subsequent prompts small.
+    /// Build the system prompt for a chat turn. The header stays compact so
+    /// long conversations remain small; the full skill loads only on the
+    /// first turn, trimmed from the front to keep its useful tail (types,
+    /// widgets, rules), and later turns reference it by short pointer.
     /// </summary>
     public static string BuildSystemPrompt(string locale, string? skillBody = null, bool isFirstTurn = true)
     {
@@ -48,7 +47,6 @@ public static class FormAiPromptBuilder
             string body = skillBody.Trim();
             if (body.Length > SkillMaxInlineChars)
             {
-                // Truncate but keep the most useful tail — types/widgets/rules.
                 body = "...(skill body trimmed; refer to last loaded version)..." +
                     Environment.NewLine +
                     body[^SkillMaxInlineChars..];

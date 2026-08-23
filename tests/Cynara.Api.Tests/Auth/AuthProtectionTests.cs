@@ -85,8 +85,6 @@ public sealed class AuthProtectionTests : IDisposable
             "Bearer",
             tokens.AccessToken);
 
-        // A client-supplied actor header naming a different actor must be
-        // ignored in production.
         Client.DefaultRequestHeaders.TryAddWithoutValidation("X-Actor-Id", "forged-actor");
 
         using HttpResponseMessage response = await Client

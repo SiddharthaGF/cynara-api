@@ -35,12 +35,9 @@ namespace Cynara.Infrastructure;
 public static partial class InfrastructureServiceCollectionExtensions
 {
     /// <summary>
-    /// Provisioned only when baselining a legacy database that predates the
-    /// capabilities feature; keep this DDL aligned with the latest migration
-    /// so future schema changes apply cleanly. Every statement is guarded:
-    /// tables provisioned by earlier baselines predate the Scope column and
-    /// the partial unique indexes, and this script must converge them onto
-    /// the current schema instead of failing.
+    /// Idempotent DDL for baselining databases predating the capabilities
+    /// feature; every statement is guarded so older baselines converge onto
+    /// the current schema. Keep aligned with the latest migration.
     /// </summary>
     private const string CapabilityAssignmentsTableSql = """
         CREATE TABLE IF NOT EXISTS "capability_assignments" (
@@ -103,6 +100,12 @@ public static partial class InfrastructureServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers the domain and identity database contexts over Npgsql.
+    /// The identity context keeps a dedicated migrations history table so
+    /// authentication schema can never collide with the domain migration
+    /// stamps; cross-context readers resolve against both contexts.
+    /// </summary>
     public static IServiceCollection AddCynaraDatabase(
         this IServiceCollection services,
         string connectionString)
@@ -119,9 +122,6 @@ public static partial class InfrastructureServiceCollectionExtensions
                 provider.GetRequiredService<QueryCountingInterceptor>());
         });
 
-        // The identity track keeps its own migrations history table so
-        // applying authentication schema can never collide with the domain
-        // track's migration stamps.
         _ = services.AddDbContext<CynaraIdentityDbContext>(options =>
             _ = options.UseNpgsql(
                 normalizedConnectionString,
@@ -131,15 +131,10 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddScoped<IUnitOfWork>(
             provider => provider.GetRequiredService<CynaraDbContext>());
 
-        // Membership listing reads both the identity memberships and the
-        // domain hospitals, so it registers once both contexts exist.
         _ = services.AddScoped<
             IHospitalMembershipReader,
             MembershipHospitalReader>();
 
-        // The user directory reads users and memberships from the identity
-        // context and hospital codes plus capability rows from the domain
-        // context, so it registers once both contexts exist as well.
         _ = services.AddScoped<IUserDirectoryReader, UserDirectoryReader>();
 
         return services;
@@ -219,6 +214,11 @@ public static partial class InfrastructureServiceCollectionExtensions
         }
     }
 
+    /// <summary>
+    /// Migrates the domain database, first baselining legacy databases that
+    /// have tables but no migration history (EnsureCreated era) so
+    /// <c>MigrateAsync</c> never recreates existing tables.
+    /// </summary>
     private static async Task EnsureDatabaseSchemaAsync(
         CynaraDbContext dbContext,
         CancellationToken cancellationToken)
@@ -238,10 +238,6 @@ public static partial class InfrastructureServiceCollectionExtensions
 
         if (hasTables && !hasHistory)
         {
-            // Databases created before EF migrations existed (EnsureCreated)
-            // have tables but no migration history. Baseline them so
-            // MigrateAsync never recreates existing tables, and provision the
-            // capability_assignments table added after that legacy schema.
             await BaselineLegacyDatabaseAsync(dbContext, history, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -250,6 +246,11 @@ public static partial class InfrastructureServiceCollectionExtensions
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Stamps the initial migration into the history table and provisions
+    /// capability_assignments, which postdates the legacy schema; the DDL
+    /// is idempotent and a no-op when the table already exists.
+    /// </summary>
     private static async Task BaselineLegacyDatabaseAsync(
         CynaraDbContext dbContext,
         IHistoryRepository history,
@@ -270,9 +271,6 @@ public static partial class InfrastructureServiceCollectionExtensions
             [initialMigrationId],
             cancellationToken).ConfigureAwait(false);
 
-        // capability_assignments is part of the baselined initial migration,
-        // so provision it explicitly for legacy schemas. The DDL is
-        // idempotent and a no-op on schemas that already have the table.
         _ = await dbContext.Database.ExecuteSqlRawAsync(
             CapabilityAssignmentsTableSql,
             cancellationToken).ConfigureAwait(false);

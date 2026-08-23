@@ -1,10 +1,9 @@
 namespace Cynara.Infrastructure.Modules.FormAi;
 
 /// <summary>
-/// Single source of truth for "transient" HTTP status codes coming back
-/// from OpenAI-compatible providers. Both the Polly retry pipeline and the
-/// <see cref="OpenAiProviderErrorMapper"/> consult this rule so a status
-/// policy change only needs to happen in one place.
+/// Single source of truth for transient HTTP status codes from
+/// OpenAI-compatible providers, shared by the Polly retry pipeline and
+/// <see cref="OpenAiProviderErrorMapper"/>.
 /// </summary>
 internal static class ProviderStatusRules
 {

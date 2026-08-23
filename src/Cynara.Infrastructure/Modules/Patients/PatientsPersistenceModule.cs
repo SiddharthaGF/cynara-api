@@ -5,10 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cynara.Infrastructure.Modules.Patients;
 
 /// <summary>
-/// Composition extensions that wire the patient registry persistence
-/// services. The application layer remains persistence-agnostic; only the
-/// infrastructure composition root registers the EF Core repository
-/// implementation.
+/// Composition extensions wiring the patient registry persistence services;
+/// only infrastructure registers the EF Core repository implementation.
 /// </summary>
 public static class PatientsPersistenceModule
 {

@@ -7,12 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Cynara.Infrastructure.Modules.Patients;
 
 /// <summary>
-/// EF Core implementation of the patient repository. All reads are
-/// hospital-scoped; tracked reads return tracked entities for workflow
-/// mutations, and untracked reads are used for list projections. Soft-
-/// delete filtering is delegated to the <c>PatientSearchCriteria</c>
-/// because the application layer is the single source of truth for the
-/// soft-delete semantics.
+/// EF Core implementation of the patient repository; all reads are
+/// hospital-scoped, and soft-delete filtering is delegated to the
+/// <c>PatientSearchCriteria</c> so application logic owns its semantics.
 /// </summary>
 public sealed class PatientRepository(CynaraDbContext dbContext)
     : IPatientRepository

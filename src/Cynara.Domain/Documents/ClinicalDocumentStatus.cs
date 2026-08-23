@@ -3,8 +3,7 @@ using System.Text.Json.Serialization;
 namespace Cynara.Domain.Documents;
 
 /// <summary>
-/// Lifecycle status of a clinical document instance. Documents are created
-/// <see cref="InProgress"/> by the start-document workflow; transitions are
+/// Lifecycle status of a clinical document instance; transitions are
 /// state-machine rules enforced by the application layer. Terminal states
 /// remain historically queryable.
 /// </summary>

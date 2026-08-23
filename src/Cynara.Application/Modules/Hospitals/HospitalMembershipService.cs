@@ -2,10 +2,9 @@ namespace Cynara.Application.Modules.Hospitals;
 
 /// <summary>
 /// Application-layer membership listing workflow consumed by the API host.
-/// Applies the response projection (stable, code-ordered hospital choices)
-/// over the <see cref="IHospitalMembershipReader"/> persistence port, keeping
-/// transport concerns out of the Application surface. No tenant or capability
-/// gates apply: the listing is deliberately bearer-only.
+/// Applies a stable, code-ordered projection over
+/// <see cref="IHospitalMembershipReader"/>. No tenant or capability gates
+/// apply: the listing is deliberately bearer-only.
 /// </summary>
 public sealed class HospitalMembershipService(
     IHospitalMembershipReader memberships)

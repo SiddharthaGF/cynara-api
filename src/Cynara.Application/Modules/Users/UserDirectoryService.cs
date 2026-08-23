@@ -8,13 +8,9 @@ namespace Cynara.Application.Modules.Users;
 
 /// <summary>
 /// Default user-directory workflows. Every call re-checks the resolved
-/// tenant context and the <c>users.read</c> capability so denial never
-/// depends on route wiring alone, then resolves the caller's grant scope to
-/// decide listing breadth. The hospital filter is honored exclusively for
-/// platform-scope callers: it narrows their global view but can never widen
-/// a hospital-scoped caller's view. The filter carries a hospital business
-/// code; an unknown code yields an empty page rather than falling back to an
-/// unfiltered listing, so a bad reference can never widen results.
+/// tenant context and the <c>users.read</c> capability before resolving
+/// the caller's grant scope. The hospital filter narrows platform-scope
+/// callers only; an unknown code yields an empty page, never wider results.
 /// </summary>
 public sealed class UserDirectoryService(
     IHospitalContext hospitalContext,
@@ -52,9 +48,6 @@ public sealed class UserDirectoryService(
             && hospitalFilter is null
             && !string.IsNullOrWhiteSpace(request.HospitalCode))
         {
-            // A platform caller named a hospital that does not exist: no
-            // members can match, and the empty page must not degrade into an
-            // unfiltered listing.
             return new UserDirectoryListResponse([], page, pageSize, 0);
         }
 
@@ -111,11 +104,10 @@ public sealed class UserDirectoryService(
     }
 
     /// <summary>
-    /// Resolves the hospital business code to its identifier. Only
-    /// platform-scope callers may narrow by hospital, so a hospital-scoped
-    /// request yields <see langword="null"/> regardless of the supplied
-    /// code; an unknown platform-side code returns a sentinel miss that the
-    /// caller turns into an empty page.
+    /// Resolves the hospital business code to its identifier for
+    /// platform-scope callers only; other callers get
+    /// <see langword="null"/> regardless of code. An unknown code returns
+    /// a sentinel miss the caller turns into an empty page.
     /// </summary>
     private async Task<Guid?> ResolveHospitalFilterAsync(
         bool platformScope,
@@ -133,10 +125,12 @@ public sealed class UserDirectoryService(
         return hospital?.Id;
     }
 
+    /// <summary>
+    /// Converts the nullable actor seam value for downstream queries; the
+    /// capability guard has already denied empty-actor subjects.
+    /// </summary>
     private string RequireActorId()
     {
-        // The capability guard already denies empty-actor subjects, so this
-        // only converts the nullable seam value for downstream queries.
         return currentActor.ActorId
             ?? throw new InvalidStateException(
                 "An actor identity is required for directory reads.");

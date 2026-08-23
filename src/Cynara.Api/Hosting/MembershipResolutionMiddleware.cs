@@ -4,15 +4,16 @@ using Cynara.Application.Modules.Hospitals;
 namespace Cynara.Api.Hosting;
 
 /// <summary>
-/// Resolves the authenticated principal into the request actor context.
-/// Reads the Identity <c>sub</c> claim and combines it with the hospital
-/// already resolved by <see cref="HospitalContextMiddleware"/>, looks up the
-/// matching membership through <see cref="IHospitalMembershipReader"/>, and stamps the scoped
+/// Resolves the authenticated principal into the hospital-scoped request
+/// actor via <see cref="IHospitalMembershipReader"/>, stamping the scoped
 /// <see cref="ResolvedActor"/> so capability resolution and audit attribution
-/// key on the hospital-scoped actor. Authenticated users without a matching
-/// membership are denied with 403. Public authentication/schema paths and
-/// anonymous requests pass through untouched (deny-by-default downstream).
+/// key on it; users without membership are denied with 403.
 /// </summary>
+/// <remarks>
+/// OpenIddict does not apply the default inbound claim-type mapping, so the
+/// subject claim is read by its literal name; client-credentials subjects are
+/// not GUIDs, keep an empty actor, and cannot do capability work downstream.
+/// </remarks>
 internal sealed class MembershipResolutionMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context)
@@ -32,11 +33,6 @@ internal sealed class MembershipResolutionMiddleware(RequestDelegate next)
             return;
         }
 
-        // OpenIddict does not apply the default inbound claim-type mapping, so
-        // the subject claim is read by its literal name. Client-credentials
-        // subjects are client identifiers (not user ids), so they are not
-        // GUIDs and are ignored here — they retain an empty actor and are
-        // denied capability work downstream.
         if (!PrincipalSubject.TryGetUserId(context.User, out Guid userId))
         {
             await next(context).ConfigureAwait(false);

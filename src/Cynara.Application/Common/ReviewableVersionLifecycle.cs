@@ -3,9 +3,8 @@ namespace Cynara.Application.Common;
 /// <summary>
 /// Shared review-gated version state machine for catalog definitions (form
 /// and workflow): draft → review → published → retired. Illegal transitions
-/// throw <see cref="InvalidStateException"/> rather than silently no-oping.
-/// Component versions use a different machine (no review gate) and are
-/// intentionally not part of this class.
+/// throw <see cref="InvalidStateException"/>. Component versions (no review
+/// gate) intentionally use a different machine.
 /// </summary>
 internal static class ReviewableVersionLifecycle
 {

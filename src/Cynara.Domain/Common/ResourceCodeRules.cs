@@ -3,12 +3,10 @@ using System.ComponentModel.DataAnnotations;
 namespace Cynara.Domain.Common;
 
 /// <summary>
-/// Shared validation rules for tenant-owned business codes
-/// (<c>Hospital</c>, <c>Facility</c>, <c>ClinicalArea</c>,
-/// <c>Discipline</c>). The bounds-only enforcement preserves the
-/// historical per-entity <c>Codes</c> behavior; the regex
-/// <see cref="Pattern"/> documents the OpenAPI / EF constraints and is
-/// intentionally NOT evaluated by <see cref="EnsureValid"/>.
+/// Shared validation rules for tenant-owned business codes (hospital,
+/// facility, clinical area, discipline). <see cref="EnsureValid"/> enforces
+/// bounds only; the regex <see cref="Pattern"/> documents the OpenAPI/EF
+/// constraint and is intentionally not evaluated at runtime.
 /// </summary>
 public static class ResourceCodeRules
 {

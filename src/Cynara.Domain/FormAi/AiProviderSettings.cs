@@ -8,12 +8,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.FormAi;
 
 /// <summary>
-/// Per-hospital AI provider configuration. The composite key
-/// (<c>HospitalId</c>, <c>Id</c>) keeps landlord AI config isolated by
-/// tenant. The API key is write-only; clients see <see cref="HasApiKey"/>
-/// and <see cref="ApiKeyMasked"/> instead of the secret. Rich view attrs
-/// (source, suggestions, configured) are projected
-/// by the resource service from the active DB or environment fallback.
+/// Per-hospital AI provider configuration; the composite key keeps landlord
+/// AI config isolated by tenant. The API key is write-only — clients see
+/// <see cref="HasApiKey"/> and <see cref="ApiKeyMasked"/> instead of the
+/// secret. Rich view attrs are projected by the resource service.
 /// </summary>
 [Resource(
     PublicName = "aiProviderSettings",

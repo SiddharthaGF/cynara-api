@@ -3,13 +3,8 @@ namespace Cynara.Application.Modules.Documents;
 /// <summary>
 /// Tenant-aware lifecycle service for clinical document instances.
 /// Implementations stamp ownership from <c>IHospitalContext</c>, reject
-/// retired catalog entries and non-open encounters, preserve the exact
-/// published form version captured at creation, enforce the catalog
-/// multiplicity policy per encounter, honor optimistic concurrency on
-/// transitions, and emit audit events through the shared unit-of-work
-/// boundary. Completed documents are immutable: their bound response is
-/// completed in the same transaction, so overwrites and physical deletes
-/// are impossible.
+/// retired entries and non-open encounters, pin the form version, enforce
+/// concurrency, and audit in one unit of work. Completed docs are immutable.
 /// </summary>
 public interface IClinicalDocumentService
 {

@@ -3,12 +3,10 @@ using JsonApiDotNetCore.Resources.Annotations;
 namespace Cynara.Domain.Capabilities;
 
 /// <summary>
-/// A capability granted to an actor. Hospital-scoped grants authorize only
-/// inside <see cref="HospitalId"/>; platform-scoped grants authorize in every
-/// hospital context. Resolution is the union of both scopes for the actor, so
-/// an assignment in one tenant can still never authorize another through a
-/// hospital grant: the hospital leg of every resolution query filters on
-/// <see cref="HospitalId"/> first.
+/// A capability granted to an actor: hospital-scoped grants authorize only
+/// inside <see cref="HospitalId"/>, platform-scoped grants everywhere.
+/// Resolution unions both scopes; its hospital leg always filters on
+/// <see cref="HospitalId"/> first, so tenants can never cross-authorize.
 /// </summary>
 [NoResource]
 public sealed class CapabilityAssignment

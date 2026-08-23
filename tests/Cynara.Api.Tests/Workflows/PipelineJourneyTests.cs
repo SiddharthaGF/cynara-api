@@ -61,7 +61,6 @@ public sealed class PipelineJourneyTests : IDisposable
             .EnumerateArray()];
         Assert.Equal(2, journeys.Length);
 
-        // Latest start first: the encounter-bound pipeline.
         JsonElement encounterJourney = journeys[0];
         Assert.Equal(
             encounterPipeline.ToString("D", CultureInfo.InvariantCulture),
@@ -169,7 +168,6 @@ public sealed class PipelineJourneyTests : IDisposable
             subjectType: "encounter",
             subjectId: encounterId).ConfigureAwait(false);
 
-        // Publish a newer graph while the v1.0.0 pipeline is still running.
         await PublishNextVersionWithSchemaAsync(
             "journey-hist",
             NextVersionSchema()).ConfigureAwait(false);
@@ -186,8 +184,6 @@ public sealed class PipelineJourneyTests : IDisposable
         Assert.Equal(pinnedVersionId, Str(journey, "workflowVersionId"));
         Assert.Equal("completed", Str(journey, "status"));
 
-        // The journey still renders the 1.0.0 graph (start + end), never the
-        // 1.0.1 graph with the extra "collect" node.
         string[] nodeIds = [.. journey.GetProperty("graph").GetProperty("nodes")
             .EnumerateArray()
             .Select(item => item.GetProperty("id").GetString()!)];

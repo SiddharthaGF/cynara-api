@@ -4,6 +4,10 @@ using Cynara.Domain.Common;
 
 namespace Cynara.Api.Tests;
 
+/// <summary>
+/// <see cref="ResourceCodeRules.EnsureValid"/> is intentionally bounds-only:
+/// regex-hostile inputs such as spaces or slashes remain valid codes.
+/// </summary>
 public sealed class ResourceCodeRulesTests
 {
     [Theory]
@@ -57,8 +61,6 @@ public sealed class ResourceCodeRulesTests
     [Fact]
     public void EnsureValid_AcceptsCodeWithSpaces()
     {
-        // The regex would reject "a b" because of the space, but
-        // ResourceCodeRules.EnsureValid is intentionally bounds-only.
         const string withSpace = "a b";
 
         Exception? exception = Record.Exception(
@@ -70,8 +72,6 @@ public sealed class ResourceCodeRulesTests
     [Fact]
     public void EnsureValid_AcceptsCodeWithSpecialCharacters()
     {
-        // The regex would reject "a/b" because of the slash, but
-        // ResourceCodeRules.EnsureValid is intentionally bounds-only.
         const string withSlash = "a/b";
 
         Exception? exception = Record.Exception(

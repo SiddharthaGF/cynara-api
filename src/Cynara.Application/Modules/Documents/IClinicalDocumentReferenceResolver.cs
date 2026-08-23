@@ -5,11 +5,10 @@ using Cynara.Domain.Forms;
 namespace Cynara.Application.Modules.Documents;
 
 /// <summary>
-/// Resolves the reference data a clinical document instance needs before it
-/// can be started: the catalog entry, the target encounter, and the exact
-/// published form snapshot. Grouping these lookups behind a single port
-/// keeps <see cref="IClinicalDocumentService"/> focused on the instance it
-/// creates and the invariants that depend on it.
+/// Resolves the reference data a clinical document needs before start: the
+/// catalog entry, target encounter, and exact published form snapshot.
+/// Grouping the lookups behind one port keeps
+/// <see cref="IClinicalDocumentService"/> focused on instance invariants.
 /// </summary>
 public interface IClinicalDocumentReferenceResolver
 {
@@ -43,10 +42,9 @@ public interface IClinicalDocumentReferenceResolver
 
     /// <summary>
     /// Returns the catalog entry for <paramref name="documentDefinitionId"/>
-    /// or throws when the entry is unknown. Unlike
-    /// <see cref="RequireActiveDefinitionAsync"/>, retired entries remain
-    /// resolvable so lifecycle transitions can honor their completion policy
-    /// after the catalog entry is retired.
+    /// or throws when unknown. Unlike
+    /// <see cref="RequireActiveDefinitionAsync"/>, retired entries stay
+    /// resolvable so transitions can honor completion policy post-retirement.
     /// </summary>
     public Task<DocumentDefinition> RequireDefinitionAsync(
         Guid hospitalId,

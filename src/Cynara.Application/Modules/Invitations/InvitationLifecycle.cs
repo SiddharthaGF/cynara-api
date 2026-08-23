@@ -3,12 +3,10 @@ using Cynara.Domain.Invitations;
 namespace Cynara.Application.Modules.Invitations;
 
 /// <summary>
-/// Explicit state machine for the invitation lifecycle:
-/// pending → accepted/expired/revoked/cancelled, expired → cancelled, and
-/// resend restarting validity from pending or expired. Illegal transitions
-/// throw <see cref="InvalidStateException"/> rather than silently no-oping,
-/// leaving the entity untouched so the unit of work rolls back cleanly and
-/// no audit event is staged.
+/// Explicit state machine for the invitation lifecycle: pending →
+/// accepted/expired/revoked/cancelled, expired → cancelled, resend
+/// restarting validity from pending or expired. Illegal transitions throw
+/// and leave the entity untouched.
 /// </summary>
 internal static class InvitationLifecycle
 {
@@ -21,6 +19,11 @@ internal static class InvitationLifecycle
         Resend = 4,
     }
 
+    /// <summary>
+    /// Applies <paramref name="trigger"/> or throws. Resend only resets the
+    /// status to pending; the caller re-stamps IssuedAt/ExpiresAt and bumps
+    /// LinkVersion on the same row to restart the 72h window.
+    /// </summary>
     public static void Fire(
         Invitation invitation,
         Trigger trigger)
@@ -58,9 +61,6 @@ internal static class InvitationLifecycle
                 invitation.Status = InvitationStatus.Cancelled;
                 break;
             case Trigger.Resend:
-                // Resend restarts the 72h window on the same row: status
-                // stays/becomes Pending while the caller bumps LinkVersion
-                // and re-stamps IssuedAt/ExpiresAt.
                 invitation.Status = InvitationStatus.Pending;
                 break;
             default:

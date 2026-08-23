@@ -3,9 +3,8 @@ namespace Cynara.Application.Modules.Encounters;
 /// <summary>
 /// Tenant-aware lifecycle service for clinical encounters.
 /// Implementations stamp ownership from <c>IHospitalContext</c>, reject
-/// cross-tenant or retired references, honor optimistic concurrency on
-/// transitions, and emit audit events through the shared unit-of-work
-/// boundary.
+/// cross-tenant or retired references, honor optimistic concurrency, and
+/// emit audit events in the shared unit-of-work boundary.
 /// </summary>
 public interface IEncounterService
 {

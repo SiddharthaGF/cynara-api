@@ -4,10 +4,9 @@ namespace Cynara.Application.Modules.Capabilities;
 
 /// <summary>
 /// Raised when the current actor does not hold the capability required by a
-/// protected endpoint or domain operation. Maps to 403 through the shared
-/// error mapping. The message stays generic so a denial never reveals whether
-/// the protected resource exists; the required capability and actor are kept
-/// as properties for the denied-access audit.
+/// protected endpoint or domain operation; maps to 403. The message stays
+/// generic so a denial never reveals whether the resource exists — the
+/// required capability and actor are properties for the denied-access audit.
 /// </summary>
 public sealed class CapabilityForbiddenException : CynaraException
 {

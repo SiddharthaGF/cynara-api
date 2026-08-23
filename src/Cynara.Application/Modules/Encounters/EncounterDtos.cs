@@ -3,25 +3,10 @@ using Cynara.Application.OpenApi;
 namespace Cynara.Application.Modules.Encounters;
 
 /// <summary>
-/// Public read and write shapes for clinical encounters.
+/// Public read shape for a clinical encounter. Patient, facility, and area
+/// references are immutable after creation; <c>Status</c> is open,
+/// completed, canceled, or enteredInError; RowVersion guards transitions.
 /// </summary>
-/// <remarks>
-/// Field reference:
-/// <list type="bullet">
-/// <item><c>Id</c> – surrogate Guid; immutable.</item>
-/// <item><c>PatientId</c> / <c>FacilityId</c> / <c>ClinicalAreaId</c> –
-/// organizational references; immutable after creation.</item>
-/// <item><c>Type</c> – one of ambulatory, emergency, inpatient,
-/// observation, or virtual.</item>
-/// <item><c>ResponsibleProfessionalId</c> – actor-style identifier;
-/// trimmed at write time.</item>
-/// <item><c>Status</c> – one of <c>open</c>, <c>completed</c>,
-/// <c>canceled</c>, <c>enteredInError</c>.</item>
-/// <item><c>StartedAt</c> / <c>EndedAt</c> – UTC timestamps.</item>
-/// <item><c>RowVersion</c> – optimistic concurrency token; required for
-/// transitions.</item>
-/// </list>
-/// </remarks>
 public sealed record EncounterDto(
     Guid Id,
     Guid PatientId,

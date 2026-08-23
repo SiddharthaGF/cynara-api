@@ -6,11 +6,10 @@ using Cynara.Application.Persistence;
 namespace Cynara.Application.Modules.Capabilities;
 
 /// <summary>
-/// Default denied-access auditor. Stages an <c>access.denied</c> audit event
-/// through the current unit of work and commits it immediately. Denials are
-/// raised before any protected workflow mutates state, so the committed
-/// changes are limited to the audit event itself. All failures are swallowed
-/// so the auditor can never mask or change an authorization outcome.
+/// Default denied-access auditor. Stages and commits an
+/// <c>access.denied</c> audit event immediately; denials are raised before
+/// any protected workflow mutates state. All failures are swallowed so the
+/// auditor can never mask or change an authorization outcome.
 /// </summary>
 public sealed class DeniedAccessAuditor(
     IAuditWriter auditWriter,
@@ -47,7 +46,6 @@ public sealed class DeniedAccessAuditor(
         catch (Exception exception) when (
             exception is not OperationCanceledException)
         {
-            // Best-effort: a failed audit must never change the outcome.
             _ = exception;
         }
     }

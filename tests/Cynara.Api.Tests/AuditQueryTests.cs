@@ -29,7 +29,6 @@ public sealed class AuditQueryTests : IDisposable
     [Fact]
     public async Task ListAuditEvents_WithoutFilter_ReturnsCollection()
     {
-        // JSON:API allows unfiltered reads; ensure the resource route is wired.
         using JsonDocument document = await Api.GetAsync("/api/auditEvents")
             .ConfigureAwait(false);
         Assert.True(document.RootElement.TryGetProperty("data", out _));

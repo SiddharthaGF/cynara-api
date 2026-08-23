@@ -11,10 +11,9 @@ namespace Cynara.Application.Modules.Tasks;
 
 /// <summary>
 /// Default implementation of <see cref="ITaskService"/>. Reads are
-/// hospital-scoped and capability-gated; claim/complete/cancel transitions
-/// enforce optimistic concurrency via the row version, transition through
-/// the explicit task state machine, and emit audit events that commit in the
-/// same unit-of-work boundary as the mutation.
+/// hospital-scoped and capability-gated; transitions enforce optimistic
+/// concurrency, run through the explicit task state machine, and emit audit
+/// events in the mutation's unit-of-work boundary.
 /// </summary>
 public sealed class TaskService(
     ITaskRepository tasks,
