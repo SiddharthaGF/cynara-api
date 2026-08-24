@@ -288,25 +288,12 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
         string code,
         string workflowSchemaJson)
     {
-        string definitionId = await Api.CreateWorkflowDefinitionAsync(
-            code,
-            code,
-            workflowSchemaJson).ConfigureAwait(false);
-        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await Api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        using JsonDocument published = await Api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
+        (string definitionId, string versionId) = await Api
+            .CreateAndPublishWorkflowAsync(code, workflowSchemaJson)
+            .ConfigureAwait(false);
         return (
             Guid.Parse(definitionId, CultureInfo.InvariantCulture),
-            Guid.Parse(
-                JsonApiClient.RequireId(published),
-                CultureInfo.InvariantCulture));
+            Guid.Parse(versionId, CultureInfo.InvariantCulture));
     }
 
     private async Task<Guid> StartPipelineIdAsync(

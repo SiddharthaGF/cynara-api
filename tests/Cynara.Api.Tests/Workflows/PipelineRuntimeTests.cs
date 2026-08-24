@@ -37,7 +37,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Start_PinsLatestPublishedVersion_AndBeginsAtStartNode()
     {
-        string publishedId = await PublishWorkflowAsync(
+        string publishedId = await Api.PublishWorkflowVersionAsync(
             "minimal-start",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         (Guid patientId, Guid encounterId) = await Api.SeedEncounterAsync()
@@ -66,10 +66,10 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Start_WithExplicitVersion_PinsRequestedVersion()
     {
-        await PublishWorkflowAsync(
+        await Api.PublishWorkflowVersionAsync(
             "pinned-start",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        await PublishNextVersionAsync("pinned-start").ConfigureAwait(false);
+        _ = await Api.PublishNextWorkflowVersionAsync("pinned-start").ConfigureAwait(false);
         Guid patientId = await Api.SeedPatientAsync().ConfigureAwait(false);
 
         using JsonDocument older = await StartPipelineAsync(
@@ -90,7 +90,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Start_OnUnknownSubject_NotFound()
     {
-        await PublishWorkflowAsync(
+        await Api.PublishWorkflowVersionAsync(
             "unknown-subject",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
 
@@ -122,7 +122,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Start_WithUnknownVersion_NotFound()
     {
-        await PublishWorkflowAsync(
+        await Api.PublishWorkflowVersionAsync(
             "unknown-version",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
 
@@ -167,7 +167,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_TaskToEnd_CompletesPipeline()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "complete-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -186,7 +186,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_OnCompletedPipeline_Conflicts()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "already-complete",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -204,7 +204,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_Decision_EvaluatesConditionsServerSide()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "triage-flow",
             WorkflowTestSchemas.WithDecision()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -234,7 +234,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_Decision_FallsBackToDefaultEdge()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "triage-default",
             WorkflowTestSchemas.WithDecision()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -255,7 +255,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_Decision_NoMatchNoDefault_Conflicts()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "strict-decision",
             StrictDecisionFlow()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -278,7 +278,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Advance_StaleRowVersion_Conflicts()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "stale-pipeline",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -295,7 +295,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task CompleteCancelEnterInError_DriveTerminalStates()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "lifecycle-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
 
@@ -330,7 +330,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Transition_AfterTerminalState_Conflicts()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "terminal-conflict",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -356,7 +356,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task List_FiltersByStatusAndSubject()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "list-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         (_, Guid subjectId) = await Api.SeedEncounterAsync().ConfigureAwait(false);
@@ -386,7 +386,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task History_IsAppendOnlyAndOrdered()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "history-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -416,7 +416,7 @@ public sealed class PipelineRuntimeTests : IDisposable
     [Fact]
     public async Task Audit_RecordsPipelineEvents()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "audit-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
@@ -444,49 +444,6 @@ public sealed class PipelineRuntimeTests : IDisposable
     private JsonApiClient Api { get; }
 
     private WorkflowTestApplicationFactory Factory { get; }
-
-    private async Task<string> PublishWorkflowAsync(
-        string code,
-        string workflowSchemaJson)
-    {
-        string definitionId = await Api.CreateWorkflowDefinitionAsync(
-            code,
-            code,
-            workflowSchemaJson).ConfigureAwait(false);
-        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await Api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        using JsonDocument published = await Api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
-        return JsonApiClient.RequireId(published);
-    }
-
-    private async Task PublishNextVersionAsync(string code)
-    {
-        string definitionId = await Api.FindWorkflowDefinitionIdAsync(code).ConfigureAwait(false);
-        using HttpResponseMessage created = await Client.PostAsync(
-            new Uri(
-                $"/api/workflowDefinitions/{definitionId}/create-draft",
-                UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-
-        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await Api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        _ = await Api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
-    }
 
     private async Task<JsonDocument> StartPipelineAsync(
         string workflowCode,

@@ -240,6 +240,96 @@ internal sealed class JsonApiClient(HttpClient httpClient)
             }).ConfigureAwait(false);
     }
 
+    public async Task<(string DefinitionId, string VersionId)>
+        CreateAndPublishWorkflowAsync(
+            string code,
+            string workflowSchemaJson)
+    {
+        string definitionId = await CreateWorkflowDefinitionAsync(
+            code,
+            code,
+            workflowSchemaJson).ConfigureAwait(false);
+        string versionId = await PublishCurrentDraftAsync(definitionId)
+            .ConfigureAwait(false);
+        return (definitionId, versionId);
+    }
+
+    public async Task<string> PublishWorkflowVersionAsync(
+        string code,
+        string workflowSchemaJson)
+    {
+        (_, string versionId) = await CreateAndPublishWorkflowAsync(
+            code,
+            workflowSchemaJson).ConfigureAwait(false);
+        return versionId;
+    }
+
+    public async Task<string> PublishNextWorkflowVersionAsync(
+        string code,
+        string? workflowSchemaJson = null)
+    {
+        string definitionId = await FindWorkflowDefinitionIdAsync(code)
+            .ConfigureAwait(false);
+        using HttpResponseMessage created = await Http.PostAsync(
+            new Uri(
+                $"/api/workflowDefinitions/{definitionId}/create-draft",
+                UriKind.Relative),
+            content: null).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        string draftId = await GetDraftVersionIdAsync(definitionId)
+            .ConfigureAwait(false);
+        uint rowVersion = workflowSchemaJson is null
+            ? await GetVersionRowVersionAsync(draftId).ConfigureAwait(false)
+            : await PatchDraftSchemaAsync(
+                draftId,
+                workflowSchemaJson).ConfigureAwait(false);
+        return await SubmitAndPublishAsync(draftId, rowVersion)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<uint> PatchDraftSchemaAsync(
+        string draftId,
+        string workflowSchemaJson)
+    {
+        uint rowVersion = await GetVersionRowVersionAsync(draftId)
+            .ConfigureAwait(false);
+        using JsonDocument updated = await PatchResourceAsync(
+            "workflowVersions",
+            draftId,
+            new
+            {
+                workflowSchemaJson,
+                rowVersion,
+            }).ConfigureAwait(false);
+        return AttrUInt(updated, "rowVersion");
+    }
+
+    private async Task<string> PublishCurrentDraftAsync(string definitionId)
+    {
+        string draftId = await GetDraftVersionIdAsync(definitionId)
+            .ConfigureAwait(false);
+        uint rowVersion = await GetVersionRowVersionAsync(draftId)
+            .ConfigureAwait(false);
+        return await SubmitAndPublishAsync(draftId, rowVersion)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<string> SubmitAndPublishAsync(
+        string draftId,
+        uint rowVersion)
+    {
+        using JsonDocument inReview = await PostVersionActionAsync(
+            draftId,
+            "submit-review",
+            rowVersion).ConfigureAwait(false);
+        using JsonDocument published = await PostVersionActionAsync(
+            draftId,
+            "publish",
+            AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
+        return RequireId(published);
+    }
+
     public async Task<(Guid PatientId, Guid EncounterId)> SeedEncounterAsync()
     {
         Guid patientId = await SeedPatientAsync().ConfigureAwait(false);

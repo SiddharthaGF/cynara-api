@@ -38,7 +38,7 @@ public sealed class PipelineTenantIsolationTests : IDisposable
     [Fact]
     public async Task CrossTenant_Pipeline_IsNotVisible()
     {
-        await PublishWorkflowAsync(
+        _ = await Api.PublishWorkflowVersionAsync(
             "isolation-pipeline",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
 
@@ -76,41 +76,6 @@ public sealed class PipelineTenantIsolationTests : IDisposable
     private JsonApiClient Api { get; }
 
     private JsonApiClient OtherApi { get; }
-
-    private async Task PublishWorkflowAsync(string code, string workflowSchemaJson)
-    {
-        using JsonDocument created = await Api.PostResourceAsync(
-            "workflowDefinitions",
-            new
-            {
-                code,
-                name = code,
-                initialWorkflowSchemaJson = workflowSchemaJson,
-            }).ConfigureAwait(false);
-        string definitionId = JsonApiClient.RequireId(created);
-
-        using JsonDocument definition = await Api.GetAsync(
-            $"/api/workflowDefinitions/{definitionId}?include=versions")
-            .ConfigureAwait(false);
-        string draftId = definition.RootElement.GetProperty("included")
-            .EnumerateArray()
-            .First(item => string.Equals(
-                item.GetProperty("attributes").GetProperty("status").GetString(),
-                "draft",
-                StringComparison.OrdinalIgnoreCase))
-            .GetProperty("id")
-            .GetString()!;
-
-        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await Api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        _ = await Api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
-    }
 
     private async Task<JsonDocument> StartPipelineAsync(string workflowCode)
     {

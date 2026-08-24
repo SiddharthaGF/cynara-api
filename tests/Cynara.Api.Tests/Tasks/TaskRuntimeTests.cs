@@ -51,7 +51,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task Task_GeneratedOnEnteringTaskNode_MatchesPublishedDefinition()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-snapshot",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
         (_, Guid encounterId) = await SeedWorkspaceEncounterAsync("snapshot")
@@ -88,7 +88,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task NoTask_ForStartDecisionEndNodes()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-none-minimal",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         (_, Guid minimalEncounter) = await SeedWorkspaceEncounterAsync("none-min")
@@ -105,7 +105,7 @@ public sealed class TaskRuntimeTests : IDisposable
             Assert.Empty(endList.RootElement.GetProperty("tasks").EnumerateArray());
         }
 
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-none-decision",
             WorkflowTestSchemas.WithDecision()).ConfigureAwait(false);
         (_, Guid decisionEncounter) = await SeedWorkspaceEncounterAsync("none-dec")
@@ -126,7 +126,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task ClaimCompleteCancel_EnforceLifecycleAndConcurrency()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-lifecycle",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
         Guid firstPatient = await SeedPatientAsync("lifecycle-a").ConfigureAwait(false);
@@ -192,7 +192,7 @@ public sealed class TaskRuntimeTests : IDisposable
         ClinicalWorkspace workspace = await clinical.BuildWorkspaceAsync("taskdoc")
             .ConfigureAwait(false);
         const string workflowCode = "task-doc-flow";
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             workflowCode,
             TaskDocumentFlow(workspace.DocumentDefinitionCode))
             .ConfigureAwait(false);
@@ -228,7 +228,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task PipelineCancelEnterInErrorAndEndNode_CancelOpenTasks()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-cancel-flow",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
 
@@ -281,7 +281,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task List_FiltersByStatusAndAssignee()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-list-flow",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
         Guid firstPatient = await SeedPatientAsync("list-a").ConfigureAwait(false);
@@ -329,7 +329,7 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task Get_UnknownAndCrossTenantTask_NotFound()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-tenant-flow",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
         Guid tenantPatient = await SeedPatientAsync("tenant").ConfigureAwait(false);
@@ -358,10 +358,10 @@ public sealed class TaskRuntimeTests : IDisposable
     [Fact]
     public async Task RepublishedAssigneeAndDueDays_DoNotAffectPinnedPipelineTasks()
     {
-        _ = await PublishWorkflowAsync(
+        _ = await api.PublishWorkflowVersionAsync(
             "task-republish",
             WorkflowTestSchemas.WithTaskNode()).ConfigureAwait(false);
-        await PublishNextVersionAsync(
+        _ = await api.PublishNextWorkflowVersionAsync(
             "task-republish",
             TaskNodeVariant(role: "physician", dueDays: 7)).ConfigureAwait(false);
 
@@ -681,57 +681,6 @@ public sealed class TaskRuntimeTests : IDisposable
             $"pipelineId={pipelineId:D}").ConfigureAwait(false);
         JsonElement task = Assert.Single(list.RootElement.GetProperty("tasks").EnumerateArray());
         return Guid.Parse(Str(task, "id"));
-    }
-
-    private async Task<string> PublishWorkflowAsync(
-        string code,
-        string workflowSchemaJson)
-    {
-        string definitionId = await api.CreateWorkflowDefinitionAsync(
-            code,
-            code,
-            workflowSchemaJson).ConfigureAwait(false);
-        string draftId = await api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        using JsonDocument published = await api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
-        return JsonApiClient.RequireId(published);
-    }
-
-    private async Task PublishNextVersionAsync(string code, string workflowSchemaJson)
-    {
-        string definitionId = await api.FindWorkflowDefinitionIdAsync(code).ConfigureAwait(false);
-        using HttpResponseMessage created = await client.PostAsync(
-            new Uri(
-                $"/api/workflowDefinitions/{definitionId}/create-draft",
-                UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-
-        string draftId = await api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument updated = await api.PatchResourceAsync(
-            "workflowVersions",
-            draftId,
-            new
-            {
-                workflowSchemaJson,
-                rowVersion,
-            }).ConfigureAwait(false);
-        using JsonDocument inReview = await api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            JsonApiClient.AttrUInt(updated, "rowVersion")).ConfigureAwait(false);
-        _ = await api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
     }
 
     private async Task<(HttpStatusCode Status, JsonDocument Body)> PostJsonAsync(

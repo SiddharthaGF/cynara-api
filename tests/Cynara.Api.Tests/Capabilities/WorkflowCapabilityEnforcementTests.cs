@@ -438,8 +438,7 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
     private async Task<Guid> SeedPublishedWorkflowAndEncounterAsync(string code)
     {
         JsonApiClient adminApi = await CreateAdminApiAsync().ConfigureAwait(false);
-        await PublishWorkflowAsync(
-            adminApi,
+        await adminApi.PublishWorkflowVersionAsync(
             code,
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         (_, Guid encounterId) = await adminApi.SeedEncounterAsync()
@@ -458,32 +457,6 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
                 WorkflowTestSchemas.Minimal())).ConfigureAwait(false);
         string definitionId = JsonApiClient.RequireId(created);
         return await FindDraftIdAsync(api, definitionId).ConfigureAwait(false);
-    }
-
-    private static async Task PublishWorkflowAsync(
-        JsonApiClient api,
-        string code,
-        string workflowSchemaJson)
-    {
-        using JsonDocument created = await api.PostResourceAsync(
-            "workflowDefinitions",
-            WorkflowDefinitionAttributes(
-                code,
-                workflowSchemaJson)).ConfigureAwait(false);
-        string definitionId = JsonApiClient.RequireId(created);
-        Guid draftId = await FindDraftIdAsync(api, definitionId)
-            .ConfigureAwait(false);
-
-        uint rowVersion = await api.GetVersionRowVersionAsync(draftId)
-            .ConfigureAwait(false);
-        using JsonDocument inReview = await api.PostVersionActionAsync(
-            draftId,
-            "submit-review",
-            rowVersion).ConfigureAwait(false);
-        _ = await api.PostVersionActionAsync(
-            draftId,
-            "publish",
-            JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
     }
 
     private static async Task<Guid> FindDraftIdAsync(
@@ -661,8 +634,7 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         string workflowSchemaJson)
     {
         JsonApiClient adminApi = await CreateAdminApiAsync().ConfigureAwait(false);
-        await PublishWorkflowAsync(
-            adminApi,
+        await adminApi.PublishWorkflowVersionAsync(
             workflowCode,
             workflowSchemaJson).ConfigureAwait(false);
         (_, Guid encounterId) = await adminApi.SeedEncounterAsync()
