@@ -13,8 +13,12 @@ internal sealed class CynaraTenantWebApplicationFactory(
     bool grantAllCapabilities = true)
     : CynaraWebApplicationFactory(
         database,
-        bootstrapOptions ?? DefaultPrimaryBootstrapOptions(),
-        grantAllCapabilities: grantAllCapabilities)
+        new CynaraWebApplicationFactoryOptions
+        {
+            BootstrapOptions = bootstrapOptions
+                ?? DefaultPrimaryBootstrapOptions(),
+            GrantAllCapabilities = grantAllCapabilities,
+        })
 {
     public const string PrimaryCode = "primary";
     public const string OtherCode = "secondary";

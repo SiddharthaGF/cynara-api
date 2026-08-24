@@ -157,30 +157,11 @@ public static class AuthDevSeeder
     internal static IReadOnlyList<string> ResolveWebRedirectUris(
         IConfiguration? configuration)
     {
-        List<string> uris = [.. WebRedirectUris];
         string[]? origins = configuration?
             .GetSection("Preview:WebAppOrigins")
             .Get<string[]>();
-        foreach (string origin in origins ?? [])
-        {
-            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? parsed)
-                || (!string.Equals(
-                        parsed.Scheme,
-                        Uri.UriSchemeHttps,
-                        StringComparison.Ordinal)
-                    && !string.Equals(
-                        parsed.Scheme,
-                        Uri.UriSchemeHttp,
-                        StringComparison.Ordinal)))
-            {
-                continue;
-            }
-
-            string normalized = parsed.GetLeftPart(UriPartial.Authority);
-            uris.Add($"{normalized}/en/login");
-            uris.Add($"{normalized}/es/login");
-        }
-
+        List<string> uris = [.. WebLoginRedirectUriBuilder.Build(origins)];
+        uris.AddRange(WebRedirectUris);
         return uris;
     }
 
@@ -355,60 +336,12 @@ public static class AuthDevSeeder
         IConfiguration? configuration,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> redirectUris =
-            ResolveWebRedirectUris(configuration);
-        object? existing = await applications
-            .FindByClientIdAsync(WebClientId, cancellationToken)
-            .ConfigureAwait(false);
-        if (existing is not null)
-        {
-            var descriptor = new OpenIddictApplicationDescriptor();
-            await applications
-                .PopulateAsync(descriptor, existing, cancellationToken)
-                .ConfigureAwait(false);
-            foreach (string redirectUri in redirectUris)
-            {
-                Uri uri = new(redirectUri, UriKind.Absolute);
-                _ = descriptor.RedirectUris.Add(uri);
-            }
-
-            await applications
-                .UpdateAsync(existing, descriptor, cancellationToken)
-                .ConfigureAwait(false);
-            return;
-        }
-
-        var webClient = new OpenIddictApplicationDescriptor
-        {
-            ClientId = WebClientId,
-            ClientSecret = WebClientSecret,
-            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
-            DisplayName = "Cynara Web",
-            ClientType = OpenIddictConstants.ClientTypes.Confidential,
-            Permissions =
-            {
-                OpenIddictConstants.Permissions.Endpoints.Authorization,
-                OpenIddictConstants.Permissions.Endpoints.Token,
-                OpenIddictConstants.Permissions.Endpoints.Revocation,
-                OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-                OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
-                OpenIddictConstants.Permissions.ResponseTypes.Code,
-                OpenIddictConstants.Permissions.Scopes.Email,
-                OpenIddictConstants.Permissions.Scopes.Profile,
-                "scp:openid",
-                "scp:offline_access",
-                "scp:cynara_api",
-            },
-        };
-        foreach (string redirectUri in redirectUris)
-        {
-            _ = webClient.RedirectUris.Add(
-                new Uri(redirectUri, UriKind.Absolute));
-        }
-
-        _ = await applications
-            .CreateAsync(webClient, cancellationToken)
+        await OpenIddictWebClientRegistrar.EnsureAsync(
+                applications,
+                WebClientId,
+                WebClientSecret,
+                ResolveWebRedirectUris(configuration),
+                cancellationToken)
             .ConfigureAwait(false);
     }
 }

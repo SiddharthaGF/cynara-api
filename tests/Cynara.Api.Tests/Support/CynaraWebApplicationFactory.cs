@@ -20,19 +20,17 @@ namespace Cynara.Api.Tests.Support;
 
 internal class CynaraWebApplicationFactory(
     TestDatabaseSettings database,
-    HospitalBootstrapOptions? bootstrapOptions = null,
-    bool emulateRenderProxy = false,
-    bool grantAllCapabilities = true,
-    bool useRealAuthentication = false,
-    string? environment = null,
-    TestOpenIddictCertificates? openIddictCertificates = null)
+    CynaraWebApplicationFactoryOptions? options = null)
     : WebApplicationFactory<Program>
 {
     private readonly SemaphoreSlim resetLock = new(1, 1);
     private bool resetPerformed;
 
+    private CynaraWebApplicationFactoryOptions Options { get; } =
+        options ?? new CynaraWebApplicationFactoryOptions();
+
     public HospitalBootstrapOptions BootstrapOptions { get; } =
-        bootstrapOptions ?? BuildDefaultOptions();
+        options?.BootstrapOptions ?? BuildDefaultOptions();
 
     private static HospitalBootstrapOptions BuildDefaultOptions()
     {
@@ -52,10 +50,10 @@ internal class CynaraWebApplicationFactory(
     /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        _ = builder.UseEnvironment(environment ?? "Development");
+        _ = builder.UseEnvironment(Options.EnvironmentName ?? "Development");
         _ = builder.UseCynaraTestDatabase(database);
 
-        if (!useRealAuthentication)
+        if (!Options.UseRealAuthentication)
         {
             _ = builder.ConfigureServices(services =>
             {
@@ -73,7 +71,7 @@ internal class CynaraWebApplicationFactory(
             });
         }
 
-        if (grantAllCapabilities)
+        if (Options.GrantAllCapabilities)
         {
             _ = builder.ConfigureServices(services =>
             {
@@ -106,21 +104,27 @@ internal class CynaraWebApplicationFactory(
                     : "false",
             };
 
-            if (emulateRenderProxy)
+            if (Options.EmulateRenderProxy)
             {
                 settings["RENDER_SERVICE_TYPE"] = "web";
             }
 
-            if (openIddictCertificates is not null)
+            if (Options.OpenIddictCertificates is not null)
             {
                 settings["OpenIddict:SigningCertificatePath"] =
-                    openIddictCertificates.SigningCertificatePath;
+                    Options.OpenIddictCertificates.SigningCertificatePath;
                 settings["OpenIddict:SigningKeyPath"] =
-                    openIddictCertificates.SigningKeyPath;
+                    Options.OpenIddictCertificates.SigningKeyPath;
                 settings["OpenIddict:EncryptionCertificatePath"] =
-                    openIddictCertificates.EncryptionCertificatePath;
+                    Options.OpenIddictCertificates.EncryptionCertificatePath;
                 settings["OpenIddict:EncryptionKeyPath"] =
-                    openIddictCertificates.EncryptionKeyPath;
+                    Options.OpenIddictCertificates.EncryptionKeyPath;
+            }
+
+            foreach ((string key, string? value) in Options.ExtraConfiguration
+                ?? new Dictionary<string, string?>(StringComparer.Ordinal))
+            {
+                settings[key] = value;
             }
 
             configuration.AddInMemoryCollection(settings);

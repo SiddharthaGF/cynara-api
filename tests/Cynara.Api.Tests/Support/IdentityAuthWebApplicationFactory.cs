@@ -32,12 +32,13 @@ internal sealed class IdentityAuthWebApplicationFactory(
     TestOpenIddictCertificates? openIddictCertificates = null)
     : CynaraWebApplicationFactory(
         database,
-        bootstrapOptions: null,
-        emulateRenderProxy: false,
-        grantAllCapabilities: grantAllCapabilities,
-        useRealAuthentication: true,
-        environment: environment,
-        openIddictCertificates: openIddictCertificates)
+        new CynaraWebApplicationFactoryOptions
+        {
+            GrantAllCapabilities = grantAllCapabilities,
+            UseRealAuthentication = true,
+            EnvironmentName = environment,
+            OpenIddictCertificates = openIddictCertificates,
+        })
 {
     /// <summary>Confidential test client used by the auth suites.</summary>
     public const string ClientId = "cynara-test";

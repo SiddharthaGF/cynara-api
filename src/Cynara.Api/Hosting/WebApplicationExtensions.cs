@@ -10,6 +10,7 @@ using Cynara.Api.Modules.Users;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Hospitals;
+using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Modules.Preview;
 
 using JsonApiDotNetCore.Configuration;
@@ -25,7 +26,8 @@ namespace Cynara.Api.Hosting;
 internal static class WebApplicationExtensions
 {
     /// <summary>
-    /// Builds the middleware pipeline, initializes storage, seeds
+    /// Builds the middleware pipeline, initializes storage, provisions the
+    /// config-driven OIDC web client (every environment), seeds
     /// development/preview auth data (idempotent; never runs in production),
     /// then maps all endpoints.
     /// </summary>
@@ -61,6 +63,10 @@ internal static class WebApplicationExtensions
             .Get<HospitalBootstrapOptions>() ?? new();
         await app.Services
             .EnsureBootstrapHospitalAsync(hospitalOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        await app.Services
+            .ProvisionOpenIddictWebClientAsync(cancellationToken)
             .ConfigureAwait(false);
 
         if (app.Environment.IsDevelopment() || IsPreviewEnvironment(app.Configuration))

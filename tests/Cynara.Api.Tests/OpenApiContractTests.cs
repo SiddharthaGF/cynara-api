@@ -420,7 +420,10 @@ public sealed class OpenApiContractTests : IDisposable
     {
         await using var renderFactory = new CynaraWebApplicationFactory(
             DatabaseSettings,
-            emulateRenderProxy: true);
+            new CynaraWebApplicationFactoryOptions
+            {
+                EmulateRenderProxy = true,
+            });
         using HttpClient renderClient = renderFactory.CreateClient();
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
