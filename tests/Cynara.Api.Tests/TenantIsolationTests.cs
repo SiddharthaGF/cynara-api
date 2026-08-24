@@ -24,19 +24,11 @@ public sealed class TenantIsolationTests : IDisposable
     public TenantIsolationTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        Client = Factory.CreateClient();
-        Client.AcceptJsonApi();
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
+        Client = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
-        Client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            PrimaryHospitalCode);
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            OtherHospitalCode);
-
-        Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();
     }
 
@@ -81,10 +73,9 @@ public sealed class TenantIsolationTests : IDisposable
             .ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, primary.StatusCode);
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage other = await secondaryClient
             .GetAsync(
                 new Uri(
@@ -206,10 +197,9 @@ public sealed class TenantIsolationTests : IDisposable
             .GetProperty("id")
             .GetString()!;
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage response = await secondaryClient
             .GetAsync(
                 new Uri(
@@ -248,10 +238,9 @@ public sealed class TenantIsolationTests : IDisposable
         Assert.Contains(
             definitionId, primaryBody, StringComparison.Ordinal);
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage secondary = await secondaryClient
             .GetAsync(new Uri("/api/formDefinitions", UriKind.Relative))
             .ConfigureAwait(false);
