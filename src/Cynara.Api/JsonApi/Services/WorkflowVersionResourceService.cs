@@ -1,20 +1,10 @@
-using Cynara.Api.Common.ActorContext;
-using Cynara.Application.Audit;
 using Cynara.Application.Common;
-using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows;
 using Cynara.Application.Workflows;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Workflows;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -25,29 +15,12 @@ namespace Cynara.Api.JsonApi.Services;
 /// creation/hard-delete over JSON:API, which would bypass the state machine.
 /// </summary>
 public sealed class WorkflowVersionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<WorkflowVersion> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IWorkflowLifecycleService lifecycle,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    ISensitiveReadAuditor sensitiveReadAuditor,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<WorkflowVersion, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<WorkflowVersion> resourceChangeTracker)
+    : TenantScopedResourceService<WorkflowVersion, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override Task<WorkflowVersion?> CreateAsync(
         WorkflowVersion resource,
@@ -63,36 +36,28 @@ public sealed class WorkflowVersionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.WorkflowVersions
+        TenantOwnership? ownership = await DbContext.WorkflowVersions
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Workflow version '{id}' was not found.");
-        }
+        EnsureTenantOwned(ownership, id, "Workflow version");
 
         WorkflowVersion? version = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
 
-        if (version is not null
-            && httpContextAccessor.HttpContext is { } httpContext
-            && HttpMethods.IsGet(httpContext.Request.Method))
+        if (version is not null)
         {
-            await sensitiveReadAuditor.RecordAsync(
-                AuditEntityTypes.WorkflowVersion,
+            await RecordReadAuditAsync(
                 version.Id,
+                AuditEntityTypes.WorkflowVersion,
                 "workflow.version.read",
-                httpContext.GetActorId(),
-                httpContext.Request.Path,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -102,16 +67,14 @@ public sealed class WorkflowVersionResourceService(
     public override async Task<IReadOnlyCollection<WorkflowVersion>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<WorkflowVersion> versions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. versions.Where(
-            item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. versions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<WorkflowVersion?> UpdateAsync(
@@ -120,20 +83,19 @@ public sealed class WorkflowVersionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsWrite,
+            cancellationToken).ConfigureAwait(false);
 
-        WorkflowVersion existing = await dbContext.WorkflowVersions
+        WorkflowVersion existing = await DbContext.WorkflowVersions
             .Include(item => item.WorkflowDefinition)
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Workflow version '{id}' was not found.");
 
-        if (existing.HospitalId != hospitalContext.HospitalId
-            || existing.WorkflowDefinition.HospitalId != hospitalContext.HospitalId)
+        if (existing.HospitalId != HospitalId
+            || existing.WorkflowDefinition.HospitalId != HospitalId)
         {
             throw new Application.NotFoundException(
                 $"Workflow version '{id}' was not found.");
@@ -150,7 +112,7 @@ public sealed class WorkflowVersionResourceService(
             new UpdateWorkflowDraftRequest(
                 resource.WorkflowSchemaJson,
                 resource.RowVersion),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
         return await GetAsync(updated.Id, cancellationToken)

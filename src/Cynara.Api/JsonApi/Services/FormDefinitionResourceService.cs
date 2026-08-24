@@ -1,17 +1,8 @@
-using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Forms;
-using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -25,28 +16,12 @@ namespace Cynara.Api.JsonApi.Services;
 /// catalog.
 /// </summary>
 public sealed class FormDefinitionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<FormDefinition> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IFormService formService,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<FormDefinition, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<FormDefinition> resourceChangeTracker)
+    : TenantScopedResourceService<FormDefinition, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     private const string MinimalClinicalSchemaJson =
         /*lang=json,strict*/ """
@@ -67,10 +42,9 @@ public sealed class FormDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogWrite,
+            cancellationToken).ConfigureAwait(false);
 
         string clinical = string.IsNullOrWhiteSpace(
             resource.InitialClinicalSchemaJson)
@@ -84,14 +58,14 @@ public sealed class FormDefinitionResourceService(
                 clinical,
                 resource.InitialUiSchemaJson,
                 resource.InitialRulesSchemaJson),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
-        FormDefinition definition = await dbContext.FormDefinitions
+        FormDefinition definition = await DbContext.FormDefinitions
             .AsNoTracking()
             .SingleAsync(
                 item => item.Code == created.Code
-                    && item.HospitalId == hospitalContext.HospitalId,
+                    && item.HospitalId == HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -103,29 +77,19 @@ public sealed class FormDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.FormDefinitions
+        TenantOwnership? ownership = await DbContext.FormDefinitions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId, item.DeletedAt))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Form definition '{id}' was not found.");
-        }
-
-        if (ownership.DeletedAt is not null)
-        {
-            throw new Application.NotFoundException(
-                $"Form definition '{id}' was not found.");
-        }
+        EnsureTenantOwnedActive(ownership, id, "Form definition");
 
         return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
@@ -134,15 +98,14 @@ public sealed class FormDefinitionResourceService(
     public override async Task<IReadOnlyCollection<FormDefinition>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<FormDefinition> definitions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<object?> GetSecondaryAsync(
@@ -150,10 +113,9 @@ public sealed class FormDefinitionResourceService(
         string relationshipName,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
         if (await base.GetSecondaryAsync(
                 id,
@@ -164,8 +126,8 @@ public sealed class FormDefinitionResourceService(
             return null;
         }
 
-        hospitalContext.RequireResolved();
-        if (definition.HospitalId != hospitalContext.HospitalId)
+        HospitalContext.RequireResolved();
+        if (definition.HospitalId != HospitalId)
         {
             return null;
         }

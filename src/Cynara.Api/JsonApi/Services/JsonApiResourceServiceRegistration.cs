@@ -7,6 +7,7 @@ internal static class JsonApiResourceServiceRegistration
     public static IServiceCollection AddCynaraJsonApiResourceServices(
         this IServiceCollection services)
     {
+        _ = services.AddScoped<JsonApiResourceDeps>();
         _ = services.AddResourceService<FormDefinitionResourceService>();
         _ = services.AddResourceService<FormVersionResourceService>();
         _ = services.AddResourceService<FormResponseResourceService>();

@@ -1,18 +1,9 @@
-using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Components;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -22,28 +13,12 @@ namespace Cynara.Api.JsonApi.Services;
 /// Routes component-version writes through lifecycle services.
 /// </summary>
 public sealed class ComponentVersionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<ComponentVersion> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IComponentLifecycleService lifecycle,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<ComponentVersion, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<ComponentVersion> resourceChangeTracker)
+    : TenantScopedResourceService<ComponentVersion, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override Task<ComponentVersion?> CreateAsync(
         ComponentVersion resource,
@@ -58,22 +33,18 @@ public sealed class ComponentVersionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.ComponentVersions
+        TenantOwnership? ownership = await DbContext.ComponentVersions
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Component version '{id}' was not found.");
-        }
+        EnsureTenantOwned(ownership, id, "Component version");
 
         return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
@@ -82,16 +53,14 @@ public sealed class ComponentVersionResourceService(
     public override async Task<IReadOnlyCollection<ComponentVersion>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<ComponentVersion> versions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. versions.Where(
-            item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. versions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<ComponentVersion?> UpdateAsync(
@@ -100,20 +69,19 @@ public sealed class ComponentVersionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogWrite,
+            cancellationToken).ConfigureAwait(false);
 
-        ComponentVersion existing = await dbContext.ComponentVersions
+        ComponentVersion existing = await DbContext.ComponentVersions
             .Include(item => item.ComponentDefinition)
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new Application.NotFoundException(
                 $"Component version '{id}' was not found.");
 
-        if (existing.HospitalId != hospitalContext.HospitalId
-            || existing.ComponentDefinition.HospitalId != hospitalContext.HospitalId)
+        if (existing.HospitalId != HospitalId
+            || existing.ComponentDefinition.HospitalId != HospitalId)
         {
             throw new Application.NotFoundException(
                 $"Component version '{id}' was not found.");
@@ -131,7 +99,7 @@ public sealed class ComponentVersionResourceService(
                 resource.ClinicalSchemaJson,
                 resource.UiSchemaJson,
                 resource.RowVersion),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
         return await GetAsync(updated.Id, cancellationToken)
