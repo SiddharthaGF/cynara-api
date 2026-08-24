@@ -1,20 +1,10 @@
-using Cynara.Api.Common.ActorContext;
-using Cynara.Application.Audit;
 using Cynara.Application.Common;
-using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows;
 using Cynara.Application.Workflows;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Workflows;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -28,29 +18,12 @@ namespace Cynara.Api.JsonApi.Services;
 /// catalog.
 /// </summary>
 public sealed class WorkflowDefinitionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<WorkflowDefinition> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IWorkflowLifecycleService lifecycle,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    ISensitiveReadAuditor sensitiveReadAuditor,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<WorkflowDefinition, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<WorkflowDefinition> resourceChangeTracker)
+    : TenantScopedResourceService<WorkflowDefinition, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     private const string DefaultWorkflowSchemaJson =
         /*lang=json,strict*/ """
@@ -72,10 +45,9 @@ public sealed class WorkflowDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsWrite,
+            cancellationToken).ConfigureAwait(false);
 
         string workflowSchema = string.IsNullOrWhiteSpace(
             resource.InitialWorkflowSchemaJson)
@@ -87,14 +59,14 @@ public sealed class WorkflowDefinitionResourceService(
                 resource.Code,
                 resource.Name,
                 workflowSchema),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
-        WorkflowDefinition definition = await dbContext.WorkflowDefinitions
+        WorkflowDefinition definition = await DbContext.WorkflowDefinitions
             .AsNoTracking()
             .SingleAsync(
                 item => item.Code == created.Code
-                    && item.HospitalId == hospitalContext.HospitalId,
+                    && item.HospitalId == HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -106,39 +78,29 @@ public sealed class WorkflowDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.WorkflowDefinitions
+        TenantOwnership? ownership = await DbContext.WorkflowDefinitions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId, item.DeletedAt))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId
-            || ownership.DeletedAt is not null)
-        {
-            throw new Application.NotFoundException(
-                $"Workflow definition '{id}' was not found.");
-        }
+        EnsureTenantOwnedActive(ownership, id, "Workflow definition");
 
         WorkflowDefinition? definition = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
 
-        if (definition is not null
-            && httpContextAccessor.HttpContext is { } httpContext
-            && HttpMethods.IsGet(httpContext.Request.Method))
+        if (definition is not null)
         {
-            await sensitiveReadAuditor.RecordAsync(
-                AuditEntityTypes.WorkflowDefinition,
+            await RecordReadAuditAsync(
                 definition.Id,
+                AuditEntityTypes.WorkflowDefinition,
                 "workflow.read",
-                httpContext.GetActorId(),
-                httpContext.Request.Path,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -148,16 +110,14 @@ public sealed class WorkflowDefinitionResourceService(
     public override async Task<IReadOnlyCollection<WorkflowDefinition>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<WorkflowDefinition> definitions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(
-            item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<WorkflowDefinition?> UpdateAsync(
@@ -166,10 +126,9 @@ public sealed class WorkflowDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkflowsWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkflowsWrite,
+            cancellationToken).ConfigureAwait(false);
 
         return await base.UpdateAsync(id, resource, cancellationToken)
             .ConfigureAwait(false);

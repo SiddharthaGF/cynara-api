@@ -1,15 +1,7 @@
-using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -21,26 +13,11 @@ namespace Cynara.Api.JsonApi.Services;
 /// workspace so one tenant cannot enumerate another tenant's revisions.
 /// </summary>
 public sealed class FormResponseRevisionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<FormResponseRevision> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
-    IHospitalContext hospitalContext,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<FormResponseRevision, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<FormResponseRevision> resourceChangeTracker)
+    : TenantScopedResourceService<FormResponseRevision, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override Task<FormResponseRevision?> CreateAsync(
         FormResponseRevision resource,
@@ -71,23 +48,18 @@ public sealed class FormResponseRevisionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.FormResponseRevisions
+        TenantOwnership? ownership = await DbContext.FormResponseRevisions
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Form response revision '{id}' was not found.");
-        }
+        EnsureTenantOwned(ownership, id, "Form response revision");
 
         return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
@@ -96,14 +68,13 @@ public sealed class FormResponseRevisionResourceService(
     public override async Task<IReadOnlyCollection<FormResponseRevision>>
         GetAsync(CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<FormResponseRevision> revisions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. revisions.Where(item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. revisions.Where(item => item.HospitalId == HospitalId)];
     }
 }

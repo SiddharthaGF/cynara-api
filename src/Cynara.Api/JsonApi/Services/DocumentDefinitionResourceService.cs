@@ -1,17 +1,8 @@
-using Cynara.Api.Common.ActorContext;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Documents;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -25,38 +16,21 @@ namespace Cynara.Api.JsonApi.Services;
 /// hospital from probing another hospital's catalog.
 /// </summary>
 public sealed class DocumentDefinitionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<DocumentDefinition> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IDocumentCatalogService catalog,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<DocumentDefinition, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<DocumentDefinition> resourceChangeTracker)
+    : TenantScopedResourceService<DocumentDefinition, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override async Task<DocumentDefinition?> CreateAsync(
         DocumentDefinition resource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogWrite,
+            cancellationToken).ConfigureAwait(false);
 
         Guid formVersionId = resource.FormVersionId != Guid.Empty
             ? resource.FormVersionId
@@ -91,7 +65,7 @@ public sealed class DocumentDefinitionResourceService(
             resource.RequiresActorForCompletion);
 
         DocumentDefinitionDto created = await catalog
-            .CreateAsync(createRequest, httpContextAccessor.HttpContext?.GetActorId(), cancellationToken)
+            .CreateAsync(createRequest, ActorId, cancellationToken)
             .ConfigureAwait(false);
 
         return await LoadWithRelationshipsAsync(created.Id, cancellationToken)
@@ -102,24 +76,19 @@ public sealed class DocumentDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.DocumentDefinitions
+        TenantOwnership? ownership = await DbContext.DocumentDefinitions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Document definition '{id}' was not found.");
-        }
+        EnsureTenantOwned(ownership, id, "Document definition");
 
         return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
@@ -128,23 +97,26 @@ public sealed class DocumentDefinitionResourceService(
     public override async Task<IReadOnlyCollection<DocumentDefinition>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
-        bool includeRetired = httpContextAccessor.HttpContext?.Request.Query
-            .TryGetValue("includeRetired", out Microsoft.Extensions.Primitives.StringValues values) == true
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
+        bool includeRetired = HttpContext?.Request.Query
+            .TryGetValue(
+                "includeRetired",
+                out Microsoft.Extensions.Primitives.StringValues values)
+            == true
             && bool.TryParse(values.ToString(), out bool parsed)
             && parsed;
         IReadOnlyCollection<DocumentDefinition> entries = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        hospitalContext.RequireResolved();
+        HospitalContext.RequireResolved();
         IEnumerable<DocumentDefinition> scoped = entries
-            .Where(item => item.HospitalId == hospitalContext.HospitalId);
+            .Where(item => item.HospitalId == HospitalId);
         if (!includeRetired)
         {
-            scoped = scoped.Where(item => item.Status == DocumentDefinitionStatus.Active);
+            scoped = scoped.Where(
+                item => item.Status == DocumentDefinitionStatus.Active);
         }
 
         return [.. scoped];
@@ -155,10 +127,9 @@ public sealed class DocumentDefinitionResourceService(
         string relationshipName,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
         if (await base.GetSecondaryAsync(
                 id,
@@ -169,8 +140,8 @@ public sealed class DocumentDefinitionResourceService(
             return null;
         }
 
-        hospitalContext.RequireResolved();
-        if (entry.HospitalId != hospitalContext.HospitalId)
+        HospitalContext.RequireResolved();
+        if (entry.HospitalId != HospitalId)
         {
             return null;
         }
@@ -184,10 +155,9 @@ public sealed class DocumentDefinitionResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogWrite,
+            cancellationToken).ConfigureAwait(false);
 
         UpdateDocumentDefinitionRequest updateRequest = new(
             resource.Name,
@@ -197,7 +167,7 @@ public sealed class DocumentDefinitionResourceService(
             resource.RowVersion);
 
         DocumentDefinitionDto updated = await catalog
-            .UpdateAsync(id, updateRequest, httpContextAccessor.HttpContext?.GetActorId(), cancellationToken)
+            .UpdateAsync(id, updateRequest, ActorId, cancellationToken)
             .ConfigureAwait(false);
 
         return await LoadWithRelationshipsAsync(updated.Id, cancellationToken)
@@ -217,7 +187,7 @@ public sealed class DocumentDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        return await dbContext.DocumentDefinitions
+        return await DbContext.DocumentDefinitions
             .AsNoTracking()
             .Include(item => item.FormDefinition)
             .Include(item => item.FormVersion)
@@ -225,8 +195,7 @@ public sealed class DocumentDefinitionResourceService(
             .Include(item => item.ClinicalArea)
             .Include(item => item.Discipline)
             .SingleAsync(
-                item => item.Id == id
-                    && item.HospitalId == hospitalContext.HospitalId,
+                item => item.Id == id && item.HospitalId == HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -1,20 +1,10 @@
-using Cynara.Api.Common.ActorContext;
-using Cynara.Application.Audit;
 using Cynara.Application.Common;
 using Cynara.Application.Forms;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormResponses;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -24,39 +14,21 @@ namespace Cynara.Api.JsonApi.Services;
 /// Creates/updates/soft-deletes form responses through lifecycle services.
 /// </summary>
 public sealed class FormResponseResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<FormResponse> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IFormResponseLifecycleService lifecycle,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ISensitiveReadAuditor sensitiveReadAuditor,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<FormResponse, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<FormResponse> resourceChangeTracker)
+    : TenantScopedResourceService<FormResponse, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override async Task<FormResponse?> CreateAsync(
         FormResponse resource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesWrite,
+            cancellationToken).ConfigureAwait(false);
 
         if (resource.FormVersion is null && resource.FormVersionId == Guid.Empty)
         {
@@ -65,7 +37,7 @@ public sealed class FormResponseResourceService(
         }
 
         Guid versionId = resource.FormVersion?.Id ?? resource.FormVersionId;
-        FormVersion formVersion = await dbContext.FormVersions
+        FormVersion formVersion = await DbContext.FormVersions
             .Include(item => item.FormDefinition)
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == versionId, cancellationToken)
@@ -73,8 +45,8 @@ public sealed class FormResponseResourceService(
             ?? throw new Application.NotFoundException(
                 $"Form version '{versionId}' was not found.");
 
-        if (formVersion.HospitalId != hospitalContext.HospitalId
-            || formVersion.FormDefinition.HospitalId != hospitalContext.HospitalId)
+        if (formVersion.HospitalId != HospitalId
+            || formVersion.FormDefinition.HospitalId != HospitalId)
         {
             throw new Application.NotFoundException(
                 $"Form version '{versionId}' was not found.");
@@ -90,7 +62,7 @@ public sealed class FormResponseResourceService(
             formVersion.FormDefinition.Code,
             formVersion.Version,
             new CreateFormResponseRequest(resource.AnswersJson),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
         return await GetAsync(created.Id, cancellationToken)
@@ -103,17 +75,16 @@ public sealed class FormResponseResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesWrite,
+            cancellationToken).ConfigureAwait(false);
 
         FormResponseDto updated = await lifecycle.UpdateAsync(
             id,
             new UpdateFormResponseRequest(
                 resource.AnswersJson,
                 resource.RowVersion),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
         return await GetAsync(updated.Id, cancellationToken)
@@ -124,16 +95,15 @@ public sealed class FormResponseResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesWrite, cancellationToken)
-            .ConfigureAwait(false);
-        string? reason = httpContextAccessor.HttpContext?.Request.Query["reason"]
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesWrite,
+            cancellationToken).ConfigureAwait(false);
+        string? reason = HttpContext?.Request.Query["reason"]
             .FirstOrDefault();
         await lifecycle.SoftDeleteDraftAsync(
             id,
             reason,
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -141,39 +111,29 @@ public sealed class FormResponseResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.FormResponses
+        TenantOwnership? ownership = await DbContext.FormResponses
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId, item.DeletedAt))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId
-            || ownership.DeletedAt is not null)
-        {
-            throw new Application.NotFoundException(
-                $"Form response '{id}' was not found.");
-        }
+        EnsureTenantOwnedActive(ownership, id, "Form response");
 
         FormResponse? response = await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
 
-        if (response is not null
-            && httpContextAccessor.HttpContext is { } httpContext
-            && HttpMethods.IsGet(httpContext.Request.Method))
+        if (response is not null)
         {
-            await sensitiveReadAuditor.RecordAsync(
-                AuditEntityTypes.FormResponse,
+            await RecordReadAuditAsync(
                 id,
+                AuditEntityTypes.FormResponse,
                 "response.read",
-                httpContext.GetActorId(),
-                httpContext.Request.Path,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -183,14 +143,13 @@ public sealed class FormResponseResourceService(
     public override async Task<IReadOnlyCollection<FormResponse>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.FormResponsesRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.FormResponsesRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<FormResponse> responses = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. responses.Where(item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. responses.Where(item => item.HospitalId == HospitalId)];
     }
 }

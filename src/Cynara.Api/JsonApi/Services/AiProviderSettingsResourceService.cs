@@ -1,15 +1,8 @@
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.FormAi;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.FormAi;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 namespace Cynara.Api.JsonApi.Services;
 
@@ -19,26 +12,12 @@ namespace Cynara.Api.JsonApi.Services;
 /// Writes delegate to <see cref="IAiProviderSettingsService"/>.
 /// </summary>
 public sealed class AiProviderSettingsResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<AiProviderSettings> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IAiProviderSettingsService settingsService,
-    IHospitalContext hospitalContext,
-    ICapabilityGuard capabilityGuard)
-    : JsonApiResourceService<AiProviderSettings, string>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<AiProviderSettings> resourceChangeTracker)
+    : TenantScopedResourceService<AiProviderSettings, string>(
+        deps,
+        resourceChangeTracker)
 {
     public override Task<AiProviderSettings?> CreateAsync(
         AiProviderSettings resource,
@@ -51,10 +30,9 @@ public sealed class AiProviderSettingsResourceService(
     public override async Task<IReadOnlyCollection<AiProviderSettings>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkspaceRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkspaceRead,
+            cancellationToken).ConfigureAwait(false);
 
         return
         [
@@ -67,7 +45,7 @@ public sealed class AiProviderSettingsResourceService(
         string id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
+        HospitalContext.RequireResolved();
         if (!string.Equals(id, AiProviderSettings.DefaultId, StringComparison.Ordinal))
         {
             throw new Application.NotFoundException(
@@ -86,10 +64,9 @@ public sealed class AiProviderSettingsResourceService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.WorkspaceWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.WorkspaceWrite,
+            cancellationToken).ConfigureAwait(false);
         if (!string.Equals(id, AiProviderSettings.DefaultId, StringComparison.Ordinal))
         {
             throw new Application.NotFoundException(

@@ -1,15 +1,7 @@
-using Cynara.Application.Modules.Capabilities;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Audit;
 using Cynara.Domain.Capabilities;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -21,26 +13,9 @@ namespace Cynara.Api.JsonApi.Services;
 /// workspace so one tenant cannot enumerate another tenant's audit trail.
 /// </summary>
 public sealed class AuditEventResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<AuditEvent> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
-    IHospitalContext hospitalContext,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<AuditEvent, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<AuditEvent> resourceChangeTracker)
+    : TenantScopedResourceService<AuditEvent, Guid>(deps, resourceChangeTracker)
 {
     public override Task<AuditEvent?> CreateAsync(
         AuditEvent resource,
@@ -71,23 +46,18 @@ public sealed class AuditEventResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.AuditRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.AuditRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.AuditEvents
+        TenantOwnership? ownership = await DbContext.AuditEvents
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId)
-        {
-            throw new Application.NotFoundException(
-                $"Audit event '{id}' was not found.");
-        }
+        EnsureTenantOwned(ownership, id, "Audit event");
 
         return await base.GetAsync(id, cancellationToken)
             .ConfigureAwait(false);
@@ -96,14 +66,13 @@ public sealed class AuditEventResourceService(
     public override async Task<IReadOnlyCollection<AuditEvent>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.AuditRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.AuditRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<AuditEvent> events = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. events.Where(item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. events.Where(item => item.HospitalId == HospitalId)];
     }
 }

@@ -1,18 +1,9 @@
-using Cynara.Api.Common.ActorContext;
 using Cynara.Application.Components;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Components;
-using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Components;
-using Cynara.Infrastructure.Persistence;
 
-using JsonApiDotNetCore.Configuration;
-using JsonApiDotNetCore.Middleware;
-using JsonApiDotNetCore.Queries;
-using JsonApiDotNetCore.Repositories;
 using JsonApiDotNetCore.Resources;
-using JsonApiDotNetCore.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -22,38 +13,21 @@ namespace Cynara.Api.JsonApi.Services;
 /// Creates component definitions through application lifecycle services.
 /// </summary>
 public sealed class ComponentDefinitionResourceService(
-    IResourceRepositoryAccessor repositoryAccessor,
-    IQueryLayerComposer queryLayerComposer,
-    IPaginationContext paginationContext,
-    IJsonApiOptions options,
-    ILoggerFactory loggerFactory,
-    IJsonApiRequest request,
-    IResourceChangeTracker<ComponentDefinition> resourceChangeTracker,
-    IResourceDefinitionAccessor resourceDefinitionAccessor,
     IComponentLifecycleService lifecycle,
-    IHospitalContext hospitalContext,
-    IHttpContextAccessor httpContextAccessor,
-    ICapabilityGuard capabilityGuard,
-    CynaraDbContext dbContext)
-    : JsonApiResourceService<ComponentDefinition, Guid>(
-        repositoryAccessor,
-        queryLayerComposer,
-        paginationContext,
-        options,
-        loggerFactory,
-        request,
-        resourceChangeTracker,
-        resourceDefinitionAccessor)
+    JsonApiResourceDeps deps,
+    IResourceChangeTracker<ComponentDefinition> resourceChangeTracker)
+    : TenantScopedResourceService<ComponentDefinition, Guid>(
+        deps,
+        resourceChangeTracker)
 {
     public override async Task<ComponentDefinition?> CreateAsync(
         ComponentDefinition resource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogWrite, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogWrite,
+            cancellationToken).ConfigureAwait(false);
 
         string clinical = string.IsNullOrWhiteSpace(
             resource.InitialClinicalSchemaJson)
@@ -66,14 +40,14 @@ public sealed class ComponentDefinitionResourceService(
                 resource.Name,
                 clinical,
                 resource.InitialUiSchemaJson),
-            httpContextAccessor.HttpContext?.GetActorId(),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
-        ComponentDefinition definition = await dbContext.ComponentDefinitions
+        ComponentDefinition definition = await DbContext.ComponentDefinitions
             .AsNoTracking()
             .SingleAsync(
                 item => item.Code == created.Code
-                    && item.HospitalId == hospitalContext.HospitalId,
+                    && item.HospitalId == HospitalId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -93,25 +67,19 @@ public sealed class ComponentDefinitionResourceService(
         Guid id,
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
-        var ownership = await dbContext.ComponentDefinitions
+        TenantOwnership? ownership = await DbContext.ComponentDefinitions
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Select(item => new { item.Id, item.HospitalId, item.DeletedAt })
-            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
+            .Where(item => item.Id == id)
+            .Select(item => new TenantOwnership(item.HospitalId, item.DeletedAt))
+            .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (ownership is null
-            || ownership.HospitalId != hospitalContext.HospitalId
-            || ownership.DeletedAt is not null)
-        {
-            throw new Application.NotFoundException(
-                $"Component definition '{id}' was not found.");
-        }
+        EnsureTenantOwnedActive(ownership, id, "Component definition");
 
         return await base.GetAsync(id, cancellationToken).ConfigureAwait(false);
     }
@@ -119,15 +87,13 @@ public sealed class ComponentDefinitionResourceService(
     public override async Task<IReadOnlyCollection<ComponentDefinition>> GetAsync(
         CancellationToken cancellationToken)
     {
-        hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
-            CapabilityCodes.CatalogRead, cancellationToken)
-            .ConfigureAwait(false);
+        await RequireCapabilityAsync(
+            CapabilityCodes.CatalogRead,
+            cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<ComponentDefinition> definitions = await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(
-            item => item.HospitalId == hospitalContext.HospitalId)];
+        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 }
