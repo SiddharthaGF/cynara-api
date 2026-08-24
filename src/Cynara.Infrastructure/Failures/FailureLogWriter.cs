@@ -2,9 +2,7 @@ using System.Text.Json;
 
 using Cynara.Application.Failures;
 using Cynara.Domain.Failures;
-using Cynara.Infrastructure.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure.Failures;

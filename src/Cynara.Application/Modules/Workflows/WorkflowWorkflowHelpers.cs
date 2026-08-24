@@ -1,4 +1,3 @@
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Workflows.Persistence;
 using Cynara.Domain.Workflows;
 

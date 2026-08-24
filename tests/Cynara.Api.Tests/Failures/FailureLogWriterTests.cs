@@ -1,11 +1,7 @@
-using Cynara.Api.Tests.Support;
 using Cynara.Application.Failures;
 using Cynara.Domain.Failures;
 using Cynara.Infrastructure.Failures;
-using Cynara.Infrastructure.Persistence;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cynara.Api.Tests.Failures;

@@ -1,4 +1,3 @@
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Audit;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy;
@@ -13,8 +12,6 @@ using Cynara.Application.Modules.Patients;
 using Cynara.Application.Modules.Tasks;
 using Cynara.Application.Modules.Users;
 using Cynara.Application.Modules.Workflows;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Application;
 

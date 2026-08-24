@@ -1,5 +1,4 @@
 using Cynara.Application.Audit;
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Tasks;
 using Cynara.Application.Modules.Tasks.Persistence;
 using Cynara.Domain.Tasks;

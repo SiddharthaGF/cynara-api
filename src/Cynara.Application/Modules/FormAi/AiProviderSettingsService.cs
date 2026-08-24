@@ -1,6 +1,5 @@
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.FormAi;
 

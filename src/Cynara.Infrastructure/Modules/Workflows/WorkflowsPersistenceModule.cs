@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Workflows.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Workflows;
 
 public static class WorkflowsPersistenceModule

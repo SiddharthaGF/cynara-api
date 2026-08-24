@@ -1,5 +1,3 @@
-using Cynara.Api.Tests.Support;
-
 namespace Cynara.Api.Tests;
 
 [Collection(PostgresFixtureDefinition.Name)]

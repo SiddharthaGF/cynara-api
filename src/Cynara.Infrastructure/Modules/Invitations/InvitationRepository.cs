@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Invitations.Persistence;
 using Cynara.Domain.Invitations;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Invitations;
 

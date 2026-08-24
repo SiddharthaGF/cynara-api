@@ -2,8 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
-
 namespace Cynara.Api.Tests.Auth;
 
 /// <summary>

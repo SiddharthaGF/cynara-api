@@ -2,8 +2,6 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using Cynara.Application.Common;
-
 namespace Cynara.Application.Forms;
 
 public sealed partial class FormResponseValidator

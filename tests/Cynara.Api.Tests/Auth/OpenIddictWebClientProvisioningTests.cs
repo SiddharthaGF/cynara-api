@@ -1,8 +1,4 @@
-using Cynara.Api.Tests.Support;
 using Cynara.Infrastructure.Modules.Identity;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 using OpenIddict.EntityFrameworkCore.Models;
 

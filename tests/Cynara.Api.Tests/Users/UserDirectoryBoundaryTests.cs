@@ -1,13 +1,9 @@
 using System.Net;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Capabilities;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Users;
 

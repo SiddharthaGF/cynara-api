@@ -1,9 +1,6 @@
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Common;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.ClinicalTaxonomy;
 
 /// <summary>

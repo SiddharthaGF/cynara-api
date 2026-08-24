@@ -1,9 +1,6 @@
 using Cynara.Application.Modules.Patients;
 using Cynara.Domain.Patients;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Patients;
 
 /// <summary>

@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Tasks.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Tasks;
 
 public static class TasksPersistenceModule

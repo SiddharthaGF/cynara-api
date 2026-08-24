@@ -1,7 +1,5 @@
 using System.Globalization;
 
-using Cynara.Application.Common;
-
 using Cynara.Domain.Encounters;
 
 namespace Cynara.Application.Modules.Encounters;

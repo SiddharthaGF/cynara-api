@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Encounters;
 

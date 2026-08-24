@@ -4,14 +4,11 @@ using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Identity;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;

@@ -1,8 +1,5 @@
 using Cynara.Domain.Forms;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.FormResponses;
 
 public sealed class FormResponseConfiguration

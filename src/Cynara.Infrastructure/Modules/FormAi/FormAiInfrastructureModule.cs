@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.FormAi;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Polly;
 using Polly.Retry;
 

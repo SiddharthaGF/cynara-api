@@ -1,5 +1,3 @@
-using Cynara.Application.Common;
-
 using Cynara.Domain.Tasks;
 
 namespace Cynara.Application.Modules.Tasks;

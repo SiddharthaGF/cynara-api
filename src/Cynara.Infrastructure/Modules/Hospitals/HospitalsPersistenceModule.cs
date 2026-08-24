@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Hospitals;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Hospitals;
 
 public static class HospitalsPersistenceModule

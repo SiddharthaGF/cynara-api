@@ -3,14 +3,9 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Audit;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Forms;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Documents;
 

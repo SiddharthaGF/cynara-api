@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Capabilities.Persistence;
 using Cynara.Domain.Capabilities;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Capabilities;
 

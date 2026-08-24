@@ -1,13 +1,9 @@
-using Cynara.Api.Tests.Support;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Identity;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.Extensions.DependencyInjection;
 
 using Npgsql;
 

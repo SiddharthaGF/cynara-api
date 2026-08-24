@@ -1,11 +1,8 @@
 using System.Net;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
-
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Auth;
 

@@ -1,10 +1,5 @@
 using Cynara.Application.Modules.FormAi.Persistence;
 using Cynara.Domain.FormAi;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Infrastructure.Modules.FormAi;
 

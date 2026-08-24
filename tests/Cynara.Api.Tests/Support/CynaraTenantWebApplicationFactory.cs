@@ -1,9 +1,5 @@
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Hospitals;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Support;
 

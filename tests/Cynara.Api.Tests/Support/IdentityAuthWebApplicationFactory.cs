@@ -6,12 +6,9 @@ using System.Text.Json;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Identity;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 using OpenIddict.Abstractions;
 
@@ -29,7 +26,8 @@ internal sealed class IdentityAuthWebApplicationFactory(
     TestDatabaseSettings database,
     bool grantAllCapabilities = true,
     string? environment = null,
-    TestOpenIddictCertificates? openIddictCertificates = null)
+    TestOpenIddictCertificates? openIddictCertificates = null,
+    IReadOnlyDictionary<string, string?>? extraConfiguration = null)
     : CynaraWebApplicationFactory(
         database,
         new CynaraWebApplicationFactoryOptions
@@ -38,6 +36,7 @@ internal sealed class IdentityAuthWebApplicationFactory(
             UseRealAuthentication = true,
             EnvironmentName = environment,
             OpenIddictCertificates = openIddictCertificates,
+            ExtraConfiguration = extraConfiguration,
         })
 {
     /// <summary>Confidential test client used by the auth suites.</summary>

@@ -1,5 +1,3 @@
-using Cynara.Application.Common;
-
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Common;
 

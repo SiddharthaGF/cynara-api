@@ -2,8 +2,6 @@ using System.Globalization;
 using System.Reflection;
 
 using Cynara.Api.Tests.Documents.UnitTests.Fakes;
-using Cynara.Api.Tests.Support;
-
 using Cynara.Application;
 using Cynara.Application.Common;
 using Cynara.Application.Modules.Documents;

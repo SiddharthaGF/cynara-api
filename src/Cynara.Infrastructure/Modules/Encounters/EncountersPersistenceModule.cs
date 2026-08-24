@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Encounters.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Encounters;
 
 /// <summary>

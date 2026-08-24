@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Components.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Components;
 
 public static class ComponentsPersistenceModule

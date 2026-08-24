@@ -1,5 +1,4 @@
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Application.Persistence;
 
 namespace Cynara.Application.Audit;
 

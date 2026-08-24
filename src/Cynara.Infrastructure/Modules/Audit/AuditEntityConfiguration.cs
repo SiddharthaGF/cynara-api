@@ -1,8 +1,5 @@
 using Cynara.Domain.Audit;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Audit;
 
 public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEvent>

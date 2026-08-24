@@ -1,8 +1,5 @@
 using Cynara.Domain.Failures;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Failures;
 
 public sealed class FailureLogEntityConfiguration

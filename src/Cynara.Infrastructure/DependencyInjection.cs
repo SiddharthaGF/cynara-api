@@ -18,16 +18,13 @@ using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
-using Cynara.Infrastructure.Persistence;
 using Cynara.Infrastructure.Persistence.QueryCounting;
 using Cynara.Infrastructure.Schemas;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure;

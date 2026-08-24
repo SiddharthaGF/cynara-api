@@ -1,13 +1,8 @@
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Documents;
 using Cynara.Domain.Forms;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Documents;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Documents.UnitTests;
 

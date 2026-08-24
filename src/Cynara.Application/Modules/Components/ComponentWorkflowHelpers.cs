@@ -1,4 +1,3 @@
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Components.Persistence;
 using Cynara.Domain.Components;
 

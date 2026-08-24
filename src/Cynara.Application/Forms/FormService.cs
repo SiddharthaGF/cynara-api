@@ -1,9 +1,7 @@
 using Cynara.Application.Audit;
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Forms.Persistence;
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Forms;

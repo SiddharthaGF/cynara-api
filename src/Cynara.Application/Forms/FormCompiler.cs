@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Components.Persistence;
 using Cynara.Application.Modules.Hospitals;
 

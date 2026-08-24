@@ -3,12 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Audit;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 

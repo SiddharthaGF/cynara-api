@@ -1,7 +1,5 @@
 using System.Text.Json.Nodes;
 
-using Cynara.Application.Common;
-
 namespace Cynara.Application.Modules.FormAi;
 
 internal static class FormAiDraftPatch

@@ -2,9 +2,6 @@ using System.Linq.Expressions;
 
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Domain.ClinicalTaxonomy;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.ClinicalTaxonomy;
 

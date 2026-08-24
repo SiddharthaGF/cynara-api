@@ -1,6 +1,5 @@
 using System.Text.Json;
 
-using Cynara.Application.Common;
 using Cynara.Application.Workflows;
 using Cynara.Domain.Workflows;
 

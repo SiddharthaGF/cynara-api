@@ -1,4 +1,3 @@
-using Cynara.Application.Common;
 using Cynara.Application.Components;
 using Cynara.Domain.Components;
 

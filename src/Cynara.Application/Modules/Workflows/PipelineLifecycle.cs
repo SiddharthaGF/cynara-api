@@ -1,5 +1,3 @@
-using Cynara.Application.Common;
-
 using Cynara.Domain.Workflows;
 
 namespace Cynara.Application.Modules.Workflows;

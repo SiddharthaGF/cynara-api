@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Domain.Documents;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Documents;
 

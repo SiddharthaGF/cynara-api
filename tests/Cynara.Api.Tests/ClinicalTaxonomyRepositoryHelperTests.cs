@@ -36,7 +36,7 @@ public sealed class ClinicalTaxonomyRepositoryHelperTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
         };
-        var facilities = new List<Facility> { facility, retiredFacility };
+        List<Facility> facilities = [facility, retiredFacility];
 
         IReadOnlyList<Facility> active = [
             .. ClinicalTaxonomyRepository.ApplyRetiredFilter(
@@ -90,7 +90,7 @@ public sealed class ClinicalTaxonomyRepositoryHelperTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
         };
-        var areas = new List<ClinicalArea> { active, retired };
+        List<ClinicalArea> areas = [active, retired];
 
         IReadOnlyList<ClinicalArea> filtered = [
             .. ClinicalTaxonomyRepository.ApplyRetiredFilter(
@@ -148,7 +148,7 @@ public sealed class ClinicalTaxonomyRepositoryHelperTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
         };
-        var disciplines = new List<Discipline> { active, retired };
+        List<Discipline> disciplines = [active, retired];
 
         IReadOnlyList<Discipline> filtered = [
             .. ClinicalTaxonomyRepository.ApplyRetiredFilter(

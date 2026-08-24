@@ -1,10 +1,8 @@
 using Cynara.Application.Audit;
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 using Cynara.Application.Modules.Encounters.Persistence;
 using Cynara.Application.Modules.Patients.Persistence;
-using Cynara.Application.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Encounters;

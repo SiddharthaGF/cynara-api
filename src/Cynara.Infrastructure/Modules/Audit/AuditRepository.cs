@@ -1,6 +1,5 @@
 using Cynara.Application.Modules.Audit.Persistence;
 using Cynara.Domain.Audit;
-using Cynara.Infrastructure.Persistence;
 
 namespace Cynara.Infrastructure.Modules.Audit;
 

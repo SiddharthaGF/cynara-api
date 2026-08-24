@@ -1,10 +1,5 @@
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Capabilities;
 using Cynara.Infrastructure.Modules.Preview;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests;
 

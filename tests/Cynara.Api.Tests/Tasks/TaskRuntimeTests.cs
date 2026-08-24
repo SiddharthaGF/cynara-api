@@ -3,7 +3,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Api.Tests.Workflows;
 
 namespace Cynara.Api.Tests.Tasks;

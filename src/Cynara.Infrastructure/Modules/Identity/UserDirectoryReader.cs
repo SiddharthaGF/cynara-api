@@ -1,10 +1,8 @@
 using Cynara.Application.Modules.Users;
 using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Domain.Capabilities;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Identity;
 

@@ -1,8 +1,5 @@
 using Cynara.Domain.Components;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Components;
 
 public sealed class ComponentDefinitionConfiguration

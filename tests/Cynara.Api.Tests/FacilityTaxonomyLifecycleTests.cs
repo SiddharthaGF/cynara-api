@@ -3,13 +3,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Audit;
 using Cynara.Domain.ClinicalTaxonomy;
 using Cynara.Domain.Hospitals;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Api.Tests;
 

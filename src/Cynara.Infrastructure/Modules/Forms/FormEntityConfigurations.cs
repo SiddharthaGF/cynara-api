@@ -1,8 +1,5 @@
 using Cynara.Domain.Forms;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Forms;
 
 public sealed class FormDefinitionConfiguration

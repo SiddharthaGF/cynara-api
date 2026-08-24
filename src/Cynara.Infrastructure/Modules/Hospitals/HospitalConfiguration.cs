@@ -1,9 +1,6 @@
 using Cynara.Domain.Common;
 using Cynara.Domain.Hospitals;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Hospitals;
 
 /// <summary>

@@ -1,12 +1,10 @@
 using System.Net.Http.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Application.Modules.FormAi;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cynara.Api.Tests;

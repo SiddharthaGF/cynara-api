@@ -1,11 +1,8 @@
 using Cynara.Api.Hosting;
-using Cynara.Api.Tests.Support;
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Auth;
 

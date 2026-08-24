@@ -7,10 +7,6 @@ using System.Text.Json;
 using Cynara.Domain.Audit;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Support;
 

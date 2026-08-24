@@ -1,5 +1,3 @@
-using Cynara.Api.Tests.Support;
-
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormAi.Persistence;
 using Cynara.Application.Modules.Hospitals;

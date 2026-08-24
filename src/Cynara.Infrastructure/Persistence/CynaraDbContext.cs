@@ -14,8 +14,6 @@ using Cynara.Domain.Patients;
 using Cynara.Domain.Tasks;
 using Cynara.Domain.Workflows;
 
-using Microsoft.EntityFrameworkCore;
-
 namespace Cynara.Infrastructure.Persistence;
 
 public sealed class CynaraDbContext(DbContextOptions<CynaraDbContext> options)

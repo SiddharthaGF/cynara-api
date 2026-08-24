@@ -1,6 +1,5 @@
 using Cynara.Api.Tests.Documents.UnitTests.Fakes;
 using Cynara.Api.Tests.Patients.UnitTests.Fakes;
-using Cynara.Api.Tests.Support;
 
 using Cynara.Application.Modules.Patients;
 using Cynara.Domain.Patients;

@@ -57,6 +57,9 @@ dotnet_style_qualification_for_method = false:suggestion
 csharp_style_prefer_pattern_matching = true:suggestion
 csharp_style_prefer_not_pattern = true:suggestion
 
+# Collection expressions instead of array/list/dictionary initializers.
+dotnet_style_prefer_collection_expression = true:suggestion
+
 dotnet_diagnostic.IDE0055.severity = warning
 dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0079.severity = warning

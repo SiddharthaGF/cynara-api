@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.ClinicalTaxonomy.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.ClinicalTaxonomy;
 
 public static class ClinicalTaxonomyPersistenceModule

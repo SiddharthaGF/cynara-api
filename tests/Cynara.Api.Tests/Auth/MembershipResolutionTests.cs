@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Capabilities;
 
 namespace Cynara.Api.Tests.Auth;

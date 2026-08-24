@@ -1,9 +1,6 @@
 using Cynara.Application.Modules.Documents;
 using Cynara.Domain.Documents;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Documents;
 
 /// <summary>

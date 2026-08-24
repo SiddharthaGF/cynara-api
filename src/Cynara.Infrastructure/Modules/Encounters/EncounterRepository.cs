@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Encounters.Persistence;
 using Cynara.Domain.Encounters;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Encounters;
 

@@ -1,7 +1,4 @@
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Identity;
 

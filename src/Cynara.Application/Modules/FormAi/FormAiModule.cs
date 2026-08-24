@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Application.Modules.FormAi;
 
 public static class FormAiModule

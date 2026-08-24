@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Cynara.Infrastructure.Modules.Identity;
 

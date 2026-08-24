@@ -18,10 +18,6 @@ using Cynara.Application.Workflows;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Hospitals;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Infrastructure.Modules.Preview;
 

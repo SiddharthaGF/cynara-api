@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Text;
 
-using Cynara.Application.Common;
-
 using Cynara.Domain.Patients;
 
 namespace Cynara.Application.Modules.Patients;

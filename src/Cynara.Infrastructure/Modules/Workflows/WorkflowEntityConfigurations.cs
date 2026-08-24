@@ -1,8 +1,5 @@
 using Cynara.Domain.Workflows;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Workflows;
 
 public sealed class WorkflowDefinitionConfiguration

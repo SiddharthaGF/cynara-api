@@ -1,6 +1,5 @@
 using Cynara.Api.Tests.Capabilities.UnitTests;
 using Cynara.Api.Tests.Documents.UnitTests.Fakes;
-
 using Cynara.Application;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Domain.Capabilities;

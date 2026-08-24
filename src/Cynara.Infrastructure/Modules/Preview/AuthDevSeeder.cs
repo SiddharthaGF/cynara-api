@@ -4,12 +4,9 @@ using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
 using Cynara.Infrastructure.Modules.Identity;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 using OpenIddict.Abstractions;
 

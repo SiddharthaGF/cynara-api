@@ -1,12 +1,6 @@
 using System.Net;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Api.Tests;
 
 public sealed partial class FormLifecycleE2ETests

@@ -1,7 +1,5 @@
 using Cynara.Application.Forms;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Application.Modules.FormResponses;
 
 public static class FormResponsesModule

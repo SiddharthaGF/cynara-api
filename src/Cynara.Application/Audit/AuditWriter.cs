@@ -1,6 +1,5 @@
 using System.Text.Json;
 
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Audit.Persistence;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Audit;

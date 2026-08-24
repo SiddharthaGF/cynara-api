@@ -1,12 +1,8 @@
 using System.Net;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Domain.Failures;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Cynara.Api.Tests.Failures;

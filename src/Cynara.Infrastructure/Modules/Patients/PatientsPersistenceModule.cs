@@ -1,7 +1,5 @@
 using Cynara.Application.Modules.Patients.Persistence;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Infrastructure.Modules.Patients;
 
 /// <summary>

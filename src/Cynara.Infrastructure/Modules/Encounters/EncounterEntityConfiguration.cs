@@ -1,9 +1,6 @@
 using Cynara.Application.Modules.Encounters;
 using Cynara.Domain.Encounters;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Encounters;
 
 /// <summary>

@@ -1,7 +1,5 @@
 using Cynara.Application.Audit;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Cynara.Application.Modules.Audit;
 
 public static class AuditModule

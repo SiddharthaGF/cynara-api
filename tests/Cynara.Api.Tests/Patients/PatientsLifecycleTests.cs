@@ -4,11 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Cynara.Api.Tests.Support;
 using Cynara.Application.Modules.Patients;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Cynara.Api.Tests.Patients;
 
@@ -568,12 +564,12 @@ public sealed class PatientsLifecycleTests : IAsyncDisposable
 
     private async Task<int> CountAuditEventsAsync(string action)
     {
-        Infrastructure.Persistence.CynaraDbContext dbContext =
+        CynaraDbContext dbContext =
             Factory.Services
                 .GetRequiredService<IServiceScopeFactory>()
                 .CreateAsyncScope()
                 .ServiceProvider
-                .GetRequiredService<Infrastructure.Persistence.CynaraDbContext>();
+                .GetRequiredService<CynaraDbContext>();
         await using (dbContext.ConfigureAwait(false))
         {
             return await dbContext.AuditEvents

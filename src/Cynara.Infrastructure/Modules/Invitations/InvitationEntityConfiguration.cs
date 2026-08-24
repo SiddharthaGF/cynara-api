@@ -1,8 +1,5 @@
 using Cynara.Domain.Invitations;
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Cynara.Infrastructure.Modules.Invitations;
 
 /// <summary>

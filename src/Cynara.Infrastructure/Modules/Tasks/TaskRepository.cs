@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Tasks.Persistence;
 using Cynara.Domain.Tasks;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Tasks;
 

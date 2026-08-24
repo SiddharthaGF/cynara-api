@@ -1,7 +1,5 @@
 using System.Globalization;
 
-using Cynara.Application.Common;
-
 using Cynara.Domain.Documents;
 
 namespace Cynara.Application.Modules.Documents;

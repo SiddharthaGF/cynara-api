@@ -1,7 +1,5 @@
 using Cynara.Application.Audit;
-using Cynara.Application.Common;
 using Cynara.Application.Modules.Hospitals;
-using Cynara.Application.Persistence;
 
 namespace Cynara.Application.Modules.Capabilities;
 

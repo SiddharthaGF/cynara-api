@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Workflows.Persistence;
 using Cynara.Domain.Workflows;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Workflows;
 

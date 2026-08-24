@@ -1,8 +1,5 @@
 using Cynara.Application.Modules.Patients.Persistence;
 using Cynara.Domain.Patients;
-using Cynara.Infrastructure.Persistence;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Infrastructure.Modules.Patients;
 

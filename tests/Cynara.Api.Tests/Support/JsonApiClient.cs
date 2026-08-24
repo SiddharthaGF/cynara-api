@@ -140,6 +140,73 @@ internal sealed class JsonApiClient(HttpClient httpClient)
             .ConfigureAwait(false);
     }
 
+    public async Task<string> CreateWorkflowDefinitionAsync(
+        string code,
+        string name,
+        string workflowSchemaJson)
+    {
+        using JsonDocument created = await PostResourceAsync(
+            "workflowDefinitions",
+            new
+            {
+                code,
+                name,
+                initialWorkflowSchemaJson = workflowSchemaJson,
+            }).ConfigureAwait(false);
+        return RequireId(created);
+    }
+
+    public async Task<string> FindWorkflowDefinitionIdAsync(string code)
+    {
+        using JsonDocument list = await GetAsync(
+            "/api/workflowDefinitions").ConfigureAwait(false);
+        foreach (JsonElement item in list.RootElement
+            .GetProperty("data").EnumerateArray())
+        {
+            if (string.Equals(
+                item.GetProperty("attributes").GetProperty("code").GetString(),
+                code,
+                StringComparison.Ordinal))
+            {
+                return item.GetProperty("id").GetString()!;
+            }
+        }
+
+        throw new InvalidOperationException($"Workflow '{code}' not found.");
+    }
+
+    public async Task<string> GetDraftVersionIdAsync(string definitionId)
+    {
+        using JsonDocument definition = await GetAsync(
+            $"/api/workflowDefinitions/{definitionId}?include=versions")
+            .ConfigureAwait(false);
+        return definition.RootElement.GetProperty("included")
+            .EnumerateArray()
+            .First(item => string.Equals(
+                item.GetProperty("attributes").GetProperty("status").GetString(),
+                "draft",
+                StringComparison.OrdinalIgnoreCase))
+            .GetProperty("id")
+            .GetString()!;
+    }
+
+    public async Task<uint> GetVersionRowVersionAsync(string versionId)
+    {
+        using JsonDocument document = await GetAsync(
+            $"/api/workflowVersions/{versionId}").ConfigureAwait(false);
+        return AttrUInt(document, "rowVersion");
+    }
+
+    public async Task<JsonDocument> PostVersionActionAsync(
+        string versionId,
+        string action,
+        uint? rowVersion)
+    {
+        return await PostActionAsync(
+            $"/api/workflowVersions/{versionId}/{action}",
+            new { rowVersion }).ConfigureAwait(false);
+    }
+
     public async Task<JsonDocument> PostActionAsync(
         string path,
         object? body = null,
