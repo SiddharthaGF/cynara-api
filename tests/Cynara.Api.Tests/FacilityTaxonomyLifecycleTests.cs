@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 
 using Cynara.Domain.Audit;
@@ -16,8 +14,6 @@ namespace Cynara.Api.Tests;
 [Collection(PostgresFixtureDefinition.Name)]
 public sealed class FacilityTaxonomyLifecycleTests : IDisposable
 {
-    private const string ContentType = "application/vnd.api+json";
-
     public FacilityTaxonomyLifecycleTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
@@ -86,7 +82,7 @@ public sealed class FacilityTaxonomyLifecycleTests : IDisposable
             .ConfigureAwait(false);
 
         using HttpResponseMessage response = await Client.SendAsync(
-            PostJsonRequest(
+            JsonApiClient.CreatePostRequest(
                 "/api/facilities",
                 new { code = "shared", name = "Second" }))
             .ConfigureAwait(false);
@@ -109,7 +105,7 @@ public sealed class FacilityTaxonomyLifecycleTests : IDisposable
         uint current = GetUInt32(created, "rowVersion");
 
         using HttpResponseMessage stale = await Client.SendAsync(
-            PatchJsonRequest(
+            JsonApiClient.CreatePatchRequest(
                 $"/api/facilities/{facilityId}",
                 new { name = "Stale", rowVersion = current + 999 }))
             .ConfigureAwait(false);
@@ -225,7 +221,7 @@ public sealed class FacilityTaxonomyLifecycleTests : IDisposable
         HttpClient client, string path, object body)
     {
         using HttpResponseMessage response = await client.SendAsync(
-            PostJsonRequest(path, body)).ConfigureAwait(false);
+            JsonApiClient.CreatePostRequest(path, body)).ConfigureAwait(false);
         LastStatus = response.StatusCode;
         string text = await response.Content.ReadAsStringAsync()
             .ConfigureAwait(false);
@@ -237,46 +233,12 @@ public sealed class FacilityTaxonomyLifecycleTests : IDisposable
         HttpClient client, string path, object body)
     {
         using HttpResponseMessage response = await client.SendAsync(
-            PatchJsonRequest(path, body)).ConfigureAwait(false);
+            JsonApiClient.CreatePatchRequest(path, body)).ConfigureAwait(false);
         LastStatus = response.StatusCode;
         string text = await response.Content.ReadAsStringAsync()
             .ConfigureAwait(false);
         return JsonDocument.Parse(
             string.IsNullOrWhiteSpace(text) ? "{}" : text);
-    }
-
-    private static HttpRequestMessage PostJsonRequest(
-        string path, object body)
-    {
-        return new HttpRequestMessage(
-            HttpMethod.Post, new Uri(path, UriKind.Relative))
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(body), Encoding.UTF8)
-            {
-                Headers =
-                {
-                    ContentType = new MediaTypeHeaderValue(ContentType),
-                },
-            },
-        };
-    }
-
-    private static HttpRequestMessage PatchJsonRequest(
-        string path, object body)
-    {
-        return new HttpRequestMessage(
-            HttpMethod.Patch, new Uri(path, UriKind.Relative))
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(body), Encoding.UTF8)
-            {
-                Headers =
-                {
-                    ContentType = new MediaTypeHeaderValue(ContentType),
-                },
-            },
-        };
     }
 
     private CynaraTenantWebApplicationFactory Factory { get; }

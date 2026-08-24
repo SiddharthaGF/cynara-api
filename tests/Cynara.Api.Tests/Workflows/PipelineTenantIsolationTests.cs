@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -115,7 +114,7 @@ public sealed class PipelineTenantIsolationTests : IDisposable
 
     private async Task<JsonDocument> StartPipelineAsync(string workflowCode)
     {
-        Guid encounterId = await SeedEncounterAsync().ConfigureAwait(false);
+        (Guid _, Guid encounterId) = await Api.SeedEncounterAsync().ConfigureAwait(false);
         var payload = new
         {
             workflowCode,
@@ -136,62 +135,5 @@ public sealed class PipelineTenantIsolationTests : IDisposable
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return JsonDocument.Parse(
             await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-    }
-
-    private async Task<Guid> SeedEncounterAsync()
-    {
-        Guid facilityId = await CreatePlainAsync(
-            "/api/facilities",
-            new
-            {
-                code = $"fac-{Guid.NewGuid():N}",
-                name = "Facility",
-            }).ConfigureAwait(false);
-        Guid clinicalAreaId = await CreatePlainAsync(
-            "/api/clinicalAreas",
-            new
-            {
-                code = $"area-{Guid.NewGuid():N}",
-                name = "Area",
-                facilityId,
-            }).ConfigureAwait(false);
-        Guid patientId = await CreatePlainAsync(
-            "/api/patients",
-            new
-            {
-                mrn = $"MRN-{Guid.NewGuid():N}",
-                nationalId = (string?)null,
-                givenName = "Ada",
-                familyName = "Lovelace",
-                birthDate = "1990-01-01",
-                sex = "female",
-                bloodType = "o+",
-            }).ConfigureAwait(false);
-        return await CreatePlainAsync(
-            "/api/encounters",
-            new
-            {
-                patientId,
-                facilityId,
-                clinicalAreaId,
-                type = "ambulatory",
-                responsibleProfessionalId = "dr-who",
-            }).ConfigureAwait(false);
-    }
-
-    private async Task<Guid> CreatePlainAsync(string path, object body)
-    {
-        using HttpResponseMessage response = await Client.PostAsync(
-            new Uri(path, UriKind.Relative),
-            new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                JsonApiMedia.ContentType)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        using var document = JsonDocument.Parse(
-            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-        return Guid.Parse(
-            document.RootElement.GetProperty("id").GetString()!,
-            CultureInfo.InvariantCulture);
     }
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
@@ -223,6 +224,72 @@ internal sealed class JsonApiClient(HttpClient httpClient)
             rowVersion);
     }
 
+    public async Task<Guid> SeedPatientAsync()
+    {
+        return await PostPlainForIdAsync(
+            "/api/patients",
+            new
+            {
+                mrn = $"MRN-{Guid.NewGuid():N}",
+                nationalId = (string?)null,
+                givenName = "Ada",
+                familyName = "Lovelace",
+                birthDate = "1990-01-01",
+                sex = "female",
+                bloodType = "o+",
+            }).ConfigureAwait(false);
+    }
+
+    public async Task<(Guid PatientId, Guid EncounterId)> SeedEncounterAsync()
+    {
+        Guid patientId = await SeedPatientAsync().ConfigureAwait(false);
+        Guid encounterId = await SeedEncounterForPatientAsync(patientId)
+            .ConfigureAwait(false);
+        return (patientId, encounterId);
+    }
+
+    public async Task<Guid> SeedEncounterForPatientAsync(Guid patientId)
+    {
+        Guid facilityId = await PostPlainForIdAsync(
+            "/api/facilities",
+            new
+            {
+                code = $"fac-{Guid.NewGuid():N}",
+                name = "Facility",
+            }).ConfigureAwait(false);
+        Guid clinicalAreaId = await PostPlainForIdAsync(
+            "/api/clinicalAreas",
+            new
+            {
+                code = $"area-{Guid.NewGuid():N}",
+                name = "Area",
+                facilityId,
+            }).ConfigureAwait(false);
+        return await PostPlainForIdAsync(
+            "/api/encounters",
+            new
+            {
+                patientId,
+                facilityId,
+                clinicalAreaId,
+                type = "ambulatory",
+                responsibleProfessionalId = "dr-who",
+            }).ConfigureAwait(false);
+    }
+
+    private async Task<Guid> PostPlainForIdAsync(string path, object body)
+    {
+        using HttpResponseMessage response = await Http.PostAsync(
+            new Uri(path, UriKind.Relative),
+            CreateJsonApiContent(body)).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        return Guid.Parse(
+            document.RootElement.GetProperty("id").GetString()!,
+            CultureInfo.InvariantCulture);
+    }
+
     public async Task<JsonDocument> PostActionAsync(
         string path,
         object? body = null,
@@ -289,6 +356,30 @@ internal sealed class JsonApiClient(HttpClient httpClient)
         content.Headers.ContentType = new MediaTypeHeaderValue(
             JsonApiMedia.ContentType);
         return content;
+    }
+
+    public static HttpRequestMessage CreatePostRequest(
+        string path,
+        object body)
+    {
+        return new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(path, UriKind.Relative))
+        {
+            Content = CreateJsonApiContent(body),
+        };
+    }
+
+    public static HttpRequestMessage CreatePatchRequest(
+        string path,
+        object body)
+    {
+        return new HttpRequestMessage(
+            HttpMethod.Patch,
+            new Uri(path, UriKind.Relative))
+        {
+            Content = CreateJsonApiContent(body),
+        };
     }
 
     public static async Task<JsonDocument> ReadDocumentAsync(

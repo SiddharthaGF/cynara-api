@@ -442,7 +442,9 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
             adminApi,
             code,
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        return await SeedEncounterAsync(adminApi.Http).ConfigureAwait(false);
+        (_, Guid encounterId) = await adminApi.SeedEncounterAsync()
+            .ConfigureAwait(false);
+        return encounterId;
     }
 
     private static async Task<Guid> CreateDraftAsync(
@@ -500,70 +502,6 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
             .GetProperty("id")
             .GetString()!;
         return Guid.Parse(draftId, CultureInfo.InvariantCulture);
-    }
-
-    private static async Task<Guid> SeedEncounterAsync(HttpClient client)
-    {
-        Guid facilityId = await CreatePlainAsync(
-            client,
-            "/api/facilities",
-            new
-            {
-                code = $"fac-{Guid.NewGuid():N}",
-                name = "Facility",
-            }).ConfigureAwait(false);
-        Guid clinicalAreaId = await CreatePlainAsync(
-            client,
-            "/api/clinicalAreas",
-            new
-            {
-                code = $"area-{Guid.NewGuid():N}",
-                name = "Area",
-                facilityId,
-            }).ConfigureAwait(false);
-        Guid patientId = await CreatePlainAsync(
-            client,
-            "/api/patients",
-            new
-            {
-                mrn = $"MRN-{Guid.NewGuid():N}",
-                nationalId = (string?)null,
-                givenName = "Ada",
-                familyName = "Lovelace",
-                birthDate = "1990-01-01",
-                sex = "female",
-                bloodType = "o+",
-            }).ConfigureAwait(false);
-        return await CreatePlainAsync(
-            client,
-            "/api/encounters",
-            new
-            {
-                patientId,
-                facilityId,
-                clinicalAreaId,
-                type = "ambulatory",
-                responsibleProfessionalId = "dr-who",
-            }).ConfigureAwait(false);
-    }
-
-    private static async Task<Guid> CreatePlainAsync(
-        HttpClient client,
-        string path,
-        object body)
-    {
-        using HttpResponseMessage response = await client.PostAsync(
-            new Uri(path, UriKind.Relative),
-            new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                JsonApiMedia.ContentType)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        using var document = JsonDocument.Parse(
-            await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-        return Guid.Parse(
-            document.RootElement.GetProperty("id").GetString()!,
-            CultureInfo.InvariantCulture);
     }
 
     private static async Task<HttpResponseMessage> PostStartPipelineAsync(
@@ -727,7 +665,7 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
             adminApi,
             workflowCode,
             workflowSchemaJson).ConfigureAwait(false);
-        Guid encounterId = await SeedEncounterAsync(adminApi.Http)
+        (_, Guid encounterId) = await adminApi.SeedEncounterAsync()
             .ConfigureAwait(false);
 
         using HttpResponseMessage response = await PostStartPipelineAsync(

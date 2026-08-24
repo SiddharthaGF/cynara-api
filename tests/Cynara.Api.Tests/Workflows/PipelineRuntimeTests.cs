@@ -40,7 +40,7 @@ public sealed class PipelineRuntimeTests : IDisposable
         string publishedId = await PublishWorkflowAsync(
             "minimal-start",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        (Guid patientId, Guid encounterId) = await SeedEncounterAsync()
+        (Guid patientId, Guid encounterId) = await Api.SeedEncounterAsync()
             .ConfigureAwait(false);
 
         using JsonDocument started = await StartPipelineAsync(
@@ -70,7 +70,7 @@ public sealed class PipelineRuntimeTests : IDisposable
             "pinned-start",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
         await PublishNextVersionAsync("pinned-start").ConfigureAwait(false);
-        Guid patientId = await SeedPatientAsync().ConfigureAwait(false);
+        Guid patientId = await Api.SeedPatientAsync().ConfigureAwait(false);
 
         using JsonDocument older = await StartPipelineAsync(
             "pinned-start",
@@ -359,7 +359,7 @@ public sealed class PipelineRuntimeTests : IDisposable
         _ = await PublishWorkflowAsync(
             "list-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        (_, Guid subjectId) = await SeedEncounterAsync().ConfigureAwait(false);
+        (_, Guid subjectId) = await Api.SeedEncounterAsync().ConfigureAwait(false);
         _ = await StartPipelineIdAsync(
             "list-flow",
             subjectType: "encounter").ConfigureAwait(false);
@@ -547,73 +547,11 @@ public sealed class PipelineRuntimeTests : IDisposable
             "encounter",
             StringComparison.OrdinalIgnoreCase))
         {
-            (_, Guid encounterId) = await SeedEncounterAsync().ConfigureAwait(false);
+            (_, Guid encounterId) = await Api.SeedEncounterAsync().ConfigureAwait(false);
             return encounterId;
         }
 
-        return await SeedPatientAsync().ConfigureAwait(false);
-    }
-
-    private async Task<Guid> SeedPatientAsync()
-    {
-        return await CreatePlainAsync(
-            "/api/patients",
-            new
-            {
-                mrn = $"MRN-{Guid.NewGuid():N}",
-                nationalId = (string?)null,
-                givenName = "Ada",
-                familyName = "Lovelace",
-                birthDate = "1990-01-01",
-                sex = "female",
-                bloodType = "o+",
-            }).ConfigureAwait(false);
-    }
-
-    private async Task<(Guid PatientId, Guid EncounterId)> SeedEncounterAsync()
-    {
-        Guid facilityId = await CreatePlainAsync(
-            "/api/facilities",
-            new
-            {
-                code = $"fac-{Guid.NewGuid():N}",
-                name = "Facility",
-            }).ConfigureAwait(false);
-        Guid clinicalAreaId = await CreatePlainAsync(
-            "/api/clinicalAreas",
-            new
-            {
-                code = $"area-{Guid.NewGuid():N}",
-                name = "Area",
-                facilityId,
-            }).ConfigureAwait(false);
-        Guid patientId = await SeedPatientAsync().ConfigureAwait(false);
-        Guid encounterId = await CreatePlainAsync(
-            "/api/encounters",
-            new
-            {
-                patientId,
-                facilityId,
-                clinicalAreaId,
-                type = "ambulatory",
-                responsibleProfessionalId = "dr-who",
-            }).ConfigureAwait(false);
-        return (patientId, encounterId);
-    }
-
-    private async Task<Guid> CreatePlainAsync(string path, object body)
-    {
-        using HttpResponseMessage response = await Client.PostAsync(
-            new Uri(path, UriKind.Relative),
-            new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                JsonApiMedia.ContentType)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        (_, JsonDocument document) = await ReadBodyAsync(response).ConfigureAwait(false);
-        return Guid.Parse(
-            document.RootElement.GetProperty("id").GetString()!,
-            CultureInfo.InvariantCulture);
+        return await Api.SeedPatientAsync().ConfigureAwait(false);
     }
 
     private async Task<JsonDocument> AdvancePipelineAsync(

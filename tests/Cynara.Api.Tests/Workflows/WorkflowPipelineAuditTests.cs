@@ -66,7 +66,7 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
         (Guid definitionId, _) = await PublishWorkflowAsync(
             "audit-pipe-flow",
             WorkflowTestSchemas.WithDecision()).ConfigureAwait(false);
-        (Guid patientId, Guid encounterId) = await SeedEncounterAsync()
+        (Guid patientId, Guid encounterId) = await Api.SeedEncounterAsync()
             .ConfigureAwait(false);
         Guid pipelineId = await StartPipelineIdAsync(
             "audit-pipe-flow",
@@ -206,7 +206,7 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
         _ = await PublishWorkflowAsync(
             "audit-journey-flow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        (Guid patientId, Guid encounterId) = await SeedEncounterAsync()
+        (Guid patientId, Guid encounterId) = await Api.SeedEncounterAsync()
             .ConfigureAwait(false);
         _ = await StartPipelineIdAsync(
             "audit-journey-flow",
@@ -368,11 +368,11 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
             "encounter",
             StringComparison.OrdinalIgnoreCase))
         {
-            (_, Guid encounterId) = await SeedEncounterAsync().ConfigureAwait(false);
+            (_, Guid encounterId) = await Api.SeedEncounterAsync().ConfigureAwait(false);
             return encounterId;
         }
 
-        return await SeedPatientAsync().ConfigureAwait(false);
+        return await Api.SeedPatientAsync().ConfigureAwait(false);
     }
 
     private async Task<JsonDocument> AdvancePipelineAsync(
@@ -394,68 +394,6 @@ public sealed class WorkflowPipelineAuditTests : IDisposable
             payload).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, status);
         return document;
-    }
-
-    private async Task<Guid> SeedPatientAsync()
-    {
-        return await CreatePlainAsync(
-            "/api/patients",
-            new
-            {
-                mrn = $"MRN-{Guid.NewGuid():N}",
-                nationalId = (string?)null,
-                givenName = "Ada",
-                familyName = "Lovelace",
-                birthDate = "1990-01-01",
-                sex = "female",
-                bloodType = "o+",
-            }).ConfigureAwait(false);
-    }
-
-    private async Task<(Guid PatientId, Guid EncounterId)> SeedEncounterAsync()
-    {
-        Guid facilityId = await CreatePlainAsync(
-            "/api/facilities",
-            new
-            {
-                code = $"fac-{Guid.NewGuid():N}",
-                name = "Facility",
-            }).ConfigureAwait(false);
-        Guid clinicalAreaId = await CreatePlainAsync(
-            "/api/clinicalAreas",
-            new
-            {
-                code = $"area-{Guid.NewGuid():N}",
-                name = "Area",
-                facilityId,
-            }).ConfigureAwait(false);
-        Guid patientId = await SeedPatientAsync().ConfigureAwait(false);
-        Guid encounterId = await CreatePlainAsync(
-            "/api/encounters",
-            new
-            {
-                patientId,
-                facilityId,
-                clinicalAreaId,
-                type = "ambulatory",
-                responsibleProfessionalId = "dr-who",
-            }).ConfigureAwait(false);
-        return (patientId, encounterId);
-    }
-
-    private async Task<Guid> CreatePlainAsync(string path, object body)
-    {
-        using HttpResponseMessage response = await Client.PostAsync(
-            new Uri(path, UriKind.Relative),
-            new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                JsonApiMedia.ContentType)).ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        (_, JsonDocument document) = await ReadBodyAsync(response).ConfigureAwait(false);
-        return Guid.Parse(
-            document.RootElement.GetProperty("id").GetString()!,
-            CultureInfo.InvariantCulture);
     }
 
     private async Task<(HttpStatusCode Status, JsonDocument Body)> PostJsonAsync(
