@@ -110,7 +110,8 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         JsonApiClient adminApi = await CreateAdminApiAsync().ConfigureAwait(false);
         Guid draftId = await CreateDraftAsync(adminApi, "wf-review-gate")
             .ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(adminApi, draftId)
+        uint rowVersion = await adminApi
+            .GetVersionRowVersionAsync(draftId)
             .ConfigureAwait(false);
 
         HttpClient client = CreateClient(Doctor, PrimaryHospitalCode);
@@ -471,15 +472,13 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
         Guid draftId = await FindDraftIdAsync(api, definitionId)
             .ConfigureAwait(false);
 
-        uint rowVersion = await GetRowVersionAsync(api, draftId)
+        uint rowVersion = await api.GetVersionRowVersionAsync(draftId)
             .ConfigureAwait(false);
-        using JsonDocument inReview = await PostVersionActionAsync(
-            api,
+        using JsonDocument inReview = await api.PostVersionActionAsync(
             draftId,
             "submit-review",
             rowVersion).ConfigureAwait(false);
-        _ = await PostVersionActionAsync(
-            api,
+        _ = await api.PostVersionActionAsync(
             draftId,
             "publish",
             JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
@@ -501,33 +500,6 @@ public sealed class WorkflowCapabilityEnforcementTests : IAsyncDisposable
             .GetProperty("id")
             .GetString()!;
         return Guid.Parse(draftId, CultureInfo.InvariantCulture);
-    }
-
-    private static async Task<uint> GetRowVersionAsync(
-        JsonApiClient api,
-        Guid versionId)
-    {
-        using JsonDocument document = await api.GetAsync(
-            $"/api/workflowVersions/{versionId}").ConfigureAwait(false);
-        return JsonApiClient.AttrUInt(document, "rowVersion");
-    }
-
-    private static async Task<JsonDocument> PostVersionActionAsync(
-        JsonApiClient api,
-        Guid versionId,
-        string action,
-        uint? rowVersion)
-    {
-        string suffix = rowVersion is null
-            ? string.Empty
-            : $"?rowVersion={rowVersion.Value.ToString(CultureInfo.InvariantCulture)}";
-        using HttpResponseMessage response = await api.Http.PostAsync(
-            new Uri(
-                $"/api/workflowVersions/{versionId}/{action}{suffix}",
-                UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        return await JsonApiClient.ReadDocumentAsync(response)
-            .ConfigureAwait(false);
     }
 
     private static async Task<Guid> SeedEncounterAsync(HttpClient client)

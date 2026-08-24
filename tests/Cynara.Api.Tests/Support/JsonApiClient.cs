@@ -197,6 +197,11 @@ internal sealed class JsonApiClient(HttpClient httpClient)
         return AttrUInt(document, "rowVersion");
     }
 
+    public Task<uint> GetVersionRowVersionAsync(Guid versionId)
+    {
+        return GetVersionRowVersionAsync(versionId.ToString());
+    }
+
     public async Task<JsonDocument> PostVersionActionAsync(
         string versionId,
         string action,
@@ -205,6 +210,17 @@ internal sealed class JsonApiClient(HttpClient httpClient)
         return await PostActionAsync(
             $"/api/workflowVersions/{versionId}/{action}",
             new { rowVersion }).ConfigureAwait(false);
+    }
+
+    public Task<JsonDocument> PostVersionActionAsync(
+        Guid versionId,
+        string action,
+        uint? rowVersion)
+    {
+        return PostVersionActionAsync(
+            versionId.ToString(),
+            action,
+            rowVersion);
     }
 
     public async Task<JsonDocument> PostActionAsync(

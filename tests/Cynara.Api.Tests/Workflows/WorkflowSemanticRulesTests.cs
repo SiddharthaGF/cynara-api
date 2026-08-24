@@ -68,13 +68,13 @@ public sealed class WorkflowSemanticRulesTests : IDisposable
     [Fact]
     public async Task Publish_RequiresFormVersionPinWhenFormCodeSet()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "pinned-form-workflow",
             "Pinned form workflow",
             WorkflowTestSchemas.WithPinnedFormTask(formVersion: null))
             .ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
 
         using JsonDocument inReview = await SubmitReviewAsync(draftId, rowVersion)
             .ConfigureAwait(false);
@@ -161,44 +161,6 @@ public sealed class WorkflowSemanticRulesTests : IDisposable
             .ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.BadRequest, actual.StatusCode);
         return await actual.Content.ReadAsStringAsync().ConfigureAwait(false);
-    }
-
-    private async Task<string> CreateDefinitionAsync(
-        string code,
-        string name,
-        string workflowSchemaJson)
-    {
-        using JsonDocument created = await Api.PostResourceAsync(
-            "workflowDefinitions",
-            new
-            {
-                code,
-                name,
-                initialWorkflowSchemaJson = workflowSchemaJson,
-            }).ConfigureAwait(false);
-        return JsonApiClient.RequireId(created);
-    }
-
-    private async Task<string> GetDraftIdAsync(string definitionId)
-    {
-        using JsonDocument definition = await Api.GetAsync(
-            $"/api/workflowDefinitions/{definitionId}?include=versions")
-            .ConfigureAwait(false);
-        return definition.RootElement.GetProperty("included")
-            .EnumerateArray()
-            .First(item => string.Equals(
-                item.GetProperty("attributes").GetProperty("status").GetString(),
-                "draft",
-                StringComparison.OrdinalIgnoreCase))
-            .GetProperty("id")
-            .GetString()!;
-    }
-
-    private async Task<uint> GetRowVersionAsync(string versionId)
-    {
-        using JsonDocument document = await Api.GetAsync(
-            $"/api/workflowVersions/{versionId}").ConfigureAwait(false);
-        return JsonApiClient.AttrUInt(document, "rowVersion");
     }
 
     private async Task<JsonDocument> SubmitReviewAsync(string versionId, uint rowVersion)

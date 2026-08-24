@@ -55,7 +55,7 @@ public sealed class WorkflowTenantIsolationTests : IDisposable
             }).ConfigureAwait(false);
         string definitionId = JsonApiClient.RequireId(created);
 
-        string draftId = await GetDraftIdAsync(primaryApi, definitionId)
+        string draftId = await primaryApi.GetDraftVersionIdAsync(definitionId)
             .ConfigureAwait(false);
 
         using HttpResponseMessage definition = await OtherClient
@@ -110,7 +110,7 @@ public sealed class WorkflowTenantIsolationTests : IDisposable
                 initialWorkflowSchemaJson = WorkflowTestSchemas.Minimal(),
             }).ConfigureAwait(false);
         string definitionId = JsonApiClient.RequireId(created);
-        string draftId = await GetDraftIdAsync(primaryApi, definitionId)
+        string draftId = await primaryApi.GetDraftVersionIdAsync(definitionId)
             .ConfigureAwait(false);
 
         using HttpResponseMessage submit = await OtherClient
@@ -128,21 +128,4 @@ public sealed class WorkflowTenantIsolationTests : IDisposable
     private HttpClient Client { get; }
 
     private HttpClient OtherClient { get; }
-
-    private static async Task<string> GetDraftIdAsync(
-        JsonApiClient api,
-        string definitionId)
-    {
-        using JsonDocument definition = await api.GetAsync(
-            $"/api/workflowDefinitions/{definitionId}?include=versions")
-            .ConfigureAwait(false);
-        return definition.RootElement.GetProperty("included")
-            .EnumerateArray()
-            .First(item => string.Equals(
-                item.GetProperty("attributes").GetProperty("status").GetString(),
-                "draft",
-                StringComparison.OrdinalIgnoreCase))
-            .GetProperty("id")
-            .GetString()!;
-    }
 }

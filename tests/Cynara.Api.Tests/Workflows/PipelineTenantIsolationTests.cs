@@ -102,38 +102,15 @@ public sealed class PipelineTenantIsolationTests : IDisposable
             .GetProperty("id")
             .GetString()!;
 
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
-        using JsonDocument inReview = await PostVersionActionAsync(
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
+        using JsonDocument inReview = await Api.PostVersionActionAsync(
             draftId,
             "submit-review",
             rowVersion).ConfigureAwait(false);
-        _ = await PostVersionActionAsync(
+        _ = await Api.PostVersionActionAsync(
             draftId,
             "publish",
             JsonApiClient.AttrUInt(inReview, "rowVersion")).ConfigureAwait(false);
-    }
-
-    private async Task<uint> GetRowVersionAsync(string versionId)
-    {
-        using JsonDocument document = await Api.GetAsync(
-            $"/api/workflowVersions/{versionId}").ConfigureAwait(false);
-        return JsonApiClient.AttrUInt(document, "rowVersion");
-    }
-
-    private async Task<JsonDocument> PostVersionActionAsync(
-        string versionId,
-        string action,
-        uint? rowVersion)
-    {
-        string suffix = rowVersion is null
-            ? string.Empty
-            : $"?rowVersion={rowVersion.Value.ToString(CultureInfo.InvariantCulture)}";
-        using HttpResponseMessage response = await Client.PostAsync(
-            new Uri(
-                $"/api/workflowVersions/{versionId}/{action}{suffix}",
-                UriKind.Relative),
-            content: null).ConfigureAwait(false);
-        return await JsonApiClient.ReadDocumentAsync(response).ConfigureAwait(false);
     }
 
     private async Task<JsonDocument> StartPipelineAsync(string workflowCode)

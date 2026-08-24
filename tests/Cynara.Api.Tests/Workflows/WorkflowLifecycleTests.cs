@@ -34,13 +34,13 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task Create_SeedsDraftAndPublishesImmutableVersion()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "triage-workflow",
             "Triage workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
 
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         Assert.Equal(0u, rowVersion);
 
         using JsonDocument inReview = await PostActionAsync(
@@ -73,13 +73,13 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task Publish_NextVersion_IsSequential()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "sequential-workflow",
             "Sequential workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
 
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         using JsonDocument inReview = await PostActionAsync(
             draftId,
             "submit-review",
@@ -97,8 +97,8 @@ public sealed class WorkflowLifecycleTests : IDisposable
             content: null).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, draftCreated.StatusCode);
 
-        string secondDraftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint secondRowVersion = await GetRowVersionAsync(secondDraftId)
+        string secondDraftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint secondRowVersion = await Api.GetVersionRowVersionAsync(secondDraftId)
             .ConfigureAwait(false);
         using JsonDocument secondInReview = await PostActionAsync(
             secondDraftId,
@@ -114,12 +114,12 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task SubmitForReview_LocksEditsUntilWithdrawn()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "locked-workflow",
             "Locked workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
 
         using JsonDocument inReview = await PostActionAsync(
             draftId,
@@ -148,12 +148,12 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task RejectReview_ReturnsToDraftWithDecision()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "reject-workflow",
             "Reject workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
 
         using JsonDocument inReview = await PostActionAsync(
             draftId,
@@ -176,12 +176,12 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task Retire_KeepsPublishedVersionReadable()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "retire-workflow",
             "Retire workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         using JsonDocument inReview = await PostActionAsync(
             draftId,
             "submit-review",
@@ -207,13 +207,13 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task StaleRowVersion_Conflicts()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "stale-workflow",
             "Stale workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
 
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         _ = await PatchDraftAsync(
             draftId,
             WorkflowTestSchemas.WithDecision(),
@@ -229,7 +229,7 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task DuplicateCode_Conflicts()
     {
-        await CreateDefinitionAsync(
+        await Api.CreateWorkflowDefinitionAsync(
             "duplicate-workflow",
             "Duplicate workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
@@ -256,7 +256,7 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task SoftDelete_RejectsPublishedAndHidesDeleted()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "soft-delete-workflow",
             "Soft delete workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
@@ -275,12 +275,12 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task SoftDelete_WithDraftAlongsidePublished_Conflicts()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "soft-delete-published",
             "Soft delete published",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         using JsonDocument inReview = await PostActionAsync(
             draftId,
             "submit-review",
@@ -307,12 +307,12 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task CreateDraftFromLatest_CopiesPublishedSchema()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "copy-workflow",
             "Copy workflow",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
-        uint rowVersion = await GetRowVersionAsync(draftId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
+        uint rowVersion = await Api.GetVersionRowVersionAsync(draftId).ConfigureAwait(false);
         using JsonDocument inReview = await PostActionAsync(
             draftId,
             "submit-review",
@@ -329,7 +329,7 @@ public sealed class WorkflowLifecycleTests : IDisposable
             content: null).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, draftCreated.StatusCode);
 
-        string newDraftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
+        string newDraftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
         using JsonDocument newDraft = await Api.GetAsync(
             $"/api/workflowVersions/{newDraftId}").ConfigureAwait(false);
         Assert.Equal(
@@ -340,11 +340,11 @@ public sealed class WorkflowLifecycleTests : IDisposable
     [Fact]
     public async Task HardDelete_Endpoints_AreRejected()
     {
-        string definitionId = await CreateDefinitionAsync(
+        string definitionId = await Api.CreateWorkflowDefinitionAsync(
             "no-hard-delete",
             "No hard delete",
             WorkflowTestSchemas.Minimal()).ConfigureAwait(false);
-        string draftId = await GetDraftIdAsync(definitionId).ConfigureAwait(false);
+        string draftId = await Api.GetDraftVersionIdAsync(definitionId).ConfigureAwait(false);
 
         using HttpResponseMessage definitionDelete = await Api.DeleteAsync(
             $"/api/workflowDefinitions/{definitionId}").ConfigureAwait(false);
@@ -360,44 +360,6 @@ public sealed class WorkflowLifecycleTests : IDisposable
     private JsonApiClient Api { get; }
 
     private WorkflowTestApplicationFactory Factory { get; }
-
-    private async Task<string> CreateDefinitionAsync(
-        string code,
-        string name,
-        string workflowSchemaJson)
-    {
-        using JsonDocument created = await Api.PostResourceAsync(
-            "workflowDefinitions",
-            new
-            {
-                code,
-                name,
-                initialWorkflowSchemaJson = workflowSchemaJson,
-            }).ConfigureAwait(false);
-        return JsonApiClient.RequireId(created);
-    }
-
-    private async Task<string> GetDraftIdAsync(string definitionId)
-    {
-        using JsonDocument definition = await Api.GetAsync(
-            $"/api/workflowDefinitions/{definitionId}?include=versions")
-            .ConfigureAwait(false);
-        return definition.RootElement.GetProperty("included")
-            .EnumerateArray()
-            .First(item => string.Equals(
-                item.GetProperty("attributes").GetProperty("status").GetString(),
-                "draft",
-                StringComparison.OrdinalIgnoreCase))
-            .GetProperty("id")
-            .GetString()!;
-    }
-
-    private async Task<uint> GetRowVersionAsync(string versionId)
-    {
-        using JsonDocument document = await Api.GetAsync(
-            $"/api/workflowVersions/{versionId}").ConfigureAwait(false);
-        return JsonApiClient.AttrUInt(document, "rowVersion");
-    }
 
     private async Task<JsonDocument> PostActionAsync(
         string versionId,
