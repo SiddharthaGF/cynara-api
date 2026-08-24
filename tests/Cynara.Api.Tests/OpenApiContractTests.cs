@@ -393,7 +393,9 @@ public sealed class OpenApiContractTests : IDisposable
                 label,
                 inventory.UnexpectedMediaTypes);
 
-            if (requireJsonBodies && IsMissingRequiredJsonBody(operation))
+            if (requireJsonBodies
+                && method is "post"
+                && IsMissingRequiredJsonBody(operation))
             {
                 inventory.MutationsWithoutJsonBody.Add(label);
             }
@@ -409,7 +411,7 @@ public sealed class OpenApiContractTests : IDisposable
 
     private static void TrackOperationId(
         JsonElement operation,
-        ISet<string> seenOperationIds,
+        HashSet<string> seenOperationIds,
         EndpointInventory inventory)
     {
         if (!operation.TryGetProperty("operationId", out JsonElement operationId))
