@@ -186,14 +186,18 @@ public static partial class InfrastructureServiceCollectionExtensions
             {
                 CynaraDbContext dbContext = scope.ServiceProvider
                     .GetRequiredService<CynaraDbContext>();
-                await EnsureDatabaseSchemaAsync(dbContext, cancellationToken)
-                    .ConfigureAwait(false);
+                await EnsureMigratedAsync(
+                        dbContext,
+                        provisionCapabilityAssignments: true,
+                        cancellationToken).ConfigureAwait(false);
 
                 CynaraIdentityDbContext identityDbContext = scope
                     .ServiceProvider
                     .GetRequiredService<CynaraIdentityDbContext>();
-                await identityDbContext.Database.MigrateAsync(cancellationToken)
-                    .ConfigureAwait(false);
+                await EnsureMigratedAsync(
+                        identityDbContext,
+                        provisionCapabilityAssignments: false,
+                        cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (Exception ex) when (attempt < maxAttempts
@@ -215,64 +219,115 @@ public static partial class InfrastructureServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Migrates the domain database, first baselining legacy databases that
-    /// have tables but no migration history (EnsureCreated era) so
-    /// <c>MigrateAsync</c> never recreates existing tables.
+    /// Migrates a context's database. Databases that already contain the
+    /// context's own tables but no migration stamps from the current
+    /// assembly are baselined first — this covers EnsureCreated-era
+    /// schemas without a history table and histories left stale by
+    /// migration squashing — so <c>MigrateAsync</c> never recreates
+    /// existing tables. Ownership is decided per context so domain and
+    /// identity tracks sharing one database do not mask each other.
     /// </summary>
-    private static async Task EnsureDatabaseSchemaAsync(
-        CynaraDbContext dbContext,
+    private static async Task EnsureMigratedAsync(
+        DbContext dbContext,
+        bool provisionCapabilityAssignments,
         CancellationToken cancellationToken)
     {
         IRelationalDatabaseCreator creator = dbContext.Database
             .GetService<IRelationalDatabaseCreator>();
         IHistoryRepository history = dbContext.Database
             .GetService<IHistoryRepository>();
+        IMigrationsAssembly migrationsAssembly = dbContext.Database
+            .GetService<IMigrationsAssembly>();
 
         bool databaseExists = await creator
             .ExistsAsync(cancellationToken)
             .ConfigureAwait(false);
-        bool hasTables = databaseExists
-            && await creator.HasTablesAsync(cancellationToken).ConfigureAwait(false);
-        bool hasHistory = hasTables
-            && await history.ExistsAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<string> existingTables = databaseExists
+            ? await ListPublicTablesAsync(dbContext, cancellationToken)
+                .ConfigureAwait(false)
+            : [];
 
-        if (hasTables && !hasHistory)
+        if (existingTables.Count == 0 || !OwnsAnyTable(dbContext, existingTables))
         {
-            await BaselineLegacyDatabaseAsync(dbContext, history, cancellationToken)
+            await dbContext.Database.MigrateAsync(cancellationToken)
                 .ConfigureAwait(false);
+            return;
+        }
+
+        bool hasHistory = await history
+            .ExistsAsync(cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyList<HistoryRow> applied = hasHistory
+            ? await history.GetAppliedMigrationsAsync(cancellationToken)
+                .ConfigureAwait(false)
+            : [];
+
+        if (!applied.Any(row =>
+                migrationsAssembly.Migrations.ContainsKey(row.MigrationId)))
+        {
+            await BaselineExistingSchemaAsync(
+                    dbContext,
+                    history,
+                    migrationsAssembly.Migrations.Keys.First(),
+                    cancellationToken).ConfigureAwait(false);
+
+            if (provisionCapabilityAssignments)
+            {
+                _ = await dbContext.Database.ExecuteSqlRawAsync(
+                    CapabilityAssignmentsTableSql,
+                    cancellationToken).ConfigureAwait(false);
+            }
         }
 
         await dbContext.Database.MigrateAsync(cancellationToken)
             .ConfigureAwait(false);
     }
 
+    private static async Task<IReadOnlyList<string>> ListPublicTablesAsync(
+        DbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.Database
+            .SqlQueryRaw<string>(
+                "SELECT tablename AS \"Value\" FROM pg_tables "
+                + "WHERE schemaname = 'public'")
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static bool OwnsAnyTable(
+        DbContext dbContext,
+        IReadOnlyList<string> existingTables)
+    {
+        var ownTables = dbContext.Model
+            .GetRelationalModel()
+            .Tables
+            .Select(table => table.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        return existingTables.Any(ownTables.Contains);
+    }
+
     /// <summary>
-    /// Stamps the initial migration into the history table and provisions
-    /// capability_assignments, which postdates the legacy schema; the DDL
-    /// is idempotent and a no-op when the table already exists.
+    /// Stamps the given initial migration into the context's migration
+    /// history table so the pre-existing schema is treated as applied.
     /// </summary>
-    private static async Task BaselineLegacyDatabaseAsync(
-        CynaraDbContext dbContext,
+    private static async Task BaselineExistingSchemaAsync(
+        DbContext dbContext,
         IHistoryRepository history,
+        string initialMigrationId,
         CancellationToken cancellationToken)
     {
         _ = await history.CreateIfNotExistsAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        string initialMigrationId = dbContext.Database
-            .GetService<IMigrationsAssembly>()
-            .Migrations
-            .Keys
-            .First();
+        string productVersion = typeof(DbContext).Assembly
+            .GetName()
+            .Version!
+            .ToString();
+        string insertScript = history.GetInsertScript(
+            new HistoryRow(initialMigrationId, productVersion));
         _ = await dbContext.Database.ExecuteSqlRawAsync(
-            "INSERT INTO \"__EFMigrationsHistory\" " +
-            "(\"MigrationId\", \"ProductVersion\") VALUES " +
-            "(@p0, '10.0.10') ON CONFLICT DO NOTHING;",
-            [initialMigrationId],
-            cancellationToken).ConfigureAwait(false);
-
-        _ = await dbContext.Database.ExecuteSqlRawAsync(
-            CapabilityAssignmentsTableSql,
+            insertScript,
             cancellationToken).ConfigureAwait(false);
     }
 
