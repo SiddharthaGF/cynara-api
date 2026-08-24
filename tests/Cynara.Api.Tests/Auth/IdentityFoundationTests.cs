@@ -5,6 +5,8 @@ using Cynara.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 using Npgsql;
@@ -59,11 +61,14 @@ public sealed class IdentityFoundationTests : IDisposable
                 + "FROM \"__CynaraIdentityMigrationsHistory\"")
             .ToListAsync();
 
+        string[] identityMigrationIds = [.. identity.Database
+            .GetService<IMigrationsAssembly>()
+            .Migrations
+            .Keys];
+
         Assert.Contains(
             identityHistory,
-            migration => migration.Contains(
-                "AddIdentitySchema",
-                StringComparison.Ordinal));
+            migration => identityMigrationIds.Contains(migration));
 
         CynaraDbContext domain = Scope.ServiceProvider
             .GetRequiredService<CynaraDbContext>();
@@ -76,9 +81,7 @@ public sealed class IdentityFoundationTests : IDisposable
 
         Assert.DoesNotContain(
             domainHistory,
-            migration => migration.Contains(
-                "AddIdentitySchema",
-                StringComparison.Ordinal));
+            migration => identityMigrationIds.Contains(migration));
     }
 
     [Fact]
@@ -113,11 +116,15 @@ public sealed class IdentityFoundationTests : IDisposable
                 "SELECT \"MigrationId\" AS \"Value\" "
                 + "FROM \"__CynaraIdentityMigrationsHistory\"")
             .ToListAsync();
+
+        string[] identityMigrationIds = [.. identity.Database
+            .GetService<IMigrationsAssembly>()
+            .Migrations
+            .Keys];
+
         Assert.Contains(
             identityHistory,
-            migration => migration.Contains(
-                "AddIdentitySchema",
-                StringComparison.Ordinal));
+            migration => identityMigrationIds.Contains(migration));
 
         CynaraDbContext domain = provider
             .GetRequiredService<CynaraDbContext>();
@@ -128,9 +135,7 @@ public sealed class IdentityFoundationTests : IDisposable
             .ToListAsync();
         Assert.DoesNotContain(
             domainHistory,
-            migration => migration.Contains(
-                "AddIdentitySchema",
-                StringComparison.Ordinal));
+            migration => identityMigrationIds.Contains(migration));
     }
 
     [Fact]
