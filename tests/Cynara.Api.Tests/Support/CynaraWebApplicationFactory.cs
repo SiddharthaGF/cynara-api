@@ -227,12 +227,13 @@ END $$;";
 
     /// <summary>
     /// Creates an <see cref="HttpClient"/> with the bootstrap hospital
-    /// context pre-applied and the bootstrap hospital already seeded.
-    /// The header name is sourced from
+    /// context and optional seam actor pre-applied, seeding the bootstrap
+    /// hospital when needed. The header name is sourced from
     /// <see cref="HospitalBootstrapOptions.HeaderName"/> so test fixtures
     /// can override it via configuration.
     /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
+        string? actorId = null,
         string? hospitalCode = null,
         CancellationToken cancellationToken = default)
     {
@@ -243,6 +244,11 @@ END $$;";
             string.IsNullOrWhiteSpace(hospitalCode)
                 ? BootstrapOptions.BootstrapCode ?? "default"
                 : hospitalCode);
+        if (!string.IsNullOrWhiteSpace(actorId))
+        {
+            client.DefaultRequestHeaders.Add("X-Actor-Id", actorId);
+        }
+
         await EnsureBootstrapHospitalAsync(cancellationToken).ConfigureAwait(false);
         return client;
     }

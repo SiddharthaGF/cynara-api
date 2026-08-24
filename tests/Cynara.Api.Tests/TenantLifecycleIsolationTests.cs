@@ -19,19 +19,11 @@ public sealed class TenantLifecycleIsolationTests : IDisposable
     public TenantLifecycleIsolationTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        Client = Factory.CreateClient();
-        Client.AcceptJsonApi();
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
+        Client = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
-        Client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            PrimaryHospitalCode);
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            OtherHospitalCode);
-
-        Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();
     }
 
@@ -79,10 +71,9 @@ public sealed class TenantLifecycleIsolationTests : IDisposable
             .GetProperty("id")
             .GetString()!;
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         uint rowVersion = await GetRowVersionAsync(
             Client, "componentVersions", draftId).ConfigureAwait(false);
         using HttpResponseMessage publishResponse = await secondaryClient
@@ -135,10 +126,9 @@ public sealed class TenantLifecycleIsolationTests : IDisposable
             .ConfigureAwait(false);
         string publishedId = JsonApiClient.RequireId(published);
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage retireResponse = await secondaryClient
             .PostAsync(
                 new Uri(
@@ -183,10 +173,9 @@ public sealed class TenantLifecycleIsolationTests : IDisposable
             .GetProperty("id")
             .GetString()!;
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         uint rowVersion = await GetRowVersionAsync(
             Client, "formVersions", draftId).ConfigureAwait(false);
         using HttpResponseMessage submitResponse = await secondaryClient
@@ -244,10 +233,9 @@ public sealed class TenantLifecycleIsolationTests : IDisposable
             .ConfigureAwait(false);
         string publishedVersionId = JsonApiClient.RequireId(published);
 
-        using HttpClient secondaryClient = Factory.CreateClient();
-        secondaryClient.AcceptJsonApi();
-        secondaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        using HttpClient secondaryClient = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: OtherHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage response = await secondaryClient
             .SendAsync(new HttpRequestMessage
             {

@@ -33,6 +33,23 @@ internal sealed class JsonApiClient(HttpClient httpClient)
             hospitalCode);
     }
 
+    /// <summary>
+    /// Replaces the <c>X-Actor-Id</c> seam actor for subsequent requests;
+    /// pass null to drop the header.
+    /// </summary>
+    public void UseActor(string? actorId)
+    {
+        if (Http.DefaultRequestHeaders.Contains("X-Actor-Id"))
+        {
+            _ = Http.DefaultRequestHeaders.Remove("X-Actor-Id");
+        }
+
+        if (!string.IsNullOrWhiteSpace(actorId))
+        {
+            Http.DefaultRequestHeaders.Add("X-Actor-Id", actorId);
+        }
+    }
+
     public async Task<JsonDocument> PostResourceAsync(
         string resourceType,
         object attributes,

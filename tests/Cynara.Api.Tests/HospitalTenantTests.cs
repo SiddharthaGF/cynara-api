@@ -25,18 +25,11 @@ public sealed class HospitalTenantTests : IDisposable
     public HospitalTenantTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        Client = Factory.CreateClient();
-        Client.AcceptJsonApi();
-        Client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            PrimaryHospitalCode);
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code",
-            OtherHospitalCode);
+        Client = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
-        Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();
     }
 

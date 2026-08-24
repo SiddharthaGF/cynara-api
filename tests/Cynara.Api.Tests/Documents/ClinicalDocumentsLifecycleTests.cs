@@ -31,18 +31,12 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
     public ClinicalDocumentsLifecycleTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        Client = Factory.CreateClient();
-        Client.AcceptJsonApi();
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
+        Client = Factory.CreateAuthenticatedClientAsync(
+            actorId: "clinician",
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
-        Client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
-        Client.DefaultRequestHeaders.Add("X-Actor-Id", "clinician");
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
-
-        Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();
 
         Api = new JsonApiClient(Client);
@@ -219,10 +213,9 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
         DocumentFixture fixture = await SeedFixtureAsync("actor")
             .ConfigureAwait(false);
 
-        using HttpClient anonymous = Factory.CreateClient();
-        anonymous.AcceptJsonApi();
-        anonymous.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
+        using HttpClient anonymous = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: PrimaryHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage rejected = await anonymous.SendAsync(
             PostJsonRequest(
                 "/api/clinicalDocuments",
@@ -373,10 +366,9 @@ public sealed class ClinicalDocumentsLifecycleTests : IDisposable
         var documentId = Guid.Parse(
             started.RootElement.GetProperty("id").GetString()!);
 
-        using HttpClient anonymous = Factory.CreateClient();
-        anonymous.AcceptJsonApi();
-        anonymous.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
+        using HttpClient anonymous = await Factory
+            .CreateAuthenticatedClientAsync(hospitalCode: PrimaryHospitalCode)
+            .ConfigureAwait(false);
         using HttpResponseMessage rejected = await anonymous.SendAsync(
             PostJsonRequest(
                 $"/api/clinicalDocuments/{documentId}/complete",

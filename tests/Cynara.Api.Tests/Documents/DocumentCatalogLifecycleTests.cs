@@ -25,16 +25,11 @@ public sealed class DocumentCatalogLifecycleTests : IDisposable
         PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        Client = Factory.CreateClient();
-        Client.AcceptJsonApi();
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
-
-        Client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
-        Client.DefaultRequestHeaders.Add("X-Actor-Id", "catalog-admin");
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
+        Client = Factory.CreateAuthenticatedClientAsync(
+            actorId: "catalog-admin",
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
         Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();

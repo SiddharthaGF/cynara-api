@@ -23,17 +23,12 @@ public sealed class EncountersTenantIsolationTests : IAsyncDisposable
     public EncountersTenantIsolationTests(PostgreSqlDatabaseFixture database)
     {
         Factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        PrimaryClient = Factory.CreateClient();
-        PrimaryClient.AcceptJsonApi();
-        PrimaryClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
-        PrimaryClient.DefaultRequestHeaders.Add("X-Actor-Id", "primary-clinician");
-
-        OtherClient = Factory.CreateClient();
-        OtherClient.AcceptJsonApi();
-        OtherClient.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", OtherHospitalCode);
-        OtherClient.DefaultRequestHeaders.Add("X-Actor-Id", "other-clinician");
+        PrimaryClient = Factory.CreateAuthenticatedClientAsync(
+            actorId: "primary-clinician",
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
+        OtherClient = Factory.CreateAuthenticatedClientAsync(
+            actorId: "other-clinician",
+            hospitalCode: OtherHospitalCode).GetAwaiter().GetResult();
 
         Factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
         Factory.SeedSecondaryHospitalAsync().GetAwaiter().GetResult();

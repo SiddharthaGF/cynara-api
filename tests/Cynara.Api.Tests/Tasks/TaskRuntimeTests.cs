@@ -34,12 +34,9 @@ public sealed class TaskRuntimeTests : IDisposable
     public TaskRuntimeTests(PostgreSqlDatabaseFixture database)
     {
         factory = new CynaraTenantWebApplicationFactory(database.Settings);
-        client = factory.CreateClient();
-        client.AcceptJsonApi();
-        client.DefaultRequestHeaders.TryAddWithoutValidation(
-            "X-Hospital-Code", PrimaryHospitalCode);
-        client.DefaultRequestHeaders.Add("X-Actor-Id", Actor);
-        factory.EnsureBootstrapHospitalAsync().GetAwaiter().GetResult();
+        client = factory.CreateAuthenticatedClientAsync(
+            actorId: Actor,
+            hospitalCode: PrimaryHospitalCode).GetAwaiter().GetResult();
 
         api = new JsonApiClient(client);
         clinical = new ClinicalRecordWorkflow(api, client, factory);
