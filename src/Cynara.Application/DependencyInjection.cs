@@ -36,6 +36,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddWorkflowsModule();
         _ = services.AddTasksModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();
+        _ = services.AddScoped<TransactionalDeps>();
 
         return services;
     }

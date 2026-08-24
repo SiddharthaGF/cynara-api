@@ -672,77 +672,35 @@ public sealed class ClinicalDocumentServiceTests
 
     private sealed class ServiceHarness
     {
-        private ServiceHarness(
-            FakeClinicalDocumentRepository documents,
-            FakeClinicalDocumentReferenceResolver references,
-            FakeDocumentCatalogRepository catalog,
-            FakeEncounterRepository encounters,
-            FakeFormResponseRepository responses,
-            FakeTaskRepository tasks,
-            RecordingUnitOfWork unitOfWork,
-            RecordingAuditWriter auditWriter,
-            FakeHospitalContext hospitalContext,
-            FixedTimeProvider timeProvider,
-            DocumentDefinition definition,
-            FormVersion formVersion,
-            FormVersion draftVersion,
-            Encounter encounter)
-        {
-            Documents = documents;
-            References = references;
-            Catalog = catalog;
-            Encounters = encounters;
-            Responses = responses;
-            Tasks = tasks;
-            UnitOfWork = unitOfWork;
-            AuditWriter = auditWriter;
-            HospitalContext = hospitalContext;
-            TimeProvider = timeProvider;
-            Definition = definition;
-            FormVersion = formVersion;
-            DraftVersion = draftVersion;
-            Encounter = encounter;
-            Service = new ClinicalDocumentService(
-                documents,
-                references,
-                new FakeClinicalDocumentResponseStage(
-                    responses, new FakeFormResponseValidator()),
-                new ClinicalDocumentTaskCloser(tasks, auditWriter),
-                unitOfWork,
-                auditWriter,
-                new FakeWorkflowContext(hospitalContext, timeProvider),
-                new FakeCapabilityGuard());
-        }
+        public required FakeClinicalDocumentRepository Documents { get; init; }
 
-        public FakeClinicalDocumentRepository Documents { get; }
+        public required FakeClinicalDocumentReferenceResolver References { get; init; }
 
-        public FakeClinicalDocumentReferenceResolver References { get; }
+        public required FakeDocumentCatalogRepository Catalog { get; init; }
 
-        public FakeDocumentCatalogRepository Catalog { get; }
+        public required FakeEncounterRepository Encounters { get; init; }
 
-        public FakeEncounterRepository Encounters { get; }
+        public required FakeFormResponseRepository Responses { get; init; }
 
-        public FakeFormResponseRepository Responses { get; }
+        public required FakeTaskRepository Tasks { get; init; }
 
-        public FakeTaskRepository Tasks { get; }
+        public required RecordingUnitOfWork UnitOfWork { get; init; }
 
-        public RecordingUnitOfWork UnitOfWork { get; }
+        public required RecordingAuditWriter AuditWriter { get; init; }
 
-        public RecordingAuditWriter AuditWriter { get; }
+        public required FakeHospitalContext HospitalContext { get; init; }
 
-        public FakeHospitalContext HospitalContext { get; }
+        public required FixedTimeProvider TimeProvider { get; init; }
 
-        public FixedTimeProvider TimeProvider { get; }
+        public required DocumentDefinition Definition { get; init; }
 
-        public DocumentDefinition Definition { get; }
+        public required FormVersion FormVersion { get; init; }
 
-        public FormVersion FormVersion { get; }
+        public required FormVersion DraftVersion { get; init; }
 
-        public FormVersion DraftVersion { get; }
+        public required Encounter Encounter { get; init; }
 
-        public Encounter Encounter { get; }
-
-        public ClinicalDocumentService Service { get; }
+        public required ClinicalDocumentService Service { get; init; }
 
         public Guid HospitalId => HospitalContext.HospitalId;
 
@@ -944,25 +902,48 @@ public sealed class ClinicalDocumentServiceTests
             var references = new FakeClinicalDocumentReferenceResolver(
                 catalogRepository, encounterRepository, formRepository);
 
-            return new ServiceHarness(
-                new FakeClinicalDocumentRepository(),
-                references,
-                catalogRepository,
-                encounterRepository,
-                new FakeFormResponseRepository(),
-                new FakeTaskRepository(),
-                new RecordingUnitOfWork(),
-                new RecordingAuditWriter(),
-                new FakeHospitalContext(hospitalId),
-                new FixedTimeProvider(Now),
-                definition,
-                formRepository.Definitions
-                    .Single(item => string.Equals(item.Code, "published-form", StringComparison.Ordinal))
-                    .Versions.Single(item => item.Id == formVersionId),
-                formRepository.Definitions
-                    .Single(item => string.Equals(item.Code, "published-form", StringComparison.Ordinal))
-                    .Versions.Single(item => item.Id == draftVersionId),
-                encounter);
+            var documents = new FakeClinicalDocumentRepository();
+            var responses = new FakeFormResponseRepository();
+            var tasks = new FakeTaskRepository();
+            var unitOfWork = new RecordingUnitOfWork();
+            var auditWriter = new RecordingAuditWriter();
+            var hospitalContext = new FakeHospitalContext(hospitalId);
+            var timeProvider = new FixedTimeProvider(Now);
+            FormVersion formVersion = formRepository.Definitions
+                .Single(item => string.Equals(item.Code, "published-form", StringComparison.Ordinal))
+                .Versions.Single(item => item.Id == formVersionId);
+            FormVersion draftVersion = formRepository.Definitions
+                .Single(item => string.Equals(item.Code, "published-form", StringComparison.Ordinal))
+                .Versions.Single(item => item.Id == draftVersionId);
+
+            return new ServiceHarness
+            {
+                Service = new ClinicalDocumentService(
+                    documents,
+                    references,
+                    new FakeClinicalDocumentResponseStage(
+                        responses, new FakeFormResponseValidator()),
+                    new ClinicalDocumentTaskCloser(tasks, auditWriter),
+                    new TransactionalDeps(
+                        unitOfWork,
+                        auditWriter,
+                        new FakeCapabilityGuard()),
+                    new FakeWorkflowContext(hospitalContext, timeProvider)),
+                Documents = documents,
+                References = references,
+                Catalog = catalogRepository,
+                Encounters = encounterRepository,
+                Responses = responses,
+                Tasks = tasks,
+                UnitOfWork = unitOfWork,
+                AuditWriter = auditWriter,
+                HospitalContext = hospitalContext,
+                TimeProvider = timeProvider,
+                Definition = definition,
+                FormVersion = formVersion,
+                DraftVersion = draftVersion,
+                Encounter = encounter,
+            };
         }
     }
 }

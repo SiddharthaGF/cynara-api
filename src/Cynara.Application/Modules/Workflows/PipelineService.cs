@@ -1,7 +1,5 @@
 using System.Text.Json;
 
-using Cynara.Application.Audit;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Workflows.Persistence;
 using Cynara.Domain.Capabilities;
@@ -20,11 +18,9 @@ public sealed class PipelineService(
     IWorkflowRepository workflows,
     PipelineSubjectResolver subjectResolver,
     PipelineTaskCoordinator taskCoordinator,
-    IUnitOfWork unitOfWork,
-    IAuditWriter auditWriter,
+    TransactionalDeps transactional,
     IHospitalContext hospitalContext,
-    TimeProvider timeProvider,
-    ICapabilityGuard capabilityGuard) : IPipelineService
+    TimeProvider timeProvider) : IPipelineService
 {
     /// <inheritdoc />
     public async Task<PipelineDto> StartAsync(
@@ -34,7 +30,7 @@ public sealed class PipelineService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesWrite, cancellationToken)
             .ConfigureAwait(false);
 
@@ -88,7 +84,7 @@ public sealed class PipelineService(
                 currentNodeId = pipeline.CurrentNodeId,
             });
 
-        auditWriter.Append(
+        transactional.AuditWriter.Append(
             AuditEntityTypes.Pipeline,
             pipeline.Id,
             "pipeline.started",
@@ -109,7 +105,7 @@ public sealed class PipelineService(
             workflowDefinitionId: version.WorkflowDefinitionId);
 
         pipelines.Add(pipeline);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return PipelineMappers.ToDto(pipeline);
     }
 
@@ -119,7 +115,7 @@ public sealed class PipelineService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
         Pipeline pipeline = await RequirePipelineAsync(
@@ -137,7 +133,7 @@ public sealed class PipelineService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
@@ -165,7 +161,7 @@ public sealed class PipelineService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
@@ -197,7 +193,7 @@ public sealed class PipelineService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
@@ -229,7 +225,7 @@ public sealed class PipelineService(
         CancellationToken cancellationToken)
     {
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesRead, cancellationToken)
             .ConfigureAwait(false);
 
@@ -258,7 +254,7 @@ public sealed class PipelineService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesWrite, cancellationToken)
             .ConfigureAwait(false);
 
@@ -309,7 +305,7 @@ public sealed class PipelineService(
                     toNodeId = next.Id,
                     edgeLabel = edge.Label,
                 });
-            auditWriter.Append(
+            transactional.AuditWriter.Append(
                 AuditEntityTypes.Pipeline,
                 pipeline.Id,
                 "pipeline.completed",
@@ -350,7 +346,7 @@ public sealed class PipelineService(
                     toNodeId = next.Id,
                     edgeLabel = edge.Label,
                 });
-            auditWriter.Append(
+            transactional.AuditWriter.Append(
                 AuditEntityTypes.Pipeline,
                 pipeline.Id,
                 "pipeline.advanced",
@@ -367,7 +363,7 @@ public sealed class PipelineService(
                 workflowDefinitionId: pipeline.WorkflowVersion.WorkflowDefinitionId);
         }
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return PipelineMappers.ToDto(pipeline);
     }
 
@@ -428,7 +424,7 @@ public sealed class PipelineService(
     {
         ArgumentNullException.ThrowIfNull(request);
         hospitalContext.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.PipelinesWrite, cancellationToken)
             .ConfigureAwait(false);
 
@@ -471,7 +467,7 @@ public sealed class PipelineService(
                 reason,
                 currentNodeId = pipeline.CurrentNodeId,
             });
-        auditWriter.Append(
+        transactional.AuditWriter.Append(
             AuditEntityTypes.Pipeline,
             pipeline.Id,
             action,
@@ -486,7 +482,7 @@ public sealed class PipelineService(
             encounterId: pipeline.EncounterId,
             workflowDefinitionId: pipeline.WorkflowVersion.WorkflowDefinitionId);
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return PipelineMappers.ToDto(pipeline);
     }
 

@@ -1,6 +1,4 @@
-using Cynara.Application.Audit;
 using Cynara.Application.Forms;
-using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Documents.Persistence;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Tasks;
@@ -22,10 +20,8 @@ public sealed class ClinicalDocumentService(
     IClinicalDocumentReferenceResolver references,
     IClinicalDocumentResponseStage responses,
     IClinicalDocumentTaskCloser taskCloser,
-    IUnitOfWork unitOfWork,
-    IAuditWriter auditWriter,
-    IWorkflowContext context,
-    ICapabilityGuard capabilityGuard) : IClinicalDocumentService
+    TransactionalDeps transactional,
+    IWorkflowContext context) : IClinicalDocumentService
 {
     public async Task<ClinicalDocumentDto> StartAsync(
         StartClinicalDocumentRequest request,
@@ -34,7 +30,7 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         context.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
         Guid hospitalId = context.HospitalId;
@@ -105,7 +101,7 @@ public sealed class ClinicalDocumentService(
             UpdatedAt = now,
         };
 
-        auditWriter.Append(
+        transactional.AuditWriter.Append(
             AuditEntityTypes.ClinicalDocument,
             document.Id,
             "document.started",
@@ -122,7 +118,7 @@ public sealed class ClinicalDocumentService(
 
         responses.Add(response, revision);
         documents.Add(document);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken)
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
         return ClinicalDocumentMappers.ToDto(document);
     }
@@ -133,7 +129,7 @@ public sealed class ClinicalDocumentService(
         CancellationToken cancellationToken)
     {
         context.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
             .ConfigureAwait(false);
         ClinicalDocument document = await documents
@@ -152,7 +148,7 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         context.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsRead, cancellationToken)
             .ConfigureAwait(false);
 
@@ -177,7 +173,7 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         context.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
 
@@ -235,7 +231,7 @@ public sealed class ClinicalDocumentService(
         document.UpdatedAt = now;
         document.RowVersion = request.RowVersion + 1;
 
-        auditWriter.Append(
+        transactional.AuditWriter.Append(
             AuditEntityTypes.ClinicalDocument,
             document.Id,
             "document.completed",
@@ -261,7 +257,7 @@ public sealed class ClinicalDocumentService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken)
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
         return ClinicalDocumentMappers.ToDto(document);
     }
@@ -308,7 +304,7 @@ public sealed class ClinicalDocumentService(
     {
         ArgumentNullException.ThrowIfNull(request);
         context.RequireResolved();
-        await capabilityGuard.RequireAsync(
+        await transactional.CapabilityGuard.RequireAsync(
             CapabilityCodes.ClinicalDocumentsWrite, cancellationToken)
             .ConfigureAwait(false);
 
@@ -352,7 +348,7 @@ public sealed class ClinicalDocumentService(
         document.UpdatedAt = now;
         document.RowVersion = request.RowVersion + 1;
 
-        auditWriter.Append(
+        transactional.AuditWriter.Append(
             AuditEntityTypes.ClinicalDocument,
             document.Id,
             auditAction,
@@ -366,7 +362,7 @@ public sealed class ClinicalDocumentService(
                 rowVersion = request.RowVersion,
             });
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken)
+        _ = await transactional.UnitOfWork.SaveChangesAsync(cancellationToken)
             .ConfigureAwait(false);
         return ClinicalDocumentMappers.ToDto(document);
     }

@@ -186,6 +186,7 @@ public sealed partial class FormAiService(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Client disconnected mid-stream: cancellation is expected here.
         }
         catch (Exception exception) when (
             exception is HttpRequestException
@@ -378,6 +379,7 @@ public sealed partial class FormAiService(
         }
         catch (IOException)
         {
+            // The error frame could not be delivered either; nothing left to do.
         }
     }
 }
