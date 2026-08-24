@@ -299,7 +299,7 @@ public static partial class InfrastructureServiceCollectionExtensions
         DbContext dbContext,
         IReadOnlyList<string> existingTables)
     {
-        HashSet<string> ownTables = dbContext.Model
+        var ownTables = dbContext.Model
             .GetRelationalModel()
             .Tables
             .Select(table => table.Name)
