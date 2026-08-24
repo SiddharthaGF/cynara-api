@@ -327,6 +327,7 @@ public static class AuthDevSeeder
             }
             catch (ConflictException)
             {
+                // Already held, ignore to keep idempotent
             }
         }
     }

@@ -23,11 +23,6 @@ internal sealed class CynaraTenantWebApplicationFactory(
     public const string PrimaryCode = "primary";
     public const string OtherCode = "secondary";
 
-    public CynaraTenantWebApplicationFactory(TestDatabaseSettings database)
-        : this(database, bootstrapOptions: null, grantAllCapabilities: true)
-    {
-    }
-
     private static HospitalBootstrapOptions DefaultPrimaryBootstrapOptions()
     {
         return new HospitalBootstrapOptions

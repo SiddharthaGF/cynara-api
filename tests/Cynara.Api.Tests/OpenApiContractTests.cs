@@ -233,84 +233,10 @@ public sealed class OpenApiContractTests : IDisposable
     [Fact]
     public async Task OpenApiDocument_Stage2Inventory_IsComplete()
     {
-        using HttpResponseMessage response = await Client
-            .GetAsync(new Uri("/swagger/v1/swagger.json", UriKind.Relative))
-            .ConfigureAwait(false);
-        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var document = JsonDocument.Parse(body);
-        JsonElement paths = document.RootElement.GetProperty("paths");
-
-        var missing = new List<string>();
-        var noResponses = new List<string>();
-        var noSuccess = new List<string>();
-        var unexpectedMediaTypes = new List<string>();
-        var duplicateOperationIds = new List<string>();
-        var operationIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach ((string path, string method) in Stage2Endpoints)
-        {
-            if (!paths.TryGetProperty(path, out JsonElement pathItem)
-                || !pathItem.TryGetProperty(method, out JsonElement operation))
-            {
-                missing.Add($"{method.ToUpperInvariant()} {path}");
-                continue;
-            }
-
-            if (operation.TryGetProperty("operationId", out JsonElement operationId))
-            {
-                string id = operationId.GetString() ?? string.Empty;
-                if (!operationIds.Add(id))
-                {
-                    duplicateOperationIds.Add(id);
-                }
-            }
-
-            if (!operation.TryGetProperty("responses", out JsonElement responses))
-            {
-                noResponses.Add($"{method.ToUpperInvariant()} {path}");
-                continue;
-            }
-
-            if (!responses.EnumerateObject().Any(item =>
-                    item.Name is "200" or "201" or "204"))
-            {
-                noSuccess.Add($"{method.ToUpperInvariant()} {path}");
-            }
-
-            foreach (JsonProperty item in responses.EnumerateObject())
-            {
-                if (!item.Value.TryGetProperty("content", out JsonElement content))
-                {
-                    continue;
-                }
-
-                foreach (JsonProperty mediaType in content.EnumerateObject())
-                {
-                    if (!IsAllowedMediaType(mediaType.Name))
-                    {
-                        unexpectedMediaTypes.Add(
-                            $"{method.ToUpperInvariant()} {path}: {mediaType.Name}");
-                    }
-                }
-            }
-        }
-
-        Assert.True(
-            missing.Count == 0,
-            $"Missing Stage 2 endpoints: {string.Join(", ", missing)}");
-        Assert.True(
-            noResponses.Count == 0,
-            $"Endpoints without documented responses: {string.Join(", ", noResponses)}");
-        Assert.True(
-            noSuccess.Count == 0,
-            $"Endpoints without a 2xx response: {string.Join(", ", noSuccess)}");
-        Assert.True(
-            unexpectedMediaTypes.Count == 0,
-            $"Unexpected response media types: {string.Join(", ", unexpectedMediaTypes)}");
-        Assert.True(
-            duplicateOperationIds.Count == 0,
-            $"Duplicate operationIds: {string.Join(", ", duplicateOperationIds)}");
+        JsonElement paths = await GetDocumentPathsAsync().ConfigureAwait(false);
+        EndpointInventory inventory =
+            InspectEndpoints(paths, Stage2Endpoints, requireJsonBodies: false);
+        AssertInventoryComplete("Stage 2", inventory);
     }
 
     /// <summary>
@@ -320,99 +246,10 @@ public sealed class OpenApiContractTests : IDisposable
     [Fact]
     public async Task OpenApiDocument_Stage3Inventory_IsComplete()
     {
-        using HttpResponseMessage response = await Client
-            .GetAsync(new Uri("/swagger/v1/swagger.json", UriKind.Relative))
-            .ConfigureAwait(false);
-        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var document = JsonDocument.Parse(body);
-        JsonElement paths = document.RootElement.GetProperty("paths");
-
-        var missing = new List<string>();
-        var noResponses = new List<string>();
-        var noSuccess = new List<string>();
-        var unexpectedMediaTypes = new List<string>();
-        var duplicateOperationIds = new List<string>();
-        var mutationsWithoutBody = new List<string>();
-        var operationIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach ((string path, string method) in Stage3Endpoints)
-        {
-            if (!paths.TryGetProperty(path, out JsonElement pathItem)
-                || !pathItem.TryGetProperty(method, out JsonElement operation))
-            {
-                missing.Add($"{method.ToUpperInvariant()} {path}");
-                continue;
-            }
-
-            if (operation.TryGetProperty("operationId", out JsonElement operationId))
-            {
-                string id = operationId.GetString() ?? string.Empty;
-                if (!operationIds.Add(id))
-                {
-                    duplicateOperationIds.Add(id);
-                }
-            }
-
-            if (method is "post"
-                && (!operation.TryGetProperty("requestBody", out JsonElement requestBody)
-                    || !requestBody.TryGetProperty("required", out JsonElement required)
-                    || required.ValueKind != JsonValueKind.True
-                    || !requestBody.TryGetProperty("content", out JsonElement content)
-                    || !content.TryGetProperty("application/json", out _)))
-            {
-                mutationsWithoutBody.Add($"{method.ToUpperInvariant()} {path}");
-            }
-
-            if (!operation.TryGetProperty("responses", out JsonElement responses))
-            {
-                noResponses.Add($"{method.ToUpperInvariant()} {path}");
-                continue;
-            }
-
-            if (!responses.EnumerateObject().Any(item =>
-                    item.Name is "200" or "201" or "204"))
-            {
-                noSuccess.Add($"{method.ToUpperInvariant()} {path}");
-            }
-
-            foreach (JsonProperty item in responses.EnumerateObject())
-            {
-                if (!item.Value.TryGetProperty("content", out JsonElement contentItem))
-                {
-                    continue;
-                }
-
-                foreach (JsonProperty mediaType in contentItem.EnumerateObject())
-                {
-                    if (!IsAllowedMediaType(mediaType.Name))
-                    {
-                        unexpectedMediaTypes.Add(
-                            $"{method.ToUpperInvariant()} {path}: {mediaType.Name}");
-                    }
-                }
-            }
-        }
-
-        Assert.True(
-            missing.Count == 0,
-            $"Missing Stage 3 endpoints: {string.Join(", ", missing)}");
-        Assert.True(
-            noResponses.Count == 0,
-            $"Endpoints without documented responses: {string.Join(", ", noResponses)}");
-        Assert.True(
-            noSuccess.Count == 0,
-            $"Endpoints without a 2xx response: {string.Join(", ", noSuccess)}");
-        Assert.True(
-            unexpectedMediaTypes.Count == 0,
-            $"Unexpected response media types: {string.Join(", ", unexpectedMediaTypes)}");
-        Assert.True(
-            duplicateOperationIds.Count == 0,
-            $"Duplicate operationIds: {string.Join(", ", duplicateOperationIds)}");
-        Assert.True(
-            mutationsWithoutBody.Count == 0,
-            "Stage 3 mutations without an application/json request body: "
-            + string.Join(", ", mutationsWithoutBody));
+        JsonElement paths = await GetDocumentPathsAsync().ConfigureAwait(false);
+        EndpointInventory inventory =
+            InspectEndpoints(paths, Stage3Endpoints, requireJsonBodies: true);
+        AssertInventoryComplete("Stage 3", inventory);
     }
 
     [Fact]
@@ -478,6 +315,160 @@ public sealed class OpenApiContractTests : IDisposable
     /// document with documented responses and only the supported media types
     /// (JSON:API, plain JSON, or SSE).
     /// </summary>
+    private async Task<JsonElement> GetDocumentPathsAsync()
+    {
+        using HttpResponseMessage response = await Client
+            .GetAsync(new Uri("/swagger/v1/swagger.json", UriKind.Relative))
+            .ConfigureAwait(false);
+        string body = await response.Content
+            .ReadAsStringAsync()
+            .ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(body);
+        return document.RootElement.GetProperty("paths").Clone();
+    }
+
+    private static void AssertInventoryComplete(
+        string stage,
+        EndpointInventory inventory)
+    {
+        Assert.True(
+            inventory.Missing.Count == 0,
+            $"Missing {stage} endpoints: {string.Join(", ", inventory.Missing)}");
+        Assert.True(
+            inventory.NoResponses.Count == 0,
+            $"{stage} endpoints without documented responses: "
+            + string.Join(", ", inventory.NoResponses));
+        Assert.True(
+            inventory.NoSuccess.Count == 0,
+            $"{stage} endpoints without a 2xx response: "
+            + string.Join(", ", inventory.NoSuccess));
+        Assert.True(
+            inventory.UnexpectedMediaTypes.Count == 0,
+            $"Unexpected {stage} response media types: "
+            + string.Join(", ", inventory.UnexpectedMediaTypes));
+        Assert.True(
+            inventory.DuplicateOperationIds.Count == 0,
+            $"Duplicate {stage} operationIds: "
+            + string.Join(", ", inventory.DuplicateOperationIds));
+        Assert.True(
+            inventory.MutationsWithoutJsonBody.Count == 0,
+            $"{stage} mutations without an application/json request body: "
+            + string.Join(", ", inventory.MutationsWithoutJsonBody));
+    }
+
+    private static EndpointInventory InspectEndpoints(
+        JsonElement paths,
+        IEnumerable<(string Path, string Method)> endpoints,
+        bool requireJsonBodies)
+    {
+        var inventory = new EndpointInventory([], [], [], [], [], []);
+        var seenOperationIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach ((string path, string method) in endpoints)
+        {
+            string label = Label(method, path);
+            if (!paths.TryGetProperty(path, out JsonElement pathItem)
+                || !pathItem.TryGetProperty(method, out JsonElement operation))
+            {
+                inventory.Missing.Add(label);
+                continue;
+            }
+
+            TrackOperationId(operation, seenOperationIds, inventory);
+
+            if (!operation.TryGetProperty("responses", out JsonElement responses))
+            {
+                inventory.NoResponses.Add(label);
+                continue;
+            }
+
+            if (!HasSuccessResponse(responses))
+            {
+                inventory.NoSuccess.Add(label);
+            }
+
+            CollectUnexpectedMediaTypes(
+                responses,
+                label,
+                inventory.UnexpectedMediaTypes);
+
+            if (requireJsonBodies && IsMissingRequiredJsonBody(operation))
+            {
+                inventory.MutationsWithoutJsonBody.Add(label);
+            }
+        }
+
+        return inventory;
+    }
+
+    private static string Label(string method, string path)
+    {
+        return $"{method.ToUpperInvariant()} {path}";
+    }
+
+    private static void TrackOperationId(
+        JsonElement operation,
+        ISet<string> seenOperationIds,
+        EndpointInventory inventory)
+    {
+        if (!operation.TryGetProperty("operationId", out JsonElement operationId))
+        {
+            return;
+        }
+
+        string id = operationId.GetString() ?? string.Empty;
+        if (!seenOperationIds.Add(id))
+        {
+            inventory.DuplicateOperationIds.Add(id);
+        }
+    }
+
+    private static bool HasSuccessResponse(JsonElement responses)
+    {
+        return responses.EnumerateObject().Any(item =>
+            item.Name is "200" or "201" or "204");
+    }
+
+    private static bool IsMissingRequiredJsonBody(JsonElement operation)
+    {
+        return !operation.TryGetProperty("requestBody", out JsonElement requestBody)
+            || !requestBody.TryGetProperty("required", out JsonElement required)
+            || required.ValueKind != JsonValueKind.True
+            || !requestBody.TryGetProperty("content", out JsonElement content)
+            || !content.TryGetProperty("application/json", out _);
+    }
+
+    private static void CollectUnexpectedMediaTypes(
+        JsonElement responses,
+        string label,
+        List<string> violations)
+    {
+        foreach (JsonProperty response in responses.EnumerateObject())
+        {
+            if (!response.Value.TryGetProperty("content", out JsonElement content))
+            {
+                continue;
+            }
+
+            foreach (JsonProperty mediaType in content.EnumerateObject())
+            {
+                if (!IsAllowedMediaType(mediaType.Name))
+                {
+                    violations.Add($"{label}: {mediaType.Name}");
+                }
+            }
+        }
+    }
+
+    private sealed record EndpointInventory(
+        List<string> Missing,
+        List<string> NoResponses,
+        List<string> NoSuccess,
+        List<string> UnexpectedMediaTypes,
+        List<string> DuplicateOperationIds,
+        List<string> MutationsWithoutJsonBody);
+
     private static readonly (string Path, string Method)[] Stage2Endpoints =
     [
         ("/api/formDefinitions", "get"),
