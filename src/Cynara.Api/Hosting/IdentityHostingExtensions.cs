@@ -7,6 +7,7 @@ using Cynara.Infrastructure.Modules.Identity;
 using Microsoft.AspNetCore.Identity;
 
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 
 namespace Cynara.Api.Hosting;
@@ -70,6 +71,10 @@ internal static class IdentityHostingExtensions
 
         string issuer = configuration["OpenIddict:Issuer"] ?? "http://localhost:5000";
         bool isDevelopment = environment.IsDevelopment();
+
+        _ = services.AddSingleton(
+            WebClientRedirectUriPatternPolicy.FromConfiguration(
+                configuration));
 
         _ = services
             .AddOpenIddict()
@@ -188,6 +193,19 @@ internal static class IdentityHostingExtensions
             .EnableAuthorizationEndpointPassthrough()
             .EnableTokenEndpointPassthrough()
             .DisableTransportSecurityRequirement();
+
+        // Swap the native redirect-URI validator for the pattern-aware one.
+        // It preserves the exact-match behavior against registered URIs and
+        // additionally accepts URIs matching the regex patterns bound from
+        // OpenIddict:WebClient:RedirectUriPatterns (a single anchored
+        // expression covers production plus ephemeral preview origins). The
+        // descriptor is required by name so an upstream rename fails fast at
+        // startup.
+        _ = options.RemoveEventHandler(
+            OpenIddictServerHandlers.Authentication
+                .ValidateClientRedirectUri.Descriptor);
+        _ = options.AddEventHandler(
+            WebClientRedirectUriPatternValidation.Descriptor);
     }
 
     private static X509Certificate2 LoadCertificate(
