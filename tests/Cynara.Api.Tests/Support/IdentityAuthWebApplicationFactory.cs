@@ -22,7 +22,7 @@ namespace Cynara.Api.Tests.Support;
 /// environment defaults to Development and can be overridden (for example to
 /// Production) so environment-gated authorization behavior can be tested.
 /// </summary>
-internal sealed class IdentityAuthWebApplicationFactory(
+internal class IdentityAuthWebApplicationFactory(
     TestDatabaseSettings database,
     bool grantAllCapabilities = true,
     string? environment = null,

@@ -25,4 +25,20 @@ public interface IInvitationRepository
         string tokenHash,
         bool track,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists a hospital's invitations newest-first, tracked, so workflows
+    /// can lazily expire due rows inside their own commit.
+    /// </summary>
+    public Task<IReadOnlyList<Invitation>> ListByHospitalAsync(
+        Guid hospitalId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the actor ids holding <c>user-invitations.read</c> scoped
+    /// to the given hospital; they receive its expiry notifications.
+    /// </summary>
+    public Task<IReadOnlyList<string>> FindExpiryNotificationRecipientsAsync(
+        Guid hospitalId,
+        CancellationToken cancellationToken);
 }

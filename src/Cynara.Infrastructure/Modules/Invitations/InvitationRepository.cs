@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.Invitations.Persistence;
+using Cynara.Domain.Capabilities;
 using Cynara.Domain.Invitations;
 
 namespace Cynara.Infrastructure.Modules.Invitations;
@@ -41,5 +42,32 @@ public sealed class InvitationRepository(CynaraDbContext dbContext)
         return query.SingleOrDefaultAsync(
             item => item.TokenHash == tokenHash,
             cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Invitation>> ListByHospitalAsync(
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.Invitations
+            .Where(item => item.HospitalId == hospitalId)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<string>>
+        FindExpiryNotificationRecipientsAsync(
+            Guid hospitalId,
+            CancellationToken cancellationToken)
+    {
+        return await dbContext.CapabilityAssignments
+            .Where(item => item.Capability
+                == CapabilityCodes.UserInvitationsRead
+                && item.Scope == CapabilityScopes.Hospital
+                && item.HospitalId == hospitalId)
+            .Select(item => item.ActorId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
     }
 }
