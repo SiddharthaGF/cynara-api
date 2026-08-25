@@ -10,5 +10,6 @@ public interface IAiProviderSettingsService
 
     public Task<FormAiSettingsResponse> UpsertAsync(
         FormAiSettingsUpdateRequest request,
+        string? actorId,
         CancellationToken cancellationToken);
 }

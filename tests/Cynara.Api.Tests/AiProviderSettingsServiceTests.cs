@@ -1,3 +1,4 @@
+using Cynara.Application.Audit;
 using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormAi.Persistence;
 using Cynara.Application.Modules.Hospitals;
@@ -67,6 +68,7 @@ public sealed class AiProviderSettingsServiceTests
             repository,
             environment,
             new StubUnitOfWork(),
+            new StubAuditWriter(),
             hospitalContext,
             TimeProvider.System,
             new FakeCapabilityGuard());
@@ -116,6 +118,22 @@ public sealed class AiProviderSettingsServiceTests
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(0);
+        }
+    }
+
+    private sealed class StubAuditWriter : IAuditWriter
+    {
+        public void Append(
+            string resourceType,
+            Guid resourceId,
+            string action,
+            string? actorId,
+            DateTimeOffset occurredAt,
+            object metadata,
+            Guid? patientId = null,
+            Guid? encounterId = null,
+            Guid? workflowDefinitionId = null)
+        {
         }
     }
 }

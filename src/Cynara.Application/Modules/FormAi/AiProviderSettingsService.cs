@@ -1,3 +1,4 @@
+using Cynara.Application.Audit;
 using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
@@ -9,6 +10,7 @@ public sealed class AiProviderSettingsService(
     Persistence.IAiProviderSettingsRepository repository,
     IOpenAiConfiguration environmentConfiguration,
     IUnitOfWork unitOfWork,
+    IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
     TimeProvider timeProvider,
     ICapabilityGuard capabilityGuard) : IAiProviderSettingsService
@@ -92,6 +94,7 @@ public sealed class AiProviderSettingsService(
 
     public async Task<FormAiSettingsResponse> UpsertAsync(
         FormAiSettingsUpdateRequest request,
+        string? actorId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -153,6 +156,25 @@ public sealed class AiProviderSettingsService(
         {
             repository.Add(row);
         }
+
+        // SECURITY: never place the raw API key value in audit metadata;
+        // only boolean key-state facts are recorded. Staging the event
+        // before the single SaveChangesAsync keeps the settings row and its
+        // audit record atomic.
+        auditWriter.Append(
+            AuditEntityTypes.AiProviderSettings,
+            Guid.Empty,
+            "ai-provider-settings.updated",
+            actorId,
+            row.UpdatedAt,
+            new
+            {
+                apiKeySet = !string.IsNullOrWhiteSpace(apiKey),
+                apiKeyCleared = request.ClearApiKey,
+                baseUrl,
+                model,
+                jsonObject = row.JsonObject ?? true,
+            });
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return await GetPublicViewAsync(cancellationToken).ConfigureAwait(false);

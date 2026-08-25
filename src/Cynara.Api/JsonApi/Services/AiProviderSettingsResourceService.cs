@@ -80,6 +80,7 @@ public sealed class AiProviderSettingsResourceService(
                 BaseUrl: resource.BaseUrl,
                 Model: resource.Model,
                 JsonObject: resource.JsonObject),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
 
         return Project(view);

@@ -353,6 +353,7 @@ public static class DemoShowcaseSeeder
                 ClearApiKey: true,
                 BaseUrl: "https://api.openai.com/v1",
                 Model: "gpt-4o-mini"),
+            ActorId,
             cancellationToken).ConfigureAwait(false);
     }
 
