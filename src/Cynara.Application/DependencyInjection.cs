@@ -8,6 +8,7 @@ using Cynara.Application.Modules.FormAi;
 using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Invitations;
 using Cynara.Application.Modules.Patients;
 using Cynara.Application.Modules.Tasks;
 using Cynara.Application.Modules.Users;
@@ -33,6 +34,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddEncountersModule();
         _ = services.AddCapabilitiesModule();
         _ = services.AddUsersModule();
+        _ = services.AddScoped<InvitationAdminWorkflow>();
         _ = services.AddWorkflowsModule();
         _ = services.AddTasksModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();

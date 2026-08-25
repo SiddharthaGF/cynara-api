@@ -1,5 +1,7 @@
 using Cynara.Application.Failures;
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Application.Modules.Invitations;
+using Cynara.Application.Modules.Invitations.Persistence;
 using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
@@ -15,6 +17,7 @@ using Cynara.Infrastructure.Modules.FormResponses;
 using Cynara.Infrastructure.Modules.Forms;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Identity;
+using Cynara.Infrastructure.Modules.Invitations;
 using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
@@ -25,6 +28,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Cynara.Infrastructure;
@@ -162,6 +166,15 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddPatientsPersistenceModule();
         _ = services.AddEncountersPersistenceModule();
         _ = services.AddCapabilitiesPersistenceModule();
+        _ = services.AddScoped<IInvitationRepository, InvitationRepository>();
+        _ = services.AddScoped<
+            IInvitationExpiryEvaluator,
+            InvitationExpiryEvaluator>();
+        _ = services.AddSingleton<IInvitationNotifier>(
+            provider => new DevelopmentInvitationNotifier(
+                provider.GetRequiredService<
+                    ILogger<DevelopmentInvitationNotifier>>(),
+                provider.GetRequiredService<IHostEnvironment>()));
         _ = services.AddWorkflowsPersistenceModule();
         _ = services.AddTasksPersistenceModule();
         _ = services.AddSingleton<IFailureLogWriter, FailureLogWriter>();
