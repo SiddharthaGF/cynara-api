@@ -77,6 +77,47 @@ public sealed class CynaraErrorMappingTests
     }
 
     [Fact]
+    public void DbUpdateConcurrencyException_MapsToConflictDocument()
+    {
+        CynaraErrorDocument document = CynaraErrorMapping.FromException(
+            new DbUpdateConcurrencyException(
+                "The database operation was expected to affect 1 row(s), "
+                + "but actually affected 0 row(s)."));
+
+        Assert.Equal((int)HttpStatusCode.Conflict, document.StatusCode);
+        Assert.Equal(ConcurrencyException.CanonicalTitle, document.Title);
+        Assert.Equal("Concurrency conflict", document.Title);
+        CynaraErrorItem item = Assert.Single(document.Items);
+        Assert.Equal("Concurrency conflict", item.Title);
+        Assert.Null(item.Source);
+    }
+
+    [Fact]
+    public void EfConcurrencyConflict_TitleMatchesConcurrencyException()
+    {
+        CynaraErrorDocument fromEf = CynaraErrorMapping.FromException(
+            new DbUpdateConcurrencyException("race"));
+        CynaraErrorDocument fromCynara = CynaraErrorMapping.FromException(
+            new ConcurrencyException("stale"));
+
+        Assert.Equal(fromCynara.Title, fromEf.Title);
+    }
+
+    [Fact]
+    public void PlainDbUpdateException_StillFallsBackToInternalServerError()
+    {
+        CynaraErrorDocument document = CynaraErrorMapping.FromException(
+            new DbUpdateException("constraint violation"));
+
+        Assert.Equal(
+            (int)HttpStatusCode.InternalServerError,
+            document.StatusCode);
+        Assert.Equal("Unexpected error", document.Title);
+        CynaraErrorItem item = Assert.Single(document.Items);
+        Assert.Equal("Unexpected error", item.Title);
+    }
+
+    [Fact]
     public void InvalidStateException_MapsToConflictDocument()
     {
         CynaraErrorDocument document = CynaraErrorMapping.FromException(

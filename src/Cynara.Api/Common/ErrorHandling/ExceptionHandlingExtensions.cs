@@ -7,6 +7,7 @@ using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 namespace Cynara.Api.Common.ErrorHandling;
 
@@ -40,6 +41,14 @@ internal static class ExceptionHandlingExtensions
                     IResult result = ProblemDetailsMapping.FromException(
                         cynaraException);
                     await result.ExecuteAsync(context).ConfigureAwait(false);
+                    return;
+                }
+
+                if (error is DbUpdateConcurrencyException)
+                {
+                    await ProblemDetailsMapping.FromException(error)
+                        .ExecuteAsync(context)
+                        .ConfigureAwait(false);
                     return;
                 }
 

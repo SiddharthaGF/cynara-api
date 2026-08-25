@@ -107,6 +107,12 @@ public sealed class ValidationException : CynaraException
 
 public sealed class ConcurrencyException : CynaraException
 {
+    /// <summary>
+    /// Canonical wire title, also reused by the Api-layer mapping of raw EF
+    /// optimistic-concurrency failures so every 409 document stays identical.
+    /// </summary>
+    public const string CanonicalTitle = "Concurrency conflict";
+
     public ConcurrencyException()
     {
     }
@@ -123,7 +129,7 @@ public sealed class ConcurrencyException : CynaraException
 
     public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
 
-    public override string Title => "Concurrency conflict";
+    public override string Title => CanonicalTitle;
 }
 
 public sealed class InvalidStateException : CynaraException

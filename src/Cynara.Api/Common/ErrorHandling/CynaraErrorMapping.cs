@@ -1,5 +1,7 @@
 using Cynara.Application;
 
+using Microsoft.EntityFrameworkCore;
+
 namespace Cynara.Api.Common.ErrorHandling;
 
 /// <summary>
@@ -55,6 +57,11 @@ internal static class CynaraErrorMapping
                 (int)cynara.StatusCode,
                 cynara.Title,
                 cynara.Message),
+            DbUpdateConcurrencyException =>
+                BuildSingleItem(
+                    StatusCodes.Status409Conflict,
+                    ConcurrencyException.CanonicalTitle,
+                    "The resource was modified by another request."),
             _ => BuildSingleItem(
                 StatusCodes.Status500InternalServerError,
                 UnexpectedTitle,

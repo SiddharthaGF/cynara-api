@@ -20,7 +20,12 @@ internal static class ProblemDetailsMapping
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public static IResult FromException(CynaraException exception)
+    /// <summary>
+    /// Renders the shared error document for any exception the neutral
+    /// mapping understands: <see cref="CynaraException"/> subtypes and raw
+    /// EF <c>DbUpdateConcurrencyException</c> conflicts alike.
+    /// </summary>
+    public static IResult FromException(Exception exception)
     {
         CynaraErrorDocument document = CynaraErrorMapping.FromException(exception);
         return BuildEnvelope(document);

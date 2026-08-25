@@ -8,11 +8,15 @@ using JsonApiDotNetCore.Configuration;
 using JsonApiDotNetCore.Middleware;
 using JsonApiDotNetCore.Serialization.Objects;
 
+using Microsoft.EntityFrameworkCore;
+
 namespace Cynara.Api.JsonApi;
 
 /// <summary>
-/// Maps application <see cref="CynaraException"/> types to JSON:API error
-/// objects with the correct HTTP status instead of treating them as 500s.
+/// Maps application <see cref="CynaraException"/> types and raw EF
+/// optimistic-concurrency conflicts (<c>DbUpdateConcurrencyException</c>) to
+/// JSON:API error objects with the correct HTTP status instead of treating
+/// them as 500s.
 /// The status code, title, detail, code, and pointer all originate in the
 /// shared <see cref="CynaraErrorMapping"/> so both this JsonAPI handler and
 /// the minimal-API <c>ProblemDetailsMapping</c> emit byte-identical error
@@ -45,7 +49,8 @@ internal sealed class CynaraJsonApiExceptionHandler(
                 abortToken).GetAwaiter().GetResult();
         }
 
-        if (exception is not CynaraException)
+        if (exception is not CynaraException
+            and not DbUpdateConcurrencyException)
         {
             return base.CreateErrorResponse(exception);
         }
