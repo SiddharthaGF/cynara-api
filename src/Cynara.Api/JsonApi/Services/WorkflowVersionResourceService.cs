@@ -71,10 +71,9 @@ public sealed class WorkflowVersionResourceService(
             CapabilityCodes.WorkflowsRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<WorkflowVersion> versions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. versions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<WorkflowVersion?> UpdateAsync(

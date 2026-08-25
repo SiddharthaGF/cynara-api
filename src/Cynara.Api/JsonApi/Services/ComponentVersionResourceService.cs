@@ -57,10 +57,9 @@ public sealed class ComponentVersionResourceService(
             CapabilityCodes.CatalogRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<ComponentVersion> versions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. versions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<ComponentVersion?> UpdateAsync(

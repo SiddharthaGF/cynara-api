@@ -102,10 +102,9 @@ public sealed class FormDefinitionResourceService(
             CapabilityCodes.CatalogRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<FormDefinition> definitions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<object?> GetSecondaryAsync(

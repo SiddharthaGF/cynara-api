@@ -1,3 +1,5 @@
+using Cynara.Domain.Common;
+
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -10,7 +12,8 @@ namespace Cynara.Domain.Components;
 [Resource(
     PublicName = "componentVersions",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class ComponentVersion : Identifiable<Guid>
+public sealed class ComponentVersion
+    : Identifiable<Guid>, IHospitalScopedResource
 {
     /// <summary>Owning hospital workspace (denormalized from the definition).</summary>
     public Guid HospitalId { get; set; }

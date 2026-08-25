@@ -1,3 +1,5 @@
+using Cynara.Domain.Common;
+
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -10,7 +12,8 @@ namespace Cynara.Domain.Audit;
 [Resource(
     PublicName = "auditEvents",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class AuditEvent : Identifiable<Guid>
+public sealed class AuditEvent
+    : Identifiable<Guid>, IHospitalScopedResource
 {
     /// <summary>Owning hospital workspace. Stamped by the audit writer.</summary>
     public Guid HospitalId { get; set; }

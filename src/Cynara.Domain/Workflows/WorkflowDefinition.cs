@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
+using Cynara.Domain.Common;
+
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -13,7 +15,8 @@ namespace Cynara.Domain.Workflows;
 [Resource(
     PublicName = "workflowDefinitions",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class WorkflowDefinition : Identifiable<Guid>
+public sealed class WorkflowDefinition
+    : Identifiable<Guid>, IHospitalScopedResource
 {
     /// <summary>Owning hospital workspace. Stamped by application workflows.</summary>
     public Guid HospitalId { get; set; }

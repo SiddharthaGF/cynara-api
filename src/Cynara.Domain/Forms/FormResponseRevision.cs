@@ -1,3 +1,5 @@
+using Cynara.Domain.Common;
+
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -11,7 +13,8 @@ namespace Cynara.Domain.Forms;
 [Resource(
     PublicName = "formResponseRevisions",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class FormResponseRevision : Identifiable<Guid>
+public sealed class FormResponseRevision
+    : Identifiable<Guid>, IHospitalScopedResource
 {
     /// <summary>Owning hospital workspace (denormalized from the parent response).</summary>
     public Guid HospitalId { get; set; }

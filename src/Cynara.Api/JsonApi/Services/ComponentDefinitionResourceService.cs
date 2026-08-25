@@ -91,9 +91,8 @@ public sealed class ComponentDefinitionResourceService(
             CapabilityCodes.CatalogRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<ComponentDefinition> definitions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 }

@@ -72,9 +72,8 @@ public sealed class FormResponseRevisionResourceService(
             CapabilityCodes.FormResponsesRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<FormResponseRevision> revisions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. revisions.Where(item => item.HospitalId == HospitalId)];
     }
 }

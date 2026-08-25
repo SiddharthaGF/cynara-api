@@ -147,9 +147,8 @@ public sealed class FormResponseResourceService(
             CapabilityCodes.FormResponsesRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<FormResponse> responses = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. responses.Where(item => item.HospitalId == HospitalId)];
     }
 }

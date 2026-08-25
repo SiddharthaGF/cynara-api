@@ -70,9 +70,8 @@ public sealed class AuditEventResourceService(
             CapabilityCodes.AuditRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<AuditEvent> events = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. events.Where(item => item.HospitalId == HospitalId)];
     }
 }

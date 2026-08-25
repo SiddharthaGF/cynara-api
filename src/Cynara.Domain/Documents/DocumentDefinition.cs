@@ -1,3 +1,5 @@
+using Cynara.Domain.Common;
+
 using JsonApiDotNetCore.Controllers;
 using JsonApiDotNetCore.Resources;
 using JsonApiDotNetCore.Resources.Annotations;
@@ -13,7 +15,8 @@ namespace Cynara.Domain.Documents;
 [Resource(
     PublicName = "documentDefinitions",
     GenerateControllerEndpoints = JsonApiEndpoints.None)]
-public sealed class DocumentDefinition : Identifiable<Guid>
+public sealed class DocumentDefinition
+    : Identifiable<Guid>, IHospitalScopedResource
 {
     /// <summary>Owning hospital workspace. Stamped by application workflows.</summary>
     public Guid HospitalId { get; set; }

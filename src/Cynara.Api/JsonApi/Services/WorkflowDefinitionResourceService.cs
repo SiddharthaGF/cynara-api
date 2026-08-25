@@ -114,10 +114,9 @@ public sealed class WorkflowDefinitionResourceService(
             CapabilityCodes.WorkflowsRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<WorkflowDefinition> definitions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. definitions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<WorkflowDefinition?> UpdateAsync(

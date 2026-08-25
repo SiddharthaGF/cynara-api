@@ -56,10 +56,9 @@ public sealed class FormVersionResourceService(
             CapabilityCodes.CatalogRead,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyCollection<FormVersion> versions = await base
+        return await base
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. versions.Where(item => item.HospitalId == HospitalId)];
     }
 
     public override async Task<FormVersion?> UpdateAsync(

@@ -111,15 +111,13 @@ public sealed class DocumentDefinitionResourceService(
             .GetAsync(cancellationToken)
             .ConfigureAwait(false);
         HospitalContext.RequireResolved();
-        IEnumerable<DocumentDefinition> scoped = entries
-            .Where(item => item.HospitalId == HospitalId);
         if (!includeRetired)
         {
-            scoped = scoped.Where(
-                item => item.Status == DocumentDefinitionStatus.Active);
+            return [.. entries.Where(
+                item => item.Status == DocumentDefinitionStatus.Active)];
         }
 
-        return [.. scoped];
+        return entries;
     }
 
     public override async Task<object?> GetSecondaryAsync(
