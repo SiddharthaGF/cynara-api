@@ -20,6 +20,7 @@ internal static class SchemaEndpoints
         ["ui-schema"] = "ui-schema.schema.json",
         ["rules-schema"] = "rules-schema.schema.json",
         ["workflow-schema"] = "workflow-schema.schema.json",
+        ["profile-snapshot"] = "profile-snapshot.schema.json",
     };
 
     public static IEndpointRouteBuilder MapSchemaEndpoints(
@@ -100,6 +101,7 @@ internal static class SchemaEndpoints
             "ui-schema" => paths.UiSchemaPath,
             "rules-schema" => paths.RulesSchemaPath,
             "workflow-schema" => paths.WorkflowSchemaPath,
+            "profile-snapshot" => paths.ProfileSnapshotPath,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(contract),
                 contract,

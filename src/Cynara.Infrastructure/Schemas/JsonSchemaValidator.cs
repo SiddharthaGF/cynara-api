@@ -113,6 +113,8 @@ public sealed class SchemaFilePaths
 
     public required string WorkflowSchemaPath { get; init; }
 
+    public required string ProfileSnapshotPath { get; init; }
+
     public static SchemaFilePaths FromBaseDirectory(string? baseDirectory = null)
     {
         string schemaRoot = Path.Combine(
@@ -136,6 +138,10 @@ public sealed class SchemaFilePaths
                 schemaRoot,
                 "v1",
                 "workflow-schema.schema.json"),
+            ProfileSnapshotPath = Path.Combine(
+                schemaRoot,
+                "v1",
+                "profile-snapshot.schema.json"),
         };
     }
 }
