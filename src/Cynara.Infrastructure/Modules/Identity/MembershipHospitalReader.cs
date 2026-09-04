@@ -1,4 +1,5 @@
 using Cynara.Application.Modules.Hospitals;
+using Cynara.Domain.Memberships;
 
 namespace Cynara.Infrastructure.Modules.Identity;
 
@@ -18,7 +19,8 @@ public sealed class MembershipHospitalReader(
     {
         List<Membership> memberships = await identity.Memberships
             .AsNoTracking()
-            .Where(item => item.UserId == userId)
+            .Where(item => item.UserId == userId
+                && item.Status == MembershipStatus.Active)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -54,7 +56,9 @@ public sealed class MembershipHospitalReader(
     {
         return identity.Memberships
             .AsNoTracking()
-            .Where(item => item.UserId == userId && item.HospitalId == hospitalId)
+            .Where(item => item.UserId == userId
+                && item.HospitalId == hospitalId
+                && item.Status == MembershipStatus.Active)
             .Select(item => (string?)item.ActorId)
             .SingleOrDefaultAsync(cancellationToken);
     }

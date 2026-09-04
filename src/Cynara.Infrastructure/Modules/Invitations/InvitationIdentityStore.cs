@@ -1,5 +1,6 @@
 using Cynara.Application.Modules.Invitations;
 using Cynara.Application.Modules.Invitations.Persistence;
+using Cynara.Domain.Memberships;
 using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.Identity;
@@ -93,6 +94,7 @@ public sealed class InvitationIdentityStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         _ = identityDbContext.Memberships.Add(new Membership
         {
             Id = Guid.NewGuid(),
@@ -100,6 +102,9 @@ public sealed class InvitationIdentityStore(
             HospitalId = hospitalId,
             ActorId = actorId,
             CreatedAt = createdAt,
+            Status = MembershipStatus.Active,
+            ActivatedAt = createdAt,
+            UpdatedAt = now,
         });
         return Task.CompletedTask;
     }
@@ -113,7 +118,8 @@ public sealed class InvitationIdentityStore(
             .AsNoTracking()
             .AnyAsync(
                 item => item.HospitalId == hospitalId
-                    && item.ActorId == actorId,
+                    && item.ActorId == actorId
+                    && item.Status == MembershipStatus.Active,
                 cancellationToken);
     }
 
@@ -126,7 +132,8 @@ public sealed class InvitationIdentityStore(
             .AsNoTracking()
             .AnyAsync(
                 item => item.UserId == userId
-                    && item.HospitalId == hospitalId,
+                    && item.HospitalId == hospitalId
+                    && item.Status == MembershipStatus.Active,
                 cancellationToken);
     }
 

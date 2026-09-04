@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
+using Cynara.Domain.Memberships;
 using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.Identity;
@@ -132,15 +133,50 @@ internal class IdentityAuthWebApplicationFactory(
             return;
         }
 
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         identity.Memberships.Add(new Membership
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             HospitalId = hospitalId,
             ActorId = actorId,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = now,
+            Status = MembershipStatus.Active,
+            ActivatedAt = now,
+            UpdatedAt = now,
         });
         _ = await identity.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Revokes the active membership for (user, hospital), stamping
+    /// RevokedAt/UpdatedAt so active-only reader tests can arrange
+    /// revoked history without reaching into the identity context.
+    /// </summary>
+    public async Task RevokeMembershipAsync(
+        Guid userId,
+        Guid hospitalId,
+        CancellationToken cancellationToken = default)
+    {
+        await using AsyncServiceScope scope = Services.CreateAsyncScope();
+        CynaraIdentityDbContext identity = scope.ServiceProvider
+            .GetRequiredService<CynaraIdentityDbContext>();
+        Membership membership = await identity.Memberships
+            .SingleOrDefaultAsync(
+                item => item.UserId == userId
+                    && item.HospitalId == hospitalId
+                    && item.Status == MembershipStatus.Active,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException(
+                "No active membership to revoke.");
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        membership.Status = MembershipStatus.Revoked;
+        membership.RevokedAt = now;
+        membership.UpdatedAt = now;
+        _ = await identity.SaveChangesAsync(cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task SeedCapabilityAsync(

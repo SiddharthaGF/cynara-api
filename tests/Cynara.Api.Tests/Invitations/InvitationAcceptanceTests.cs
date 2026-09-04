@@ -242,6 +242,70 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     }
 
     [Fact]
+    public async Task Accept_ReinviteAfterRevoke_CreatesNewActiveMembership()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        IdentityUser<Guid> existing = await Factory.CreateUserAsync(
+            InviteeEmail, Password).ConfigureAwait(false);
+        await Factory.SeedMembershipAsync(existing, hospitalId, "actor-old")
+            .ConfigureAwait(false);
+        await Factory.RevokeMembershipAsync(existing.Id, hospitalId)
+            .ConfigureAwait(false);
+        using HttpClient admin = await SeedAdminClientAsync(hospitalId)
+            .ConfigureAwait(false);
+        (Guid id, string token) = await CreateInvitationAsync(
+            admin, InviteeEmail, ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        using HttpResponseMessage response = await AcceptAsync(
+            anonymous, token, Password).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            InvitationStatus.Accepted,
+            (await LoadInvitationAsync(id).ConfigureAwait(false)).Status);
+        Assert.Equal(1, await CountUsersAsync(InviteeEmail)
+            .ConfigureAwait(false));
+        Assert.Equal(1, await CountMembershipsAsync(hospitalId, "actor-old")
+            .ConfigureAwait(false));
+        Assert.Equal(1, await CountMembershipsAsync(hospitalId, ActorInvitee)
+            .ConfigureAwait(false));
+        Assert.Equal(2, await CountGrantsAsync(hospitalId, ActorInvitee)
+            .ConfigureAwait(false));
+        Assert.Equal(1, await CountAuditsAsync("invitation.accepted")
+            .ConfigureAwait(false));
+    }
+
+    [Fact]
+    public async Task Accept_RevokedActorId_IsReusable()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        IdentityUser<Guid> other = await Factory.CreateUserAsync(
+            "other@cynara.dev", Password).ConfigureAwait(false);
+        await Factory.SeedMembershipAsync(other, hospitalId, ActorInvitee)
+            .ConfigureAwait(false);
+        await Factory.RevokeMembershipAsync(other.Id, hospitalId)
+            .ConfigureAwait(false);
+        using HttpClient admin = await SeedAdminClientAsync(hospitalId)
+            .ConfigureAwait(false);
+        (Guid id, string token) = await CreateInvitationAsync(
+            admin, InviteeEmail, ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        using HttpResponseMessage response = await AcceptAsync(
+            anonymous, token, Password).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            InvitationStatus.Accepted,
+            (await LoadInvitationAsync(id).ConfigureAwait(false)).Status);
+        Assert.Equal(2, await CountMembershipsAsync(hospitalId, ActorInvitee)
+            .ConfigureAwait(false));
+        Assert.Equal(1, await CountAuditsAsync("invitation.accepted")
+            .ConfigureAwait(false));
+    }
+
+    [Fact]
     public async Task Accept_WhenIdentityUserCreationFails_RollsBackEverything()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
