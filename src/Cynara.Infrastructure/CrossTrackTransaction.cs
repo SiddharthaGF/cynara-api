@@ -1,6 +1,5 @@
 using Cynara.Application.Persistence;
 using Cynara.Infrastructure.Modules.Identity;
-using Cynara.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore.Storage;
 
