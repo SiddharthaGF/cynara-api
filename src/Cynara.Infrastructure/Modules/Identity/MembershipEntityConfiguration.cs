@@ -1,15 +1,22 @@
+using Cynara.Domain.Memberships;
+
 using Microsoft.AspNetCore.Identity;
 
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
 /// EF entity configuration for the <see cref="Membership"/> bridge; the
-/// unique (UserId, HospitalId) index enforces one membership per hospital
-/// and ActorId width matches capability assignments.
+/// filtered unique indexes admit one active membership per
+/// (UserId, HospitalId) and one active actor per hospital while revoked
+/// history rows coexist outside the uniqueness window.
 /// </summary>
 public sealed class MembershipEntityConfiguration
     : IEntityTypeConfiguration<Membership>
 {
+    private const string ActiveOnlyFilter =
+        $"\"{nameof(Membership.Status)}\" = "
+        + $"'{nameof(MembershipStatus.Active)}'";
+
     public void Configure(EntityTypeBuilder<Membership> builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -17,12 +24,29 @@ public sealed class MembershipEntityConfiguration
         _ = builder.HasKey(item => item.Id);
         _ = builder.Property(item => item.UserId).IsRequired();
         _ = builder.Property(item => item.HospitalId).IsRequired();
-        _ = builder.HasIndex(item => new { item.UserId, item.HospitalId })
-            .IsUnique();
+        _ = builder.HasIndex(
+                item => new { item.UserId, item.HospitalId },
+                "IX_memberships_UserId_HospitalId")
+            .IsUnique()
+            .HasFilter(ActiveOnlyFilter);
+        _ = builder.HasIndex(
+                item => new { item.HospitalId, item.ActorId },
+                "IX_memberships_HospitalId_ActorId")
+            .IsUnique()
+            .HasFilter(ActiveOnlyFilter);
         _ = builder.Property(item => item.ActorId)
             .HasMaxLength(128)
             .IsRequired();
         _ = builder.Property(item => item.CreatedAt).IsRequired();
+        _ = builder.Property(item => item.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(MembershipStatus.Active)
+            .IsRequired();
+        _ = builder.Property(item => item.ActivatedAt).IsRequired();
+        _ = builder.Property(item => item.RevokedAt);
+        _ = builder.Property(item => item.UpdatedAt).IsRequired();
+        _ = builder.Property(item => item.RowVersion).IsConcurrencyToken();
         _ = builder.HasOne<IdentityUser<Guid>>()
             .WithMany()
             .HasForeignKey(item => item.UserId)
