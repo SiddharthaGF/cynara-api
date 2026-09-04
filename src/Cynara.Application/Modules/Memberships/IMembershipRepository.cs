@@ -5,7 +5,7 @@ namespace Cynara.Application.Modules.Memberships;
 /// Implementations track or read without tracking as requested but NEVER
 /// commit: workflows own the single <c>SaveChangesAsync</c> boundary that
 /// also commits staged audit events. Slice 2 covers add/update/list;
-/// revoke/reactivate arrive in slice 3.
+/// slice 3 adds revoke/reactivate below.
 /// </summary>
 public interface IMembershipRepository
 {
@@ -50,6 +50,26 @@ public interface IMembershipRepository
     public Task<MembershipRow> ReplaceActorAsync(
         Guid currentId,
         string newActorId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Flips the tracked current row to Revoked (stamping
+    /// <c>RevokedAt</c>, bumping <c>RowVersion</c>); the caller commits.
+    /// </summary>
+    public Task<MembershipRow> RevokeAsync(
+        Guid currentId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stages a new Active row for the revoked row's (user, hospital)
+    /// with <paramref name="actorId"/>; the revoked row stays history
+    /// and the caller commits both in one transaction.
+    /// </summary>
+    public Task<MembershipRow> ReactivateAsync(
+        Guid revokedId,
+        string actorId,
         DateTimeOffset now,
         CancellationToken cancellationToken);
 

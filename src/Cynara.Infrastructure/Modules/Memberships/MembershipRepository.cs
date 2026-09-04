@@ -9,8 +9,7 @@ namespace Cynara.Infrastructure.Modules.Memberships;
 /// EF Core implementation of the membership repository over the identity
 /// track; tracked or untracked reads as requested for row-version
 /// concurrency checks, and nothing commits here — the owning workflow
-/// persists mutations together with staged audit events. Slice 2 covers
-/// add/update/list; revoke/reactivate arrive in slice 3.
+/// persists mutations together with staged audit events.
 /// </summary>
 public sealed class MembershipRepository(
     CynaraIdentityDbContext identityDbContext)
@@ -118,6 +117,40 @@ public sealed class MembershipRepository(
         current.UpdatedAt = now;
         current.RowVersion++;
         return Add(current.UserId, current.HospitalId, newActorId, now);
+    }
+
+    public async Task<MembershipRow> RevokeAsync(
+        Guid currentId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        Membership? current = await identityDbContext.Memberships
+            .SingleOrDefaultAsync(
+                item => item.Id == currentId,
+                cancellationToken)
+            .ConfigureAwait(false) ?? throw new NotFoundException(
+                $"Membership '{currentId}' was not found.");
+        current.Status = MembershipStatus.Revoked;
+        current.RevokedAt = now;
+        current.UpdatedAt = now;
+        current.RowVersion++;
+        return MapRow(current);
+    }
+
+    public async Task<MembershipRow> ReactivateAsync(
+        Guid revokedId,
+        string actorId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        Membership? revoked = await identityDbContext.Memberships
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item => item.Id == revokedId,
+                cancellationToken)
+            .ConfigureAwait(false) ?? throw new NotFoundException(
+                $"Membership '{revokedId}' was not found.");
+        return Add(revoked.UserId, revoked.HospitalId, actorId, now);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken)

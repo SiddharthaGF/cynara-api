@@ -36,3 +36,5 @@ public sealed record MembershipView(
 public sealed record AddMembershipRequest(Guid UserId, string ActorId);
 
 public sealed record UpdateMembershipRequest(string ActorId);
+
+public sealed record ReactivateMembershipRequest(string ActorId);
