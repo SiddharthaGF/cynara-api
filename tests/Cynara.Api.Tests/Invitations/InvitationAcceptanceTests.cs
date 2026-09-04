@@ -498,4 +498,29 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
         Assert.Equal(0, await CountMembershipsAsync(hospitalId, ActorInvitee)
             .ConfigureAwait(false));
     }
+
+    [Fact]
+    public async Task Accept_AfterTenPostingsFromSameIp_Returns429WithRetryAfter()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        (_, string token) = await SeedInvitationAsync(
+            hospitalId,
+            email: InviteeEmail,
+            status: InvitationStatus.Pending,
+            snapshot: ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            using HttpResponseMessage response = await AcceptAsync(
+                anonymous, token, Password).ConfigureAwait(false);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        using HttpResponseMessage rejected = await AcceptAsync(
+            anonymous, token, Password).ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.True(rejected.Headers.TryGetValues("Retry-After", out _));
+    }
 }
