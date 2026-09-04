@@ -122,6 +122,29 @@ public sealed class InvitationAcceptanceWorkflow(
             await persistence.Transaction.BeginAsync(cancellationToken)
                 .ConfigureAwait(false);
 
+            // Re-verify under a row lock: a concurrent winner may have
+            // transitioned the link between the initial read and the
+            // transaction start. The lock serializes the race, so the loser
+            // folds into the token-state outcomes instead of observing the
+            // winner's identity rows and surfacing a spurious 400.
+            await persistence.Invitations.LockForUpdateAsync(
+                invitation, cancellationToken).ConfigureAwait(false);
+            if (invitation.Status != InvitationStatus.Pending)
+            {
+                if (invitation.Status == InvitationStatus.Accepted)
+                {
+                    InvitationLifecycle.Fire(
+                        invitation, InvitationLifecycle.Trigger.AlreadyUsed);
+                    StageAudit(invitation, "invitation.already-used", now);
+                    _ = await persistence.UnitOfWork.SaveChangesAsync(
+                        cancellationToken).ConfigureAwait(false);
+                }
+
+                await persistence.Transaction.CommitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return AcceptInvitationResponse.Failure;
+            }
+
             Guid? existingUserId = await persistence.IdentityStore
                 .FindUserIdByEmailAsync(
                     invitation.Email, cancellationToken).ConfigureAwait(false);
