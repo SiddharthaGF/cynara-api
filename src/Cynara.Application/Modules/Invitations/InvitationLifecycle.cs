@@ -17,6 +17,7 @@ internal static class InvitationLifecycle
         Revoke = 2,
         Cancel = 3,
         Resend = 4,
+        AlreadyUsed = 5,
     }
 
     /// <summary>
@@ -38,7 +39,8 @@ internal static class InvitationLifecycle
             (InvitationStatus.Pending, Trigger.Cancel),
             (InvitationStatus.Pending, Trigger.Resend),
             (InvitationStatus.Expired, Trigger.Cancel),
-            (InvitationStatus.Expired, Trigger.Resend));
+            (InvitationStatus.Expired, Trigger.Resend),
+            (InvitationStatus.Accepted, Trigger.AlreadyUsed));
         if (!valid)
         {
             throw new InvalidStateException(
@@ -62,6 +64,9 @@ internal static class InvitationLifecycle
                 break;
             case Trigger.Resend:
                 invitation.Status = InvitationStatus.Pending;
+                break;
+            case Trigger.AlreadyUsed:
+                invitation.Status = InvitationStatus.AlreadyUsed;
                 break;
             default:
                 break;
@@ -93,6 +98,7 @@ internal static class InvitationLifecycle
             Trigger.Revoke => "revoke",
             Trigger.Cancel => "cancel",
             Trigger.Resend => "resend",
+            Trigger.AlreadyUsed => "already-use",
             _ => trigger.ToString(),
         };
     }

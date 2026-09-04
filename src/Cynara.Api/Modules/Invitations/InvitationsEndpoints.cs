@@ -1,6 +1,12 @@
 using Cynara.Api.Common.ActorContext;
+using Cynara.Api.Common.ErrorHandling;
+using Cynara.Application;
 using Cynara.Application.Modules.Invitations;
 using Cynara.Domain.Capabilities;
+
+using Microsoft.EntityFrameworkCore;
+
+using Npgsql;
 
 namespace Cynara.Api.Modules.Invitations;
 
@@ -56,6 +62,14 @@ internal static class InvitationsEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
+        _ = invitations.MapPost("/{token}/accept", AcceptAsync)
+            .AllowAnonymous()
+            .WithName("AcceptInvitation")
+            .WithSummary("Accept an invitation and join the hospital")
+            .Produces<AcceptInvitationResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status429TooManyRequests);
+
         return endpoints;
     }
 
@@ -107,5 +121,43 @@ internal static class InvitationsEndpoints
             http.GetActorId(),
             cancellationToken).ConfigureAwait(false);
         return Results.Ok(resent);
+    }
+
+    /// <summary>
+    /// Anonymous acceptance: turns the one-time link into credentials and a
+    /// hospital membership. Every token-state outcome returns the same
+    /// uniform envelope so the token space stays unenumerable; concurrency
+    /// losers and unique-violation races are folded into the envelope or a
+    /// 400 here, never a 5xx.
+    /// </summary>
+    private static async Task<IResult> AcceptAsync(
+        string token,
+        AcceptInvitationRequest request,
+        InvitationAcceptanceWorkflow workflow,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            AcceptInvitationResponse response = await workflow.AcceptAsync(
+                token, request, cancellationToken).ConfigureAwait(false);
+            return Results.Ok(response);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Results.Ok(AcceptInvitationResponse.Failure);
+        }
+        catch (ConcurrencyException)
+        {
+            return Results.Ok(AcceptInvitationResponse.Failure);
+        }
+        catch (DbUpdateException exception)
+            when (exception.InnerException is PostgresException postgres
+                && string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal))
+        {
+            return ProblemDetailsMapping.FromException(
+                new ValidationException(
+                    "The invited user or actor already exists in this "
+                    + "hospital."));
+        }
     }
 }

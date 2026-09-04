@@ -31,6 +31,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using Npgsql;
+
 namespace Cynara.Infrastructure;
 
 public static partial class InfrastructureServiceCollectionExtensions
@@ -102,10 +104,13 @@ public static partial class InfrastructureServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the domain and identity database contexts over Npgsql.
-    /// The identity context keeps a dedicated migrations history table so
-    /// authentication schema can never collide with the domain migration
-    /// stamps; cross-context readers resolve against both contexts.
+    /// Registers the domain and identity database contexts over a shared
+    /// scoped Npgsql connection. One physical connection per request lets
+    /// the acceptance workflow attach both contexts to a single explicit
+    /// transaction (no 2PC); contexts resolve the connection lazily and EF
+    /// opens it on first use. The identity context keeps a dedicated
+    /// migrations history table so authentication schema can never collide
+    /// with the domain migration stamps.
     /// </summary>
     public static IServiceCollection AddCynaraDatabase(
         this IServiceCollection services,
@@ -116,16 +121,19 @@ public static partial class InfrastructureServiceCollectionExtensions
 
         _ = services.AddScoped<QueryCounter>();
         _ = services.AddScoped<QueryCountingInterceptor>();
+        _ = services.AddScoped(
+            _ => new NpgsqlConnection(normalizedConnectionString));
         _ = services.AddDbContext<CynaraDbContext>((provider, options) =>
         {
-            _ = options.UseNpgsql(normalizedConnectionString);
+            _ = options.UseNpgsql(
+                provider.GetRequiredService<NpgsqlConnection>());
             _ = options.AddInterceptors(
                 provider.GetRequiredService<QueryCountingInterceptor>());
         });
 
-        _ = services.AddDbContext<CynaraIdentityDbContext>(options =>
+        _ = services.AddDbContext<CynaraIdentityDbContext>((provider, options) =>
             _ = options.UseNpgsql(
-                normalizedConnectionString,
+                provider.GetRequiredService<NpgsqlConnection>(),
                 npgsql => npgsql.MigrationsHistoryTable(
                     CynaraIdentityDbContext.MigrationsHistoryTableName)));
 
@@ -170,6 +178,12 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddScoped<
             IInvitationExpiryEvaluator,
             InvitationExpiryEvaluator>();
+        _ = services.AddScoped<
+            IInvitationIdentityStore,
+            InvitationIdentityStore>();
+        _ = services.AddScoped<
+            IInvitationAcceptanceTransaction,
+            InvitationAcceptanceTransaction>();
         _ = services.AddSingleton<
             IProfileSnapshotValidator,
             ProfileSnapshotValidator>();
@@ -214,7 +228,7 @@ public static partial class InfrastructureServiceCollectionExtensions
                 return;
             }
             catch (Exception ex) when (attempt < maxAttempts
-                && (ex is Npgsql.NpgsqlException
+                && (ex is NpgsqlException
                     || ex is IOException
                     || ex is TimeoutException))
             {
