@@ -523,4 +523,54 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
         Assert.True(rejected.Headers.TryGetValues("Retry-After", out _));
     }
+
+    [Fact]
+    public async Task Accept_SameTokenConcurrently_OneWinsOneGetsUniformEnvelope()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        (Guid id, string token) = await SeedInvitationAsync(
+            hospitalId,
+            email: InviteeEmail,
+            status: InvitationStatus.Pending,
+            snapshot: ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        Task<HttpResponseMessage> first = AcceptAsync(
+            anonymous, token, Password);
+        Task<HttpResponseMessage> second = AcceptAsync(
+            anonymous, token, Password);
+        using HttpResponseMessage firstResponse = await first
+            .ConfigureAwait(false);
+        using HttpResponseMessage secondResponse = await second
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        string firstBody = await firstResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
+        string secondBody = await secondResponse.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
+        string[] bodies = [firstBody, secondBody];
+        Assert.Equal(1, bodies.Count(body => body.Contains(
+            "\"accepted\":true", StringComparison.Ordinal)));
+        Assert.Equal(1, bodies.Count(body => body.Equals(
+            /*lang=json,strict*/ """{"accepted":false}""",
+            StringComparison.Ordinal)));
+
+        Assert.Equal(1, await CountUsersAsync(InviteeEmail)
+            .ConfigureAwait(false));
+        Assert.Equal(1, await CountMembershipsAsync(hospitalId, ActorInvitee)
+            .ConfigureAwait(false));
+        Assert.Equal(2, await CountGrantsAsync(hospitalId, ActorInvitee)
+            .ConfigureAwait(false));
+
+        Invitation row = await LoadInvitationAsync(id).ConfigureAwait(false);
+        Assert.True(
+            row.Status is InvitationStatus.Accepted
+                or InvitationStatus.AlreadyUsed);
+        Assert.Equal(1, await CountAuditsAsync("invitation.accepted")
+            .ConfigureAwait(false));
+        Assert.True(await CountAuditsAsync("invitation.already-used")
+                .ConfigureAwait(false) <= 1);
+    }
 }
