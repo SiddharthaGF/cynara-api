@@ -73,7 +73,7 @@ public static class InvitationProfileSnapshotParser
 
                 string code = item.GetString() ?? string.Empty;
                 if (code.Length is 0 or > MaxCapabilityLength
-                    || !CapabilityCodes.All.Contains(code))
+                    || !CapabilityCodes.All.Contains(code, StringComparer.Ordinal))
                 {
                     return null;
                 }

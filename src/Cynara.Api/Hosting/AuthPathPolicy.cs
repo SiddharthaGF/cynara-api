@@ -29,7 +29,28 @@ internal static class AuthPathPolicy
     public static bool IsPublicPath(PathString path)
     {
         return !path.HasValue
+        || IsInvitationAcceptancePath(path)
         || PublicPaths.Any(x => path == x || path.StartsWithSegments(x, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="path"/> is the
+    /// public invitation acceptance route: any
+    /// <c>/api/user-invitations/&lt;token&gt;/accept</c> POST. Admin routes
+    /// never match because they do not end in <c>/accept</c>.
+    /// </summary>
+    public static bool IsInvitationAcceptancePath(PathString path)
+    {
+        if (!path.HasValue)
+        {
+            return false;
+        }
+
+        string value = path.Value ?? string.Empty;
+        return value.StartsWith(
+                "/api/user-invitations/",
+                StringComparison.OrdinalIgnoreCase)
+            && value.EndsWith("/accept", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
