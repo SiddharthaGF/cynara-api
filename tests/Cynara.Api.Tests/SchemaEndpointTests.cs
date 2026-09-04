@@ -31,7 +31,12 @@ public sealed class SchemaEndpointTests : IDisposable
     };
 
     public static TheoryData<string> ContractNames =>
-        new("clinical-schema", "ui-schema", "rules-schema", "workflow-schema");
+        new(
+            "clinical-schema",
+            "ui-schema",
+            "rules-schema",
+            "workflow-schema",
+            "profile-snapshot");
 
     [Theory]
     [MemberData(nameof(Contracts))]
@@ -56,6 +61,43 @@ public sealed class SchemaEndpointTests : IDisposable
                 .GetProperty("properties")
                 .TryGetProperty("schemaVersion", out _),
             "A served contract must declare its versioned schema.");
+    }
+
+    /// <summary>
+    /// The invitation profile snapshot is a data contract (not a form
+    /// meta-schema), so it is asserted against its own canonical shape: the
+    /// declared Draft 2020-12 dialect, canonical id, and the required
+    /// <c>actorId</c> + <c>capabilities</c> keys.
+    /// </summary>
+    [Fact]
+    public async Task GetProfileSnapshotContract_ServesDraft202012()
+    {
+        using var response = await client
+            .GetAsync(new Uri(
+                "/schemas/v1/profile-snapshot.schema.json",
+                UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            "application/schema+json",
+            response.Content.Headers.ContentType?.MediaType);
+
+        string body = await response.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal(
+            "https://json-schema.org/draft/2020-12/schema",
+            document.RootElement.GetProperty("$schema").GetString());
+        Assert.Equal(
+            "https://cynara.dev/schemas/v1/profile-snapshot.schema.json",
+            document.RootElement.GetProperty("$id").GetString());
+
+        JsonElement required = document.RootElement.GetProperty("required");
+        IReadOnlyList<string> requiredKeys =
+            [.. required.EnumerateArray().Select(item => item.GetString()!)];
+        Assert.Contains("actorId", requiredKeys);
+        Assert.Contains("capabilities", requiredKeys);
     }
 
     [Theory]

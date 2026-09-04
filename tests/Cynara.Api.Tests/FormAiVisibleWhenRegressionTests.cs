@@ -325,6 +325,10 @@ public sealed class FormAiVisibleWhenRegressionTests
                     schemaRoot,
                     "v1",
                     "workflow-schema.schema.json"),
+                ProfileSnapshotPath = Path.Combine(
+                    schemaRoot,
+                    "v1",
+                    "profile-snapshot.schema.json"),
             });
     }
 

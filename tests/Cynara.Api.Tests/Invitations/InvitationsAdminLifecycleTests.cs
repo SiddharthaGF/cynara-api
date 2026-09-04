@@ -22,6 +22,27 @@ public sealed partial class InvitationsAdminLifecycleTests : IDisposable
     private const string Password = "Cynara!Dev123";
     private const string ActorAdmin = "actor-admin";
 
+    private const string ConformingSnapshot =
+        /*lang=json,strict*/
+        """{"actorId":"actor-invitee","capabilities":["patients.read","audit.read"]}""";
+
+    private const string NonConformingEmptyActorId =
+        /*lang=json,strict*/
+        """{"actorId":"","capabilities":["patients.read"]}""";
+
+    private const string NonConformingUnknownProperty =
+        /*lang=json,strict*/
+        """{"actorId":"actor-invitee","capabilities":[],"extra":true}""";
+
+    /// <summary>
+    /// Deliberately invalid JSON: the unquoted key is built at runtime so no
+    /// source literal carries a JSON shape.
+    /// </summary>
+    private static string MalformedSnapshot()
+    {
+        return string.Concat("{", "actorId", "}");
+    }
+
     public InvitationsAdminLifecycleTests(PostgreSqlDatabaseFixture database)
     {
         Database = database.Settings;
@@ -177,5 +198,71 @@ public sealed partial class InvitationsAdminLifecycleTests : IDisposable
         Assert.Equal(HttpStatusCode.Forbidden, resend.StatusCode);
         Assert.Equal(0, await CountRowsAsync().ConfigureAwait(false));
         Assert.Empty(Factory.Notifier.Calls);
+    }
+
+    /// <summary>
+    /// The admin workflow persists a snapshot only when it conforms to the
+    /// canonical profile-snapshot contract; the raw payload is stored so the
+    /// acceptance surface can re-validate it defensively.
+    /// </summary>
+    [Fact]
+    public async Task Create_WithConformingSnapshot_PersistsIt()
+    {
+        HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
+
+        using HttpResponseMessage created = await client
+            .PostAsJsonAsync(
+                "/api/user-invitations",
+                new
+                {
+                    email = "snap@cynara.dev",
+                    profileSnapshot = ConformingSnapshot,
+                })
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        (Guid id, string _) = await ReadCreatedAsync(created)
+            .ConfigureAwait(false);
+        Invitation row = await LoadRowAsync(id).ConfigureAwait(false);
+        Assert.Equal(ConformingSnapshot, row.ProfileSnapshot);
+    }
+
+    [Fact]
+    public async Task Create_WithEmptyActorIdSnapshot_Returns400()
+    {
+        await AssertCreateRejectsSnapshotAsync(
+            NonConformingEmptyActorId).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task Create_WithUnknownPropertySnapshot_Returns400()
+    {
+        await AssertCreateRejectsSnapshotAsync(
+            NonConformingUnknownProperty).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task Create_WithMalformedSnapshot_Returns400()
+    {
+        await AssertCreateRejectsSnapshotAsync(
+            MalformedSnapshot()).ConfigureAwait(false);
+    }
+
+    private async Task AssertCreateRejectsSnapshotAsync(string snapshot)
+    {
+        HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
+
+        using HttpResponseMessage created = await client
+            .PostAsJsonAsync(
+                "/api/user-invitations",
+                new
+                {
+                    email = "bad-snap@cynara.dev",
+                    profileSnapshot = snapshot,
+                })
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, created.StatusCode);
+        Assert.Equal(0, await CountRowsAsync().ConfigureAwait(false));
     }
 }

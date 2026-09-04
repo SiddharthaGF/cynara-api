@@ -63,6 +63,7 @@ public sealed class InvitationAdminWorkflow(
     IInvitationExpiryEvaluator expiryEvaluator,
     IInvitationNotifier notifier,
     ICapabilityGuard capabilityGuard,
+    IProfileSnapshotValidator profileSnapshotValidator,
     IAuditWriter auditWriter,
     IHospitalContext hospitalContext,
     TimeProvider timeProvider,
@@ -81,6 +82,9 @@ public sealed class InvitationAdminWorkflow(
             CapabilityCodes.UserInvitationsWrite,
             cancellationToken).ConfigureAwait(false);
         string email = RequireEmail(request.Email);
+        await RequireProfileSnapshotAsync(
+            request.ProfileSnapshot,
+            cancellationToken).ConfigureAwait(false);
         DateTimeOffset now = timeProvider.GetUtcNow();
         string token = NewLinkToken();
         var invitation = new Invitation
@@ -207,6 +211,30 @@ public sealed class InvitationAdminWorkflow(
         hospitalContext.RequireResolved();
         await capabilityGuard.RequireAsync(capability, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rejects snapshots that do not conform to the canonical
+    /// profile-snapshot contract. A null snapshot stays valid: acceptance
+    /// grants nothing but the membership when no snapshot is attached.
+    /// </summary>
+    private async Task RequireProfileSnapshotAsync(
+        string? snapshotJson,
+        CancellationToken cancellationToken)
+    {
+        if (snapshotJson is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> errors = await profileSnapshotValidator
+            .ValidateAsync(snapshotJson, cancellationToken)
+            .ConfigureAwait(false);
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(
+                $"Invalid profile snapshot: {string.Join("; ", errors)}");
+        }
     }
 
     private async Task<Invitation> RequireInvitationAsync(

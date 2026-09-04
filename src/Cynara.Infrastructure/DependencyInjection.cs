@@ -170,6 +170,9 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddScoped<
             IInvitationExpiryEvaluator,
             InvitationExpiryEvaluator>();
+        _ = services.AddSingleton<
+            IProfileSnapshotValidator,
+            ProfileSnapshotValidator>();
         _ = services.AddSingleton<IInvitationNotifier>(
             provider => new DevelopmentInvitationNotifier(
                 provider.GetRequiredService<
