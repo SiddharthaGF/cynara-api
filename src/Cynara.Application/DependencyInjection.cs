@@ -35,6 +35,9 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddCapabilitiesModule();
         _ = services.AddUsersModule();
         _ = services.AddScoped<InvitationAdminWorkflow>();
+        _ = services.AddScoped<InvitationAcceptancePersistence>();
+        _ = services.AddScoped<InvitationAcceptanceContext>();
+        _ = services.AddScoped<InvitationAcceptanceWorkflow>();
         _ = services.AddWorkflowsModule();
         _ = services.AddTasksModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();

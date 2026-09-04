@@ -44,6 +44,22 @@ public sealed class InvitationRepository(CynaraDbContext dbContext)
             cancellationToken);
     }
 
+    public async Task LockForUpdateAsync(
+        Invitation invitation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(invitation);
+
+        // Pessimistic row lock: Npgsql 10 removed the queryable ForUpdate
+        // helpers, so the lock is a raw SELECT ... FOR UPDATE. The lock is
+        // held until the caller's transaction commits or rolls back.
+        _ = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"""SELECT 1 FROM "invitations" WHERE "Id" = {invitation.Id} FOR UPDATE""",
+            cancellationToken).ConfigureAwait(false);
+        await dbContext.Entry(invitation).ReloadAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<Invitation>> ListByHospitalAsync(
         Guid hospitalId,
         CancellationToken cancellationToken)

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynara.dev/schemas/v1/profile-snapshot.schema.json",
+  "title": "Cynara Invitation Profile Snapshot Schema",
+  "description": "Canonical contract for the profile and capability set an administrator attaches to an invitation. actorId and capabilities drive acceptance; profile fields are informational metadata never captured at acceptance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actorId", "capabilities"],
+  "properties": {
+    "actorId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Professional identifier of the invited member within the hospital."
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
+        "maxLength": 64,
+        "description": "Capability code to grant at acceptance; the acceptance catalog gates supported codes."
+      },
+      "description": "Capability codes to grant to the invited member."
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Informational given name; never captured at acceptance."
+        },
+        "surname": {
+          "type": "string",
+          "description": "Informational family name; never captured at acceptance."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Informational contact phone; never captured at acceptance."
+        },
+        "language": {
+          "type": "string",
+          "description": "Informational preferred language; never captured at acceptance."
+        }
+      },
+      "description": "Optional informational profile metadata. Acceptance never captures these fields (password-only)."
+    }
+  }
+}

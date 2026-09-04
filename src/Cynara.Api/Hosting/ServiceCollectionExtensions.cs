@@ -258,7 +258,9 @@ internal static class ServiceCollectionExtensions
                     StringComparison.OrdinalIgnoreCase)
                 || context.Request.Path.Equals(
                     "/connect/account/recovery",
-                    StringComparison.OrdinalIgnoreCase));
+                    StringComparison.OrdinalIgnoreCase)
+                || AuthPathPolicy.IsInvitationAcceptancePath(
+                    context.Request.Path));
     }
 
     /// <summary>
