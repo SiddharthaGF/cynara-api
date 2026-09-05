@@ -2,8 +2,14 @@ using System.Text.Json.Serialization;
 
 namespace Cynara.Application.Modules.Invitations;
 
-/// <summary>Body of the public acceptance request; password only.</summary>
-public sealed record AcceptInvitationRequest(string? Password);
+/// <summary>
+/// Body of the public acceptance request: credentials plus the member's
+/// given/family names when the invitation snapshot did not predefine them.
+/// </summary>
+public sealed record AcceptInvitationRequest(
+    string? Password,
+    string? Name,
+    string? Surname);
 
 /// <summary>
 /// Uniform wire envelope for every acceptance outcome. Token-state failures
