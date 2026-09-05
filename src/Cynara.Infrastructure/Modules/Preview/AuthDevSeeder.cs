@@ -87,8 +87,8 @@ public static class AuthDevSeeder
             CynaraDbContext dbContext = provider.GetRequiredService<CynaraDbContext>();
             CynaraIdentityDbContext identity = provider
                 .GetRequiredService<CynaraIdentityDbContext>();
-            UserManager<IdentityUser<Guid>> userManager = provider
-                .GetRequiredService<UserManager<IdentityUser<Guid>>>();
+            UserManager<CynaraUser> userManager = provider
+                .GetRequiredService<UserManager<CynaraUser>>();
 
             Hospital primary = await EnsurePrimaryHospitalAsync(
                     dbContext,
@@ -100,7 +100,7 @@ public static class AuthDevSeeder
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            IdentityUser<Guid> doctor = await EnsureDoctorUserAsync(
+            CynaraUser doctor = await EnsureDoctorUserAsync(
                     userManager)
                 .ConfigureAwait(false);
 
@@ -220,17 +220,17 @@ public static class AuthDevSeeder
         };
     }
 
-    private static async Task<IdentityUser<Guid>> EnsureDoctorUserAsync(
-        UserManager<IdentityUser<Guid>> userManager)
+    private static async Task<CynaraUser> EnsureDoctorUserAsync(
+        UserManager<CynaraUser> userManager)
     {
-        IdentityUser<Guid>? existing = await userManager.FindByNameAsync(DoctorEmail)
+        CynaraUser? existing = await userManager.FindByNameAsync(DoctorEmail)
             .ConfigureAwait(false);
         if (existing is not null)
         {
             return existing;
         }
 
-        IdentityUser<Guid> doctor = new()
+        CynaraUser doctor = new()
         {
             UserName = DoctorEmail,
             Email = DoctorEmail,
@@ -250,7 +250,7 @@ public static class AuthDevSeeder
 
     private static async Task EnsureMembershipAsync(
         CynaraIdentityDbContext identity,
-        IdentityUser<Guid> user,
+        CynaraUser user,
         Hospital hospital,
         string actorId,
         CancellationToken cancellationToken)

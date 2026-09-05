@@ -26,11 +26,24 @@ public interface IInvitationIdentityStore
     /// <summary>
     /// Creates the invited identity user with <c>EmailConfirmed</c> set, or
     /// reports a duplicate email so the caller falls back to the
-    /// membership-only branch.
+    /// membership-only branch. Given/family names are stored when provided.
     /// </summary>
     public Task<CreateUserResult> CreateUserAsync(
         string email,
         string password,
+        string? givenName,
+        string? familyName,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Fills blank given/family names on an existing user without
+    /// overwriting values already present. No-op when there is nothing
+    /// to fill.
+    /// </summary>
+    public Task FillMissingNamesAsync(
+        Guid userId,
+        string? givenName,
+        string? familyName,
         CancellationToken cancellationToken);
 
     public Task AddMembershipAsync(

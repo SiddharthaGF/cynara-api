@@ -47,21 +47,21 @@ internal class IdentityAuthWebApplicationFactory(
 
     public const string RedirectUri = "http://localhost:5173/en/login";
 
-    public async Task<IdentityUser<Guid>> CreateUserAsync(
+    public async Task<CynaraUser> CreateUserAsync(
         string email,
         string password)
     {
         await using AsyncServiceScope scope = Services.CreateAsyncScope();
-        UserManager<IdentityUser<Guid>> users = scope.ServiceProvider
-            .GetRequiredService<UserManager<IdentityUser<Guid>>>();
-        IdentityUser<Guid>? existing = await users.FindByNameAsync(email)
+        UserManager<CynaraUser> users = scope.ServiceProvider
+            .GetRequiredService<UserManager<CynaraUser>>();
+        CynaraUser? existing = await users.FindByNameAsync(email)
             .ConfigureAwait(false);
         if (existing is not null)
         {
             return existing;
         }
 
-        IdentityUser<Guid> user = new()
+        CynaraUser user = new()
         {
             UserName = email,
             Email = email,
@@ -113,7 +113,7 @@ internal class IdentityAuthWebApplicationFactory(
     }
 
     public async Task SeedMembershipAsync(
-        IdentityUser<Guid> user,
+        CynaraUser user,
         Guid hospitalId,
         string actorId,
         CancellationToken cancellationToken = default)

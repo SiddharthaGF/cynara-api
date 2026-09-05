@@ -5,7 +5,7 @@ using System.Text.Json;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Invitations;
 
-using Microsoft.AspNetCore.Identity;
+using Cynara.Infrastructure.Modules.Identity;
 
 namespace Cynara.Api.Tests.Invitations;
 
@@ -124,6 +124,74 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     }
 
     [Fact]
+    public async Task Accept_WithoutNamesAndSnapshotWithoutNames_RequiresNames()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        using HttpClient admin = await SeedAdminClientAsync(hospitalId)
+            .ConfigureAwait(false);
+        (_, string token) = await CreateInvitationAsync(
+            admin, InviteeEmail, ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        using HttpResponseMessage response = await AcceptAsync(
+            anonymous, token, Password, name: null, surname: null)
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        string body = await response.Content.ReadAsStringAsync()
+            .ConfigureAwait(false);
+        Assert.Contains(
+            "given name and family name",
+            body,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Accept_WithRequestNames_PersistsNamesOnUser()
+    {
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        using HttpClient admin = await SeedAdminClientAsync(hospitalId)
+            .ConfigureAwait(false);
+        (_, string token) = await CreateInvitationAsync(
+            admin, InviteeEmail, ConformingSnapshot).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        using HttpResponseMessage response = await AcceptAsync(
+            anonymous, token, Password, name: "Ada", surname: "Lovelace")
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        CynaraUser user = await LoadUserAsync(InviteeEmail)
+            .ConfigureAwait(false);
+        Assert.Equal("Ada", user.GivenName);
+        Assert.Equal("Lovelace", user.FamilyName);
+    }
+
+    [Fact]
+    public async Task Accept_WithSnapshotNames_FallsBackToSnapshot()
+    {
+        const string snapshotWithProfile =
+            /*lang=json,strict*/
+            """{"actorId":"actor-invitee","capabilities":["patients.read","audit.read"],"profile":{"name":"Grace","surname":"Hopper"}}""";
+        Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
+        using HttpClient admin = await SeedAdminClientAsync(hospitalId)
+            .ConfigureAwait(false);
+        (_, string token) = await CreateInvitationAsync(
+            admin, InviteeEmail, snapshotWithProfile).ConfigureAwait(false);
+        using HttpClient anonymous = Factory.CreateClient();
+
+        using HttpResponseMessage response = await AcceptAsync(
+            anonymous, token, Password, name: null, surname: null)
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        CynaraUser user = await LoadUserAsync(InviteeEmail)
+            .ConfigureAwait(false);
+        Assert.Equal("Grace", user.GivenName);
+        Assert.Equal("Hopper", user.FamilyName);
+    }
+
+    [Fact]
     public async Task Accept_WithExistingUser_CreatesMembershipAndGrantsOnly()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
@@ -183,7 +251,7 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     public async Task Accept_WithActorIdAlreadyInHospital_Returns400AndChangesNothing()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
-        IdentityUser<Guid> other = await Factory.CreateUserAsync(
+        CynaraUser other = await Factory.CreateUserAsync(
             "other@cynara.dev", Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(other, hospitalId, ActorInvitee)
             .ConfigureAwait(false);
@@ -214,7 +282,7 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     public async Task Accept_ExistingUserWithMembershipInHospital_Returns400()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
-        IdentityUser<Guid> existing = await Factory.CreateUserAsync(
+        CynaraUser existing = await Factory.CreateUserAsync(
             InviteeEmail, Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(existing, hospitalId, "actor-other")
             .ConfigureAwait(false);
@@ -245,7 +313,7 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     public async Task Accept_ReinviteAfterRevoke_CreatesNewActiveMembership()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
-        IdentityUser<Guid> existing = await Factory.CreateUserAsync(
+        CynaraUser existing = await Factory.CreateUserAsync(
             InviteeEmail, Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(existing, hospitalId, "actor-old")
             .ConfigureAwait(false);
@@ -280,7 +348,7 @@ public sealed partial class InvitationAcceptanceTests : IDisposable
     public async Task Accept_RevokedActorId_IsReusable()
     {
         Guid hospitalId = await SeedWorkspaceAsync().ConfigureAwait(false);
-        IdentityUser<Guid> other = await Factory.CreateUserAsync(
+        CynaraUser other = await Factory.CreateUserAsync(
             "other@cynara.dev", Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(other, hospitalId, ActorInvitee)
             .ConfigureAwait(false);

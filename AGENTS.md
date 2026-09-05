@@ -176,6 +176,12 @@ tokens and force users to sign in again.
   that coordinates the mutation.
 - Discard assignments (`_ =`) only where the codebase already does for
   deliberately unused returns; do not “clean” that style casually.
+- Keep comments lean and contract-relevant. Code should read clearly without
+  narrative comments: do not add `//` comments that restate what the code does.
+  Comments inside method bodies are reserved for non-obvious why-nots
+  (invariants, concurrency, security); anything longer belongs in the member's
+  XML doc. Condense overlong doc blocks to the facts that matter (invariants,
+  concurrency, security why-nots); do not preserve bloat.
 - Do not overwrite or revert unrelated work already present in the working tree.
 
 ## Testing Expectations

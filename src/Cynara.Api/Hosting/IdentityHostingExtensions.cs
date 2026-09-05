@@ -55,7 +55,7 @@ internal static class IdentityHostingExtensions
         ArgumentNullException.ThrowIfNull(environment);
 
         _ = services
-            .AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>(options =>
+            .AddIdentity<CynaraUser, IdentityRole<Guid>>(options =>
             {
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.MaxFailedAccessAttempts = 5;
@@ -66,7 +66,7 @@ internal static class IdentityHostingExtensions
             .AddDefaultTokenProviders();
 
         _ = services.AddSingleton<
-            IEmailSender<IdentityUser<Guid>>,
+            IEmailSender<CynaraUser>,
             DevelopmentEmailSender>();
 
         string issuer = configuration["OpenIddict:Issuer"] ?? "http://localhost:5000";

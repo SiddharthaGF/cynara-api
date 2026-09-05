@@ -314,11 +314,31 @@ public sealed class InvitationAdminWorkflow(
             invitation.Id,
             invitation.Email,
             invitation.HospitalId,
-            invitation.Status.ToString(),
+            MapStatus(invitation.Status),
             invitation.LinkVersion,
             invitation.CreatedAt,
             invitation.IssuedAt,
             invitation.ExpiresAt);
+    }
+
+    /// <summary>
+    /// Wire representation of the lifecycle status. The frontend contract
+    /// expects lowercase kebab-case (`already-used`, not `AlreadyUsed`), so
+    /// every value is mapped explicitly instead of relying on
+    /// <see cref="object.ToString"/> casing.
+    /// </summary>
+    private static string MapStatus(InvitationStatus status)
+    {
+        return status switch
+        {
+            InvitationStatus.Pending => "pending",
+            InvitationStatus.Accepted => "accepted",
+            InvitationStatus.Expired => "expired",
+            InvitationStatus.Revoked => "revoked",
+            InvitationStatus.AlreadyUsed => "already-used",
+            InvitationStatus.Cancelled => "cancelled",
+            _ => status.ToString().ToLowerInvariant(),
+        };
     }
 
     private static string RequireEmail(string? email)

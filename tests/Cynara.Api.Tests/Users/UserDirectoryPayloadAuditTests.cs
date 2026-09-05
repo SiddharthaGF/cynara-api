@@ -2,8 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using Cynara.Domain.Capabilities;
-
-using Microsoft.AspNetCore.Identity;
+using Cynara.Infrastructure.Modules.Identity;
 
 namespace Cynara.Api.Tests.Users;
 
@@ -75,7 +74,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
     [Fact]
     public async Task Detail_EnrichesWithinPolicy_WithExactKeySets()
     {
-        (IdentityUser<Guid> target, _) = await SeedCallerAndViewAsync();
+        (CynaraUser target, _) = await SeedCallerAndViewAsync();
         HttpClient client = await CreateAdminClientAsync();
 
         using HttpResponseMessage response = await client.GetAsync(
@@ -121,7 +120,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
     [Fact]
     public async Task ForeignHospitalId_Returns404_IdenticalToUnknown()
     {
-        (IdentityUser<Guid> _, IdentityUser<Guid> foreign) =
+        (CynaraUser _, CynaraUser foreign) =
             await SeedCallerAndViewAsync();
         var unknownId = Guid.NewGuid();
         HttpClient client = await CreateAdminClientAsync();
@@ -149,7 +148,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
     [Fact]
     public async Task Details_EmitOneReadAudit_Lists_EmitNone()
     {
-        (IdentityUser<Guid> target, _) = await SeedCallerAndViewAsync();
+        (CynaraUser target, _) = await SeedCallerAndViewAsync();
         HttpClient client = await CreateAdminClientAsync();
 
         using HttpResponseMessage list = await client.GetAsync(
@@ -178,8 +177,8 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
     /// B holds a foreign user invisible to hospital-scoped callers.
     /// </summary>
     private async Task<(
-        IdentityUser<Guid> Target,
-        IdentityUser<Guid> Foreign)> SeedCallerAndViewAsync()
+        CynaraUser Target,
+        CynaraUser Foreign)> SeedCallerAndViewAsync()
     {
         await Factory.ResetDatabaseAsync();
         await Factory.RegisterClientAsync();
@@ -190,7 +189,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
             HospitalBCode,
             "Hospital B")).Id;
 
-        IdentityUser<Guid> target = await Factory.CreateUserAsync(
+        CynaraUser target = await Factory.CreateUserAsync(
             "view-target@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(target, hospitalA, "actor-view");
@@ -203,7 +202,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
             "actor-view",
             CapabilityCodes.WorkspaceRead);
 
-        IdentityUser<Guid> foreign = await Factory.CreateUserAsync(
+        CynaraUser foreign = await Factory.CreateUserAsync(
             "foreign@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(foreign, hospitalB, "actor-foreign");
@@ -216,7 +215,7 @@ public sealed class UserDirectoryPayloadAuditTests : IDisposable
         Guid hospitalA = (await Factory.EnsureHospitalAsync(
             HospitalACode,
             "Hospital A")).Id;
-        IdentityUser<Guid> admin = await Factory.CreateUserAsync(
+        CynaraUser admin = await Factory.CreateUserAsync(
             "admin@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(admin, hospitalA, "actor-admin");

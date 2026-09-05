@@ -132,7 +132,7 @@ public sealed partial class InvitationsAdminLifecycleTests : IDisposable
         JsonElement item =
             Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(id, item.GetProperty("id").GetGuid());
-        Assert.Equal("Expired", item.GetProperty("status").GetString());
+        Assert.Equal("expired", item.GetProperty("status").GetString());
         Assert.Equal(1, await CountAuditsAsync("invitation.expired")
             .ConfigureAwait(false));
         RecordedExpiryNotice notice =
@@ -150,7 +150,7 @@ public sealed partial class InvitationsAdminLifecycleTests : IDisposable
         using JsonDocument resentDoc = await ReadJsonAsync(resent)
             .ConfigureAwait(false);
         JsonElement view = resentDoc.RootElement.GetProperty("invitation");
-        Assert.Equal("Pending", view.GetProperty("status").GetString());
+        Assert.Equal("pending", view.GetProperty("status").GetString());
         Assert.Equal(2, view.GetProperty("linkVersion").GetInt32());
         var issuedAt = DateTimeOffset.Parse(
             view.GetProperty("issuedAt").GetString()!,

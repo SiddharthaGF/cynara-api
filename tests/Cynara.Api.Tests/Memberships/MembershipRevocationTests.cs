@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Microsoft.AspNetCore.Identity;
+using Cynara.Infrastructure.Modules.Identity;
 
 namespace Cynara.Api.Tests.Memberships;
 
@@ -47,7 +47,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
     public async Task Revoke_HappyPath_Returns200AndRetainsRevokedRow()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "revoked-happy@cynara.dev",
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(client, member.Id, "doctor-gone")
@@ -78,7 +78,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
     {
         const string email = "revoked-loses@cynara.dev";
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             email,
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(client, member.Id, "doctor-lost")
@@ -108,7 +108,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
     public async Task Revoke_Twice_SecondReturns409AndChangesNothing()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "revoked-twice@cynara.dev",
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(client, member.Id, "doctor-twice")
@@ -143,7 +143,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
         HttpClient other = await SeedOtherHospitalAsync()
             .ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "revoked-foreign@cynara.dev",
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(other, member.Id, "doctor-away")
@@ -170,7 +170,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
     public async Task Reactivate_HappyPath_InsertsNewActiveRow()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "reactivated@cynara.dev",
             Password).ConfigureAwait(false);
         Guid revokedId = await AddAsync(client, member.Id, "doctor-back")
@@ -213,7 +213,7 @@ public sealed partial class MembershipRevocationTests : IDisposable
     public async Task Reactivate_WithActivePresent_Returns409()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "reactivate-busy@cynara.dev",
             Password).ConfigureAwait(false);
         Guid revokedId = await AddAsync(client, member.Id, "doctor-old")

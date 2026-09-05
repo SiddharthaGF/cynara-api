@@ -86,13 +86,13 @@ internal static class WebApplicationExtensions
         if (app.Environment.IsDevelopment())
         {
             _ = app.UseCynaraSwaggerJson();
-            _ = app.UseSwagger();
+            _ = app.MapSwagger().AllowAnonymous();
             _ = app.MapScalarApiReference(options =>
             {
                 _ = options.WithTitle("Cynara API");
                 _ = options.WithOpenApiRoutePattern(
                     "/swagger/{documentName}/swagger.json");
-            });
+            }).AllowAnonymous();
         }
 
         _ = app.MapHealthEndpoints();

@@ -3,9 +3,9 @@ using System.Text.Json;
 using Cynara.Application.Modules.Invitations;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Invitations;
+using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cynara.Api.Tests.Invitations;
@@ -33,7 +33,7 @@ public sealed partial class InvitationsAdminLifecycleTests
         Guid hospitalId = (await Factory.EnsureHospitalAsync(
             HospitalCode,
             "Hospital A").ConfigureAwait(false)).Id;
-        IdentityUser<Guid> admin = await Factory.CreateUserAsync(
+        CynaraUser admin = await Factory.CreateUserAsync(
             "admin@cynara.dev",
             Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(admin, hospitalId, ActorAdmin)

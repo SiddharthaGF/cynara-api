@@ -6,8 +6,6 @@ using Cynara.Domain.Capabilities;
 using Cynara.Domain.Memberships;
 using Cynara.Infrastructure.Modules.Identity;
 
-using Microsoft.AspNetCore.Identity;
-
 namespace Cynara.Api.Tests.Memberships;
 
 /// <summary>
@@ -79,7 +77,7 @@ public sealed partial class MembershipAdminLifecycleTests
         Guid hospitalId = (await Factory.EnsureHospitalAsync(
             hospitalCode,
             hospitalName).ConfigureAwait(false)).Id;
-        IdentityUser<Guid> admin = await Factory.CreateUserAsync(
+        CynaraUser admin = await Factory.CreateUserAsync(
             "memb-admin@cynara.dev",
             Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(admin, hospitalId, ActorAdmin)

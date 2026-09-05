@@ -1,7 +1,6 @@
 using Cynara.Infrastructure;
 using Cynara.Infrastructure.Modules.Identity;
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -142,7 +141,7 @@ public sealed class IdentityFoundationTests : IDisposable
 
         var userId = Guid.NewGuid();
         var hospitalId = Guid.NewGuid();
-        identity.Users.Add(new IdentityUser<Guid>
+        identity.Users.Add(new CynaraUser
         {
             Id = userId,
             UserName = $"member-{userId}",
@@ -169,7 +168,7 @@ public sealed class IdentityFoundationTests : IDisposable
         var userId = Guid.NewGuid();
         var firstHospital = Guid.NewGuid();
         var secondHospital = Guid.NewGuid();
-        identity.Users.Add(new IdentityUser<Guid>
+        identity.Users.Add(new CynaraUser
         {
             Id = userId,
             UserName = $"member-{userId}",
@@ -210,7 +209,7 @@ public sealed class IdentityFoundationTests : IDisposable
         {
             CynaraIdentityDbContext identity = first
                 .GetRequiredService<CynaraIdentityDbContext>();
-            identity.Users.Add(new IdentityUser<Guid>
+            identity.Users.Add(new CynaraUser
             {
                 Id = userId,
                 UserName = $"stale-domain-{userId}",
@@ -252,7 +251,7 @@ public sealed class IdentityFoundationTests : IDisposable
         {
             CynaraIdentityDbContext identity = first
                 .GetRequiredService<CynaraIdentityDbContext>();
-            identity.Users.Add(new IdentityUser<Guid>
+            identity.Users.Add(new CynaraUser
             {
                 Id = userId,
                 UserName = $"stale-identity-{userId}",

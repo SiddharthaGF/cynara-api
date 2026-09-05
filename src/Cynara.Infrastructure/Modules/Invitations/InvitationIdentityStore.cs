@@ -15,14 +15,14 @@ namespace Cynara.Infrastructure.Modules.Invitations;
 /// staged memberships inside the same commit.
 /// </summary>
 public sealed class InvitationIdentityStore(
-    UserManager<IdentityUser<Guid>> users,
+    UserManager<CynaraUser> users,
     CynaraIdentityDbContext identityDbContext) : IInvitationIdentityStore
 {
     public async Task<Guid?> FindUserIdByEmailAsync(
         string email,
         CancellationToken cancellationToken)
     {
-        IdentityUser<Guid>? user = await users.FindByEmailAsync(email)
+        CynaraUser? user = await users.FindByEmailAsync(email)
             .ConfigureAwait(false);
         return user?.Id;
     }
@@ -33,13 +33,13 @@ public sealed class InvitationIdentityStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var user = new IdentityUser<Guid>
+        var user = new CynaraUser
         {
             UserName = email,
             Email = email,
         };
         List<string> errors = [];
-        foreach (IPasswordValidator<IdentityUser<Guid>> validator
+        foreach (IPasswordValidator<CynaraUser> validator
             in users.PasswordValidators)
         {
             IdentityResult result = await validator
@@ -57,14 +57,18 @@ public sealed class InvitationIdentityStore(
     public async Task<CreateUserResult> CreateUserAsync(
         string email,
         string password,
+        string? givenName,
+        string? familyName,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var user = new IdentityUser<Guid>
+        var user = new CynaraUser
         {
             UserName = email,
             Email = email,
             EmailConfirmed = true,
+            GivenName = NormalizeName(givenName),
+            FamilyName = NormalizeName(familyName),
         };
         IdentityResult result = await users.CreateAsync(user, password)
             .ConfigureAwait(false);
@@ -84,6 +88,46 @@ public sealed class InvitationIdentityStore(
             UserId: null,
             [.. result.Errors.Select(static error => error.Description)],
             Duplicate: false);
+    }
+
+    public async Task FillMissingNamesAsync(
+        Guid userId,
+        string? givenName,
+        string? familyName,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string? given = NormalizeName(givenName);
+        string? family = NormalizeName(familyName);
+        if (given is null && family is null)
+        {
+            return;
+        }
+
+        CynaraUser? user = await users.FindByIdAsync(userId.ToString())
+            .ConfigureAwait(false);
+        if (user is null)
+        {
+            return;
+        }
+
+        bool changed = false;
+        if (given is not null && string.IsNullOrWhiteSpace(user.GivenName))
+        {
+            user.GivenName = given;
+            changed = true;
+        }
+
+        if (family is not null && string.IsNullOrWhiteSpace(user.FamilyName))
+        {
+            user.FamilyName = family;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            _ = await users.UpdateAsync(user).ConfigureAwait(false);
+        }
     }
 
     public Task AddMembershipAsync(
@@ -140,5 +184,19 @@ public sealed class InvitationIdentityStore(
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return identityDbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Trims informational names; blank collapses to null so columns stay
+    /// null instead of storing whitespace.
+    /// </summary>
+    private static string? NormalizeName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
     }
 }

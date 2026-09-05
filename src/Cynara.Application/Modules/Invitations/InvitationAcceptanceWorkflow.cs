@@ -18,8 +18,41 @@ public sealed class InvitationAcceptanceWorkflow(
     InvitationAcceptancePersistence persistence,
     InvitationAcceptanceContext context)
 {
+    private const int MaxNameLength = 128;
+
+    // Process-local stripes serializing concurrent accepts of the same
+    // link. The database stays the cross-instance backstop (unique
+    // constraints plus the RowVersion concurrency token); this only
+    // restores the single-winner ordering inside one process, using the EF
+    // model alone and no hand-written SQL. Fixed bucket count bounds the
+    // state; no per-token keys are retained.
+    private static readonly SemaphoreSlim[] AcceptanceStripes = [.. Enumerable
+        .Range(0, 64)
+        .Select(_ => new SemaphoreSlim(1, 1))];
+
     /// <summary>Accepts the invitation or returns the uniform envelope.</summary>
     public async Task<AcceptInvitationResponse> AcceptAsync(
+        string token,
+        AcceptInvitationRequest? request,
+        CancellationToken cancellationToken)
+    {
+        SemaphoreSlim stripe =
+            AcceptanceStripes[
+                (uint)StringComparer.Ordinal.GetHashCode(token)
+                % (uint)AcceptanceStripes.Length];
+        await stripe.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await AcceptInnerAsync(token, request, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = stripe.Release();
+        }
+    }
+
+    private async Task<AcceptInvitationResponse> AcceptInnerAsync(
         string token,
         AcceptInvitationRequest? request,
         CancellationToken cancellationToken)
@@ -104,8 +137,21 @@ public sealed class InvitationAcceptanceWorkflow(
                 + string.Join("; ", passwordErrors));
         }
 
+        // Member names come from the accept request first and fall back to
+        // the administrator-predefined snapshot profile. When neither side
+        // provides them the request visibly fails so the invitee can supply
+        // them; token-state outcomes stay uniform.
+        (string givenName, string familyName) = RequireNames(request, snapshot);
+
         return await AcceptPendingAsync(
-            invitation, snapshot, password, hospital, now, cancellationToken)
+            invitation,
+            snapshot,
+            password,
+            givenName,
+            familyName,
+            hospital,
+            now,
+            cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -113,6 +159,8 @@ public sealed class InvitationAcceptanceWorkflow(
         Invitation invitation,
         ParsedProfileSnapshot snapshot,
         string password,
+        string givenName,
+        string familyName,
         Hospital hospital,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -173,7 +221,12 @@ public sealed class InvitationAcceptanceWorkflow(
             }
 
             Guid userId = await ResolveUserIdAsync(
-                existingUserId, invitation, password, cancellationToken)
+                    existingUserId,
+                    invitation,
+                    password,
+                    givenName,
+                    familyName,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             await persistence.IdentityStore.AddMembershipAsync(
@@ -224,15 +277,29 @@ public sealed class InvitationAcceptanceWorkflow(
         Guid? existingUserId,
         Invitation invitation,
         string password,
+        string givenName,
+        string familyName,
         CancellationToken cancellationToken)
     {
         if (existingUserId is not null)
         {
+            // Existing accounts keep their stored names; only blank slots
+            // are backfilled from this acceptance.
+            await persistence.IdentityStore.FillMissingNamesAsync(
+                    existingUserId.Value,
+                    givenName,
+                    familyName,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return existingUserId.Value;
         }
 
         CreateUserResult created = await persistence.IdentityStore.CreateUserAsync(
-            invitation.Email, password, cancellationToken).ConfigureAwait(false);
+            invitation.Email,
+            password,
+            givenName,
+            familyName,
+            cancellationToken).ConfigureAwait(false);
         if (created.Duplicate)
         {
             return (await persistence.IdentityStore.FindUserIdByEmailAsync(
@@ -312,5 +379,51 @@ public sealed class InvitationAcceptanceWorkflow(
         }
 
         return password;
+    }
+
+    /// <summary>
+    /// Resolves the member's names from the accept request first, falling
+    /// back to the administrator-predefined snapshot profile. Throws a
+    /// visible <see cref="ValidationException"/> when either side is
+    /// missing or over the column limit so the invitee can supply them.
+    /// Web clients match on "given name and family name" to reveal the
+    /// name fields.
+    /// </summary>
+    private static (string GivenName, string FamilyName) RequireNames(
+        AcceptInvitationRequest? request,
+        ParsedProfileSnapshot snapshot)
+    {
+        string givenName = FirstNonBlank(request?.Name, snapshot.GivenName);
+        string familyName = FirstNonBlank(request?.Surname, snapshot.FamilyName);
+        if (givenName.Length == 0 || familyName.Length == 0)
+        {
+            throw new ValidationException(
+                "The invited member's given name and family name are "
+                + "required to accept this invitation.");
+        }
+
+        if (givenName.Length > MaxNameLength || familyName.Length > MaxNameLength)
+        {
+            throw new ValidationException(
+                $"Given name and family name must be 1-{MaxNameLength} "
+                + "characters.");
+        }
+
+        return (givenName, familyName);
+    }
+
+    private static string FirstNonBlank(string? first, string? second)
+    {
+        if (!string.IsNullOrWhiteSpace(first))
+        {
+            return first.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(second))
+        {
+            return second.Trim();
+        }
+
+        return string.Empty;
     }
 }

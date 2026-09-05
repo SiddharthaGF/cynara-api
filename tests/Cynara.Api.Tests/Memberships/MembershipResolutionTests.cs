@@ -1,8 +1,6 @@
 using Cynara.Domain.Memberships;
 using Cynara.Infrastructure.Modules.Identity;
 
-using Microsoft.AspNetCore.Identity;
-
 using Npgsql;
 
 namespace Cynara.Api.Tests.Memberships;
@@ -41,7 +39,7 @@ public sealed class MembershipResolutionTests : IDisposable
             .CreateAsyncScope();
         CynaraIdentityDbContext identity = scope.ServiceProvider
             .GetRequiredService<CynaraIdentityDbContext>();
-        IdentityUser<Guid> user = await CreateUserAsync(
+        CynaraUser user = await CreateUserAsync(
             identity,
             "dup-pair@cynara.dev");
         var hospitalId = Guid.NewGuid();
@@ -72,7 +70,7 @@ public sealed class MembershipResolutionTests : IDisposable
             .CreateAsyncScope();
         CynaraIdentityDbContext identity = scope.ServiceProvider
             .GetRequiredService<CynaraIdentityDbContext>();
-        IdentityUser<Guid> user = await CreateUserAsync(
+        CynaraUser user = await CreateUserAsync(
             identity,
             "pair-history@cynara.dev");
         var hospitalId = Guid.NewGuid();
@@ -104,10 +102,10 @@ public sealed class MembershipResolutionTests : IDisposable
             .CreateAsyncScope();
         CynaraIdentityDbContext identity = scope.ServiceProvider
             .GetRequiredService<CynaraIdentityDbContext>();
-        IdentityUser<Guid> firstUser = await CreateUserAsync(
+        CynaraUser firstUser = await CreateUserAsync(
             identity,
             "actor-1@cynara.dev");
-        IdentityUser<Guid> secondUser = await CreateUserAsync(
+        CynaraUser secondUser = await CreateUserAsync(
             identity,
             "actor-2@cynara.dev");
         var hospitalId = Guid.NewGuid();
@@ -138,10 +136,10 @@ public sealed class MembershipResolutionTests : IDisposable
             .CreateAsyncScope();
         CynaraIdentityDbContext identity = scope.ServiceProvider
             .GetRequiredService<CynaraIdentityDbContext>();
-        IdentityUser<Guid> firstUser = await CreateUserAsync(
+        CynaraUser firstUser = await CreateUserAsync(
             identity,
             "reuse-1@cynara.dev");
-        IdentityUser<Guid> secondUser = await CreateUserAsync(
+        CynaraUser secondUser = await CreateUserAsync(
             identity,
             "reuse-2@cynara.dev");
         var hospitalId = Guid.NewGuid();
@@ -181,10 +179,10 @@ public sealed class MembershipResolutionTests : IDisposable
             .GetRequiredService<CynaraIdentityDbContext>();
         CynaraDbContext domain = scope.ServiceProvider
             .GetRequiredService<CynaraDbContext>();
-        IdentityUser<Guid> active = await CreateUserAsync(
+        CynaraUser active = await CreateUserAsync(
             identity,
             "reader-active@cynara.dev");
-        IdentityUser<Guid> revoked = await CreateUserAsync(
+        CynaraUser revoked = await CreateUserAsync(
             identity,
             "reader-revoked@cynara.dev");
         var hospitalId = Guid.NewGuid();
@@ -213,11 +211,11 @@ public sealed class MembershipResolutionTests : IDisposable
                 revoked.Id, hospitalId, CancellationToken.None));
     }
 
-    private static async Task<IdentityUser<Guid>> CreateUserAsync(
+    private static async Task<CynaraUser> CreateUserAsync(
         CynaraIdentityDbContext identity,
         string email)
     {
-        var user = new IdentityUser<Guid>
+        var user = new CynaraUser
         {
             UserName = email,
             Email = email,
