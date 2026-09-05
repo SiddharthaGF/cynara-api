@@ -173,6 +173,43 @@ public sealed class HospitalMembershipListingTests : IDisposable
     }
 
     /// <summary>
+    /// The listing reads through the active-only reader: a revoked
+    /// membership in one hospital is excluded while the active
+    /// membership in the other hospital still lists.
+    /// </summary>
+    [Fact]
+    public async Task RevokedMembership_IsExcludedFromListing()
+    {
+        const string email = "revoked-listing@cynara.dev";
+        const string password = "Cynara!Dev123";
+
+        await Factory.ResetDatabaseAsync();
+
+        var user = await Factory.CreateUserAsync(email, password);
+        Guid primary = (await Factory.EnsureHospitalAsync(PrimaryCode, "Primary"))
+            .Id;
+        Guid secondary = (await Factory.EnsureHospitalAsync(SecondaryCode, "Secondary"))
+            .Id;
+        await Factory.SeedMembershipAsync(user, primary, "doctor-primary");
+        await Factory.SeedMembershipAsync(user, secondary, "doctor-secondary");
+        await Factory.RevokeMembershipAsync(user.Id, secondary);
+        await Factory.RegisterClientAsync();
+        AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
+
+        HttpClient client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
+
+        using HttpResponseMessage response = await client
+            .GetAsync(new Uri("/api/me/hospitals", UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        IReadOnlyList<HospitalEntry> items = await ReadItemsAsync(response);
+        HospitalEntry single = Assert.Single(items);
+        Assert.Equal(PrimaryCode, single.Code);
+    }
+
+    /// <summary>
     /// Parses the listing body and asserts every item exposes exactly the
     /// <c>code</c> and <c>name</c> properties and nothing else. A member
     /// leaking <c>id</c>, <c>status</c>, or actor data fails this helper.

@@ -3,6 +3,7 @@ using Cynara.Application.Modules.Capabilities;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Hospitals;
+using Cynara.Domain.Memberships;
 using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.Identity;
@@ -258,7 +259,8 @@ public static class AuthDevSeeder
             .AsNoTracking()
             .AnyAsync(
                 item => item.UserId == user.Id
-                    && item.HospitalId == hospital.Id,
+                    && item.HospitalId == hospital.Id
+                    && item.Status == MembershipStatus.Active,
                 cancellationToken)
             .ConfigureAwait(false);
         if (exists)
@@ -266,13 +268,17 @@ public static class AuthDevSeeder
             return;
         }
 
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         _ = identity.Memberships.Add(new Membership
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             HospitalId = hospital.Id,
             ActorId = actorId,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = now,
+            Status = MembershipStatus.Active,
+            ActivatedAt = now,
+            UpdatedAt = now,
         });
         _ = await identity.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }

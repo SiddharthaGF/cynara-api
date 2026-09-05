@@ -77,5 +77,6 @@ public static class AuditEntityTypes
     public const string Pipeline = "pipeline";
     public const string Task = "task";
     public const string Invitation = "invitation";
+    public const string Membership = "membership";
     public const string AiProviderSettings = "ai-provider-settings";
 }

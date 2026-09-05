@@ -171,6 +171,48 @@ public sealed class MembershipResolutionTests : IDisposable
             actor => Assert.Equal("doctor-reuse", actor));
     }
 
+    [Fact]
+    public async Task FindActorIdAsync_IgnoresRevokedMembership()
+    {
+        await Factory.ResetDatabaseAsync();
+        await using AsyncServiceScope scope = Factory.Services
+            .CreateAsyncScope();
+        CynaraIdentityDbContext identity = scope.ServiceProvider
+            .GetRequiredService<CynaraIdentityDbContext>();
+        CynaraDbContext domain = scope.ServiceProvider
+            .GetRequiredService<CynaraDbContext>();
+        IdentityUser<Guid> active = await CreateUserAsync(
+            identity,
+            "reader-active@cynara.dev");
+        IdentityUser<Guid> revoked = await CreateUserAsync(
+            identity,
+            "reader-revoked@cynara.dev");
+        var hospitalId = Guid.NewGuid();
+
+        await InsertMembershipAsync(
+            identity,
+            active.Id,
+            hospitalId,
+            "doctor-active",
+            MembershipStatus.Active);
+        await InsertMembershipAsync(
+            identity,
+            revoked.Id,
+            hospitalId,
+            "doctor-revoked",
+            MembershipStatus.Revoked);
+
+        var reader = new MembershipHospitalReader(identity, domain);
+
+        Assert.Equal(
+            "doctor-active",
+            await reader.FindActorIdAsync(
+                active.Id, hospitalId, CancellationToken.None));
+        Assert.Null(
+            await reader.FindActorIdAsync(
+                revoked.Id, hospitalId, CancellationToken.None));
+    }
+
     private static async Task<IdentityUser<Guid>> CreateUserAsync(
         CynaraIdentityDbContext identity,
         string email)
