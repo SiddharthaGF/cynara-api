@@ -5,7 +5,7 @@ namespace Cynara.Application.Modules.Memberships;
 /// Implementations track or read without tracking as requested but NEVER
 /// commit: workflows own the single <c>SaveChangesAsync</c> boundary that
 /// also commits staged audit events. Slice 2 covers add/update/list;
-/// slice 3 adds revoke/reactivate below.
+/// revoke/reactivate.
 /// </summary>
 public interface IMembershipRepository
 {
