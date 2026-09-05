@@ -1,6 +1,7 @@
 using Cynara.Application.Modules.Users;
 using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Domain.Capabilities;
+using Cynara.Domain.Memberships;
 
 using Microsoft.AspNetCore.Identity;
 
@@ -167,14 +168,16 @@ public sealed class UserDirectoryReader(
         Guid resolvedHospitalId,
         Guid? hospitalFilter)
     {
+        IQueryable<Membership> active = source
+            .Where(item => item.Status == MembershipStatus.Active);
         if (!platformScope)
         {
-            return source.Where(item => item.HospitalId == resolvedHospitalId);
+            return active.Where(item => item.HospitalId == resolvedHospitalId);
         }
 
         return hospitalFilter is Guid filter
-            ? source.Where(item => item.HospitalId == filter)
-            : source;
+            ? active.Where(item => item.HospitalId == filter)
+            : active;
     }
 
     private async Task<Dictionary<Guid, string>> LoadHospitalCodesAsync(

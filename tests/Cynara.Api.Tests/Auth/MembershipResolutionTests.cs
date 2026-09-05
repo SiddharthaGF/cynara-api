@@ -185,6 +185,39 @@ public sealed class MembershipResolutionTests : IDisposable
         Assert.Equal(actor, actorAtPrimary);
     }
 
+    /// <summary>
+    /// A revoked-only membership must lose resolution: the middleware
+    /// delegates to the active-only reader, so the tenant route denies
+    /// with 403 exactly like a never-member.
+    /// </summary>
+    [Fact]
+    public async Task RevokedOnlyMembership_Returns403()
+    {
+        const string email = "revoked@cynara.dev";
+        const string password = "Cynara!Dev123";
+        const string actor = "doctor-revoked";
+
+        await Factory.ResetDatabaseAsync();
+
+        var user = await Factory.CreateUserAsync(email, password);
+        Guid hospitalId = (await Factory.EnsureHospitalAsync(PrimaryCode, "Primary"))
+            .Id;
+        await Factory.SeedMembershipAsync(user, hospitalId, actor);
+        await Factory.RevokeMembershipAsync(user.Id, hospitalId);
+        await Factory.RegisterClientAsync();
+        AuthTokenResult tokens = await Factory.GetPasswordTokenAsync(email, password);
+
+        HttpClient client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", tokens.AccessToken);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Hospital-Code", PrimaryCode);
+
+        using HttpResponseMessage response = await client
+            .GetAsync(new Uri("/api/me/capabilities", UriKind.Relative))
+            .ConfigureAwait(false);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private async Task<HttpResponseMessage> GetWorkspaceAsync(string accessToken)
     {
         HttpClient client = Factory.CreateClient();

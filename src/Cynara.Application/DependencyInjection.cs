@@ -9,6 +9,7 @@ using Cynara.Application.Modules.FormResponses;
 using Cynara.Application.Modules.Forms;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Invitations;
+using Cynara.Application.Modules.Memberships;
 using Cynara.Application.Modules.Patients;
 using Cynara.Application.Modules.Tasks;
 using Cynara.Application.Modules.Users;
@@ -38,6 +39,7 @@ public static class ApplicationServiceCollectionExtensions
         _ = services.AddScoped<InvitationAcceptancePersistence>();
         _ = services.AddScoped<InvitationAcceptanceContext>();
         _ = services.AddScoped<InvitationAcceptanceWorkflow>();
+        _ = services.AddScoped<MembershipAdminWorkflow>();
         _ = services.AddWorkflowsModule();
         _ = services.AddTasksModule();
         _ = services.AddScoped<IWorkflowContext, WorkflowContext>();

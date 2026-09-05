@@ -258,6 +258,27 @@ public sealed class IdentityFoundationTests : IDisposable
                 UserName = $"stale-identity-{userId}",
             });
             _ = await identity.SaveChangesAsync();
+
+            // Rewind memberships to its pre-lifecycle shape so the
+            // rebaseline path genuinely replays AddMembershipLifecycle;
+            // otherwise the replayed ADD COLUMN fails with 42701.
+            _ = await identity.Database.ExecuteSqlRawAsync(
+                "DROP INDEX IF EXISTS "
+                + "\"IX_memberships_HospitalId_ActorId\"");
+            _ = await identity.Database.ExecuteSqlRawAsync(
+                "DROP INDEX IF EXISTS "
+                + "\"IX_memberships_UserId_HospitalId\"");
+            _ = await identity.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"memberships\" "
+                + "DROP COLUMN IF EXISTS \"Status\", "
+                + "DROP COLUMN IF EXISTS \"ActivatedAt\", "
+                + "DROP COLUMN IF EXISTS \"RevokedAt\", "
+                + "DROP COLUMN IF EXISTS \"UpdatedAt\", "
+                + "DROP COLUMN IF EXISTS \"RowVersion\"");
+            _ = await identity.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX "
+                + "\"IX_memberships_UserId_HospitalId\" "
+                + "ON \"memberships\" (\"UserId\", \"HospitalId\")");
             _ = await identity.Database.ExecuteSqlRawAsync(
                 "DELETE FROM \"__CynaraIdentityMigrationsHistory\"");
         }

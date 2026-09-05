@@ -72,6 +72,20 @@ public static class CapabilityCodes
     public const string UserInvitationsWrite = "user-invitations.write";
 
     /// <summary>
+    /// Gates the administrative membership read surface (hospital
+    /// membership listing with history); hospital-scoped, like the
+    /// invitation read surface.
+    /// </summary>
+    public const string MembershipsRead = "memberships.read";
+
+    /// <summary>
+    /// Gates the administrative membership mutation surface (add,
+    /// update, revoke, reactivate). Breadth comes from the assignment's
+    /// scope dimension, never from a scope-encoded code variant.
+    /// </summary>
+    public const string MembershipsWrite = "memberships.write";
+
+    /// <summary>
     /// The complete Stage 2 catalog. Assignment requests are validated
     /// against this list so an unknown code can never be persisted.
     /// </summary>
@@ -101,5 +115,7 @@ public static class CapabilityCodes
         UsersRead,
         UserInvitationsRead,
         UserInvitationsWrite,
+        MembershipsRead,
+        MembershipsWrite,
     ];
 }
