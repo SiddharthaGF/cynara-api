@@ -4,6 +4,7 @@ using Cynara.Api.Common.ErrorHandling;
 using Cynara.Api.JsonApi.OpenApi;
 using Cynara.Api.Modules.Health;
 using Cynara.Api.Modules.Invitations;
+using Cynara.Api.Modules.Memberships;
 using Cynara.Api.Modules.Pipelines;
 using Cynara.Api.Modules.Schemas;
 using Cynara.Api.Modules.Tasks;
@@ -172,6 +173,7 @@ internal static class WebApplicationExtensions
         _ = app.MapTasksEndpoints();
         _ = app.MapUsersEndpoints();
         _ = app.MapInvitationsEndpoints();
+        _ = app.MapMembershipsEndpoints();
         return app;
     }
 
