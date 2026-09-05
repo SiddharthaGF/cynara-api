@@ -9,8 +9,6 @@ using Cynara.Domain.Hospitals;
 using Cynara.Domain.Invitations;
 using Cynara.Infrastructure.Modules.Identity;
 
-using Microsoft.AspNetCore.Identity;
-
 namespace Cynara.Api.Tests.Invitations;
 
 /// <summary>
@@ -30,7 +28,7 @@ public sealed partial class InvitationAcceptanceTests
 
     private async Task<HttpClient> SeedAdminClientAsync(Guid hospitalId)
     {
-        IdentityUser<Guid> admin = await Factory.CreateUserAsync(
+        CynaraUser admin = await Factory.CreateUserAsync(
             AdminEmail, Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(admin, hospitalId, ActorAdmin)
             .ConfigureAwait(false);
@@ -111,11 +109,13 @@ public sealed partial class InvitationAcceptanceTests
     private static async Task<HttpResponseMessage> AcceptAsync(
         HttpClient client,
         string token,
-        string password)
+        string password,
+        string? name = "Ada",
+        string? surname = "Lovelace")
     {
         return await client.PostAsJsonAsync(
             $"/api/user-invitations/{token}/accept",
-            new { password }).ConfigureAwait(false);
+            new { password, name, surname }).ConfigureAwait(false);
     }
 
     private async Task<Invitation> LoadInvitationAsync(Guid id)
@@ -139,7 +139,7 @@ public sealed partial class InvitationAcceptanceTests
             .CountAsync(item => item.Email == email).ConfigureAwait(false);
     }
 
-    private async Task<IdentityUser<Guid>> LoadUserAsync(string email)
+    private async Task<CynaraUser> LoadUserAsync(string email)
     {
         await using AsyncServiceScope scope =
             Factory.Services.CreateAsyncScope();

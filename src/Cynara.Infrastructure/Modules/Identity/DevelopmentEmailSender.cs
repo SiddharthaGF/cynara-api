@@ -11,11 +11,11 @@ namespace Cynara.Infrastructure.Modules.Identity;
 /// </summary>
 public sealed partial class DevelopmentEmailSender(
     ILogger<DevelopmentEmailSender> logger,
-    IHostEnvironment environment) : IEmailSender<IdentityUser<Guid>>
+    IHostEnvironment environment) : IEmailSender<CynaraUser>
 {
     /// <summary>Logs the confirmation link in Development.</summary>
     public Task SendConfirmationLinkAsync(
-        IdentityUser<Guid> user,
+        CynaraUser user,
         string email,
         string confirmationLink)
     {
@@ -24,7 +24,7 @@ public sealed partial class DevelopmentEmailSender(
 
     /// <summary>Logs the password-reset link in Development.</summary>
     public Task SendPasswordResetLinkAsync(
-        IdentityUser<Guid> user,
+        CynaraUser user,
         string email,
         string resetLink)
     {
@@ -33,7 +33,7 @@ public sealed partial class DevelopmentEmailSender(
 
     /// <summary>Logs the password-reset code in Development.</summary>
     public Task SendPasswordResetCodeAsync(
-        IdentityUser<Guid> user,
+        CynaraUser user,
         string email,
         string resetCode)
     {
@@ -41,7 +41,7 @@ public sealed partial class DevelopmentEmailSender(
     }
 
     private Task SendAsync(
-        IdentityUser<Guid> user,
+        CynaraUser user,
         string email,
         string kind,
         string payload)

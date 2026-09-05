@@ -5,8 +5,6 @@ using System.Text.Json;
 using Cynara.Domain.Capabilities;
 using Cynara.Infrastructure.Modules.Identity;
 
-using Microsoft.AspNetCore.Identity;
-
 namespace Cynara.Api.Tests.Memberships;
 
 /// <summary>
@@ -59,7 +57,7 @@ public sealed partial class MembershipRevocationTests
         Guid hospitalId = (await Factory.EnsureHospitalAsync(
             hospitalCode,
             hospitalName).ConfigureAwait(false)).Id;
-        IdentityUser<Guid> admin = await Factory.CreateUserAsync(
+        CynaraUser admin = await Factory.CreateUserAsync(
             "memb-revoke-admin@cynara.dev",
             Password).ConfigureAwait(false);
         await Factory.SeedMembershipAsync(admin, hospitalId, ActorAdmin)

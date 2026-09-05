@@ -1,6 +1,7 @@
 using System.Security.Claims;
 
 using Cynara.Api.Hosting;
+using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
@@ -24,8 +25,8 @@ namespace Cynara.Api.Modules.Identity;
 [AllowAnonymous]
 [Route("connect")]
 public sealed class AuthorizeController(
-    UserManager<IdentityUser<Guid>> userManager,
-    SignInManager<IdentityUser<Guid>> signInManager) : ControllerBase
+    UserManager<CynaraUser> userManager,
+    SignInManager<CynaraUser> signInManager) : ControllerBase
 {
     /// <summary>
     /// Handles the interactive authorization endpoint. GET hands the browser
@@ -61,7 +62,7 @@ public sealed class AuthorizeController(
             string? email = Request.Form["email"].ToString();
             string? password = Request.Form["password"].ToString();
 
-            IdentityUser<Guid>? user = await userManager.FindByNameAsync(
+            CynaraUser? user = await userManager.FindByNameAsync(
                 userName: email ?? string.Empty).ConfigureAwait(false);
             if (user is not null && await signInManager
                 .CheckPasswordSignInAsync(
@@ -80,7 +81,7 @@ public sealed class AuthorizeController(
     }
 
     private Microsoft.AspNetCore.Mvc.SignInResult CompleteAuthorization(
-        IdentityUser<Guid> user)
+        CynaraUser user)
     {
         ClaimsIdentity identity = new(
             authenticationType: TokenValidationParameters.DefaultAuthenticationType,

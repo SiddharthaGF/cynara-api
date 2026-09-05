@@ -81,7 +81,32 @@ public static class InvitationProfileSnapshotParser
                 capabilities.Add(code);
             }
 
-            return new ParsedProfileSnapshot(actorId, capabilities);
+            return new ParsedProfileSnapshot(
+                actorId,
+                capabilities,
+                ReadOptionalName(root, "profile", "name"),
+                ReadOptionalName(root, "profile", "surname"));
         }
+    }
+
+    /// <summary>
+    /// Reads an optional informational name from a nested snapshot object.
+    /// Returns null when absent, non-string, or blank; never fails parsing.
+    /// </summary>
+    private static string? ReadOptionalName(
+        JsonElement root,
+        string section,
+        string property)
+    {
+        if (!root.TryGetProperty(section, out JsonElement parent)
+            || parent.ValueKind != JsonValueKind.Object
+            || !parent.TryGetProperty(property, out JsonElement value)
+            || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        string text = (value.GetString() ?? string.Empty).Trim();
+        return text.Length == 0 ? null : text;
     }
 }

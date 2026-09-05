@@ -11,7 +11,7 @@ namespace Cynara.Infrastructure.Modules.Identity;
 /// </summary>
 public sealed class CynaraIdentityDbContext(
     DbContextOptions<CynaraIdentityDbContext> options)
-    : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>(options),
+    : IdentityDbContext<CynaraUser, IdentityRole<Guid>, Guid>(options),
         IDataProtectionKeyContext
 {
     /// <summary>
@@ -35,6 +35,7 @@ public sealed class CynaraIdentityDbContext(
         ArgumentNullException.ThrowIfNull(builder);
         base.OnModelCreating(builder);
         _ = builder.UseOpenIddict();
+        _ = builder.ApplyConfiguration(new CynaraUserEntityConfiguration());
         _ = builder.ApplyConfiguration(new MembershipEntityConfiguration());
         _ = builder.ApplyConfiguration(new DataProtectionKeyEntityConfiguration());
     }

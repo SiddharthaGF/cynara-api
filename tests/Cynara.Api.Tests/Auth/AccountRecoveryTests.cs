@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Cynara.Infrastructure.Modules.Identity;
+
 using Microsoft.AspNetCore.Identity;
 
 namespace Cynara.Api.Tests.Auth;
@@ -221,9 +223,9 @@ public sealed class AccountRecoveryTests : IDisposable
     private async Task<string> GenerateResetTokenAsync(string account)
     {
         await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
-        UserManager<IdentityUser<Guid>> users = scope.ServiceProvider
-            .GetRequiredService<UserManager<IdentityUser<Guid>>>();
-        IdentityUser<Guid>? user = await users.FindByNameAsync(account)
+        UserManager<CynaraUser> users = scope.ServiceProvider
+            .GetRequiredService<UserManager<CynaraUser>>();
+        CynaraUser? user = await users.FindByNameAsync(account)
             .ConfigureAwait(false);
         Assert.NotNull(user);
         return await users.GeneratePasswordResetTokenAsync(user)

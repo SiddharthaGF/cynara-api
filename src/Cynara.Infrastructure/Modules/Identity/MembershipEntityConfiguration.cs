@@ -1,7 +1,5 @@
 using Cynara.Domain.Memberships;
 
-using Microsoft.AspNetCore.Identity;
-
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
@@ -47,7 +45,7 @@ public sealed class MembershipEntityConfiguration
         _ = builder.Property(item => item.RevokedAt);
         _ = builder.Property(item => item.UpdatedAt).IsRequired();
         _ = builder.Property(item => item.RowVersion).IsConcurrencyToken();
-        _ = builder.HasOne<IdentityUser<Guid>>()
+        _ = builder.HasOne<CynaraUser>()
             .WithMany()
             .HasForeignKey(item => item.UserId)
             .OnDelete(DeleteBehavior.Restrict);

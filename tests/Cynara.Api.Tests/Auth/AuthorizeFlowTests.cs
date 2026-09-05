@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 
+using Cynara.Infrastructure.Modules.Identity;
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -288,9 +290,9 @@ public sealed class AuthorizeFlowTests : IDisposable
         }
 
         await using AsyncServiceScope scope = Factory.Services.CreateAsyncScope();
-        UserManager<IdentityUser<Guid>> users = scope.ServiceProvider
-            .GetRequiredService<UserManager<IdentityUser<Guid>>>();
-        IdentityUser<Guid> lockedUser = (await users.FindByNameAsync(UserEmail))!;
+        UserManager<CynaraUser> users = scope.ServiceProvider
+            .GetRequiredService<UserManager<CynaraUser>>();
+        CynaraUser lockedUser = (await users.FindByNameAsync(UserEmail))!;
         Assert.True(await users.IsLockedOutAsync(lockedUser));
 
         using HttpResponseMessage validAttempt = await PostCredentialsAsync(

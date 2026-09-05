@@ -1,4 +1,5 @@
 using Cynara.Api.Hosting;
+using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
@@ -22,8 +23,8 @@ namespace Cynara.Api.Modules.Identity;
 [AllowAnonymous]
 [Route("connect")]
 public sealed class TokenController(
-    UserManager<IdentityUser<Guid>> userManager,
-    SignInManager<IdentityUser<Guid>> signInManager,
+    UserManager<CynaraUser> userManager,
+    SignInManager<CynaraUser> signInManager,
     IHostEnvironment environment) : ControllerBase
 {
     /// <summary>Handles <c>POST /connect/token</c> exchanges.</summary>
@@ -74,7 +75,7 @@ public sealed class TokenController(
             });
         }
 
-        IdentityUser<Guid>? user = await userManager.FindByNameAsync(
+        CynaraUser? user = await userManager.FindByNameAsync(
             request.Username ?? string.Empty).ConfigureAwait(false);
         if (user is null)
         {

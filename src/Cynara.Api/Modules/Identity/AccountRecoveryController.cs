@@ -1,3 +1,5 @@
+using Cynara.Infrastructure.Modules.Identity;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,8 +16,8 @@ namespace Cynara.Api.Modules.Identity;
 [AllowAnonymous]
 [Route("connect/account")]
 public sealed class AccountRecoveryController(
-    UserManager<IdentityUser<Guid>> userManager,
-    IEmailSender<IdentityUser<Guid>> emailSender) : ControllerBase
+    UserManager<CynaraUser> userManager,
+    IEmailSender<CynaraUser> emailSender) : ControllerBase
 {
     /// <summary>
     /// Handles a recovery request. Always returns the uniform success body;
@@ -27,7 +29,7 @@ public sealed class AccountRecoveryController(
     public async Task<IActionResult> RecoveryAsync(
         [FromBody] AccountRecoveryRequest request)
     {
-        IdentityUser<Guid>? user = await userManager
+        CynaraUser? user = await userManager
             .FindByNameAsync(request.Account ?? string.Empty)
             .ConfigureAwait(false);
 
@@ -59,7 +61,7 @@ public sealed class AccountRecoveryController(
     public async Task<IActionResult> ResetAsync(
         [FromBody] AccountResetRequest request)
     {
-        IdentityUser<Guid>? user = await userManager
+        CynaraUser? user = await userManager
             .FindByNameAsync(request.Account ?? string.Empty)
             .ConfigureAwait(false);
 

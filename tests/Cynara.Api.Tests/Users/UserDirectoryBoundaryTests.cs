@@ -2,8 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using Cynara.Domain.Capabilities;
-
-using Microsoft.AspNetCore.Identity;
+using Cynara.Infrastructure.Modules.Identity;
 
 namespace Cynara.Api.Tests.Users;
 
@@ -51,14 +50,14 @@ public sealed class UserDirectoryBoundaryTests : IDisposable
             HospitalBCode,
             "Hospital B")).Id;
 
-        IdentityUser<Guid> shared = await SeedMemberAsync(
+        CynaraUser shared = await SeedMemberAsync(
             "shared@cynara.dev",
             hospitalA,
             actorId: "actor-shared");
         await Factory.SeedMembershipAsync(shared, hospitalB, "actor-shared-b");
         _ = await SeedMemberAsync("only-a@cynara.dev", hospitalA, "actor-only-a");
         _ = await SeedForeignMemberAsync("only-b@cynara.dev", hospitalB);
-        IdentityUser<Guid> platformCaller = await Factory.CreateUserAsync(
+        CynaraUser platformCaller = await Factory.CreateUserAsync(
             "platform@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(
@@ -105,12 +104,12 @@ public sealed class UserDirectoryBoundaryTests : IDisposable
             HospitalBCode,
             "Hospital B")).Id;
 
-        IdentityUser<Guid> memberA = await SeedMemberAsync(
+        CynaraUser memberA = await SeedMemberAsync(
             "member-a@cynara.dev",
             hospitalA,
             "actor-member-a");
         _ = await SeedForeignMemberAsync("member-b@cynara.dev", hospitalB);
-        IdentityUser<Guid> caller = await Factory.CreateUserAsync(
+        CynaraUser caller = await Factory.CreateUserAsync(
             "hospital-admin@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(caller, hospitalA, "hosp-admin");
@@ -217,21 +216,21 @@ public sealed class UserDirectoryBoundaryTests : IDisposable
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private async Task<IdentityUser<Guid>> SeedMemberAsync(
+    private async Task<CynaraUser> SeedMemberAsync(
         string email,
         Guid hospitalId,
         string actorId)
     {
-        IdentityUser<Guid> user = await Factory.CreateUserAsync(email, Password);
+        CynaraUser user = await Factory.CreateUserAsync(email, Password);
         await Factory.SeedMembershipAsync(user, hospitalId, actorId);
         return user;
     }
 
-    private async Task<IdentityUser<Guid>> SeedForeignMemberAsync(
+    private async Task<CynaraUser> SeedForeignMemberAsync(
         string email,
         Guid hospitalId)
     {
-        IdentityUser<Guid> user = await Factory.CreateUserAsync(email, Password);
+        CynaraUser user = await Factory.CreateUserAsync(email, Password);
         await Factory.SeedMembershipAsync(user, hospitalId, $"actor-{email}");
         return user;
     }

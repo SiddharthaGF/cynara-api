@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using Cynara.Application.Modules.Users;
 using Cynara.Domain.Capabilities;
+using Cynara.Infrastructure.Modules.Identity;
 
 using Microsoft.AspNetCore.Identity;
 
@@ -69,7 +70,7 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         ];
         for (int index = 0; index < emails.Count; index++)
         {
-            IdentityUser<Guid> user = await Factory.CreateUserAsync(
+            CynaraUser user = await Factory.CreateUserAsync(
                 emails[index],
                 Password);
             await Factory.SeedMembershipAsync(
@@ -78,13 +79,13 @@ public sealed class UserDirectoryPaginationTests : IDisposable
                 $"actor-{index.ToString(CultureInfo.InvariantCulture)}");
         }
 
-        IdentityUser<Guid> shared = await Factory.CreateUserAsync(
+        CynaraUser shared = await Factory.CreateUserAsync(
             "shared@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(shared, hospitalA, "actor-shared");
         await Factory.SeedMembershipAsync(shared, hospitalB, "actor-shared-b");
 
-        IdentityUser<Guid> caller = await Factory.CreateUserAsync(
+        CynaraUser caller = await Factory.CreateUserAsync(
             "walker@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(caller, hospitalA, "actor-walker");
@@ -150,7 +151,7 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         Guid hospitalA = (await Factory.EnsureHospitalAsync(
             HospitalACode,
             "Hospital A")).Id;
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "single@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(member, hospitalA, "actor-single");
@@ -181,18 +182,18 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         Guid hospitalA = (await Factory.EnsureHospitalAsync(
             HospitalACode,
             "Hospital A")).Id;
-        IdentityUser<Guid> byEmail = await Factory.CreateUserAsync(
+        CynaraUser byEmail = await Factory.CreateUserAsync(
             "searchy.one@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(byEmail, hospitalA, "actor-one");
-        IdentityUser<Guid> byUsername = await Factory.CreateUserAsync(
+        CynaraUser byUsername = await Factory.CreateUserAsync(
             "unrelated@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(byUsername, hospitalA, "actor-two");
         await using (AsyncServiceScope scope = Factory.Services.CreateAsyncScope())
         {
-            UserManager<IdentityUser<Guid>> userManager = scope.ServiceProvider
-                .GetRequiredService<UserManager<IdentityUser<Guid>>>();
+            UserManager<CynaraUser> userManager = scope.ServiceProvider
+                .GetRequiredService<UserManager<CynaraUser>>();
             IdentityResult renamed = await userManager.SetUserNameAsync(
                 byUsername,
                 "dr.searchy-42");
@@ -235,7 +236,7 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         Guid hospitalB = (await Factory.EnsureHospitalAsync(
             HospitalBCode,
             "Hospital B")).Id;
-        IdentityUser<Guid> memberB = await Factory.CreateUserAsync(
+        CynaraUser memberB = await Factory.CreateUserAsync(
             "member-b@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(memberB, hospitalB, "actor-b");
@@ -275,11 +276,11 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         Guid hospitalB = (await Factory.EnsureHospitalAsync(
             HospitalBCode,
             "Hospital B")).Id;
-        IdentityUser<Guid> memberA = await Factory.CreateUserAsync(
+        CynaraUser memberA = await Factory.CreateUserAsync(
             "member-a@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(memberA, hospitalA, "actor-a");
-        IdentityUser<Guid> memberB = await Factory.CreateUserAsync(
+        CynaraUser memberB = await Factory.CreateUserAsync(
             "member-b@cynara.dev",
             Password);
         await Factory.SeedMembershipAsync(memberB, hospitalB, "actor-b");
@@ -356,7 +357,7 @@ public sealed class UserDirectoryPaginationTests : IDisposable
         string actorId,
         bool platformScope = false)
     {
-        IdentityUser<Guid> caller = await Factory.CreateUserAsync(email, Password);
+        CynaraUser caller = await Factory.CreateUserAsync(email, Password);
         await Factory.SeedMembershipAsync(caller, hospitalId, actorId);
         if (platformScope)
         {

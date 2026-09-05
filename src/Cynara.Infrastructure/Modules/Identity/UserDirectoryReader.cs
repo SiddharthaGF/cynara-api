@@ -3,8 +3,6 @@ using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Domain.Capabilities;
 using Cynara.Domain.Memberships;
 
-using Microsoft.AspNetCore.Identity;
-
 namespace Cynara.Infrastructure.Modules.Identity;
 
 /// <summary>
@@ -28,7 +26,7 @@ public sealed class UserDirectoryReader(
         DirectoryQuery query,
         CancellationToken cancellationToken)
     {
-        IQueryable<IdentityUser<Guid>> scopedUsers = identity.Users
+        IQueryable<CynaraUser> scopedUsers = identity.Users
             .AsNoTracking()
             .Where(user => ScopedMemberships(
                     identity.Memberships.AsNoTracking(),
@@ -107,7 +105,7 @@ public sealed class UserDirectoryReader(
         Guid? hospitalFilter,
         CancellationToken cancellationToken)
     {
-        IdentityUser<Guid>? user = await identity.Users
+        CynaraUser? user = await identity.Users
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == userId, cancellationToken)
             .ConfigureAwait(false);

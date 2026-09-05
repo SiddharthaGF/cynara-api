@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Microsoft.AspNetCore.Identity;
+using Cynara.Infrastructure.Modules.Identity;
 
 namespace Cynara.Api.Tests.Memberships;
 
@@ -51,7 +51,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_HappyPath_Returns201AndAuditsAtomically()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "member@cynara.dev",
             Password).ConfigureAwait(false);
 
@@ -82,7 +82,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_SecondActiveForSameUser_Returns409AndWritesNothing()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "cardinality@cynara.dev",
             Password).ConfigureAwait(false);
         Guid hospitalId = await HospitalIdAsync(HospitalCode)
@@ -109,10 +109,10 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_ActorTakenInHospital_Returns409Never400()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> first = await Factory.CreateUserAsync(
+        CynaraUser first = await Factory.CreateUserAsync(
             "taken-1@cynara.dev",
             Password).ConfigureAwait(false);
-        IdentityUser<Guid> second = await Factory.CreateUserAsync(
+        CynaraUser second = await Factory.CreateUserAsync(
             "taken-2@cynara.dev",
             Password).ConfigureAwait(false);
         await AddAsync(client, first.Id, "doctor-taken")
@@ -134,14 +134,14 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_ActorReusedAcrossHospitals_Returns201()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> memberA = await Factory.CreateUserAsync(
+        CynaraUser memberA = await Factory.CreateUserAsync(
             "reuse-a@cynara.dev",
             Password).ConfigureAwait(false);
         await AddAsync(client, memberA.Id, "doctor-shared")
             .ConfigureAwait(false);
         HttpClient other = await SeedOtherHospitalAsync()
             .ConfigureAwait(false);
-        IdentityUser<Guid> memberB = await Factory.CreateUserAsync(
+        CynaraUser memberB = await Factory.CreateUserAsync(
             "reuse-b@cynara.dev",
             Password).ConfigureAwait(false);
 
@@ -166,7 +166,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
         string actorId)
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             $"malformed-{Guid.NewGuid():N}@cynara.dev",
             Password).ConfigureAwait(false);
         Guid hospitalId = await HospitalIdAsync(HospitalCode)
@@ -191,7 +191,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_ActorIdOver128Characters_Returns400()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "long-actor@cynara.dev",
             Password).ConfigureAwait(false);
 
@@ -232,7 +232,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Add_ConcurrentDuplicates_Resolve201And409()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "race@cynara.dev",
             Password).ConfigureAwait(false);
         object payload = new
@@ -273,7 +273,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Update_HappyPath_RevokesCurrentAndInsertsNew()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "update@cynara.dev",
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(client, member.Id, "doctor-old")
@@ -308,7 +308,7 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task Update_RevokedTarget_Returns409AndChangesNothing()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> member = await Factory.CreateUserAsync(
+        CynaraUser member = await Factory.CreateUserAsync(
             "update-revoked@cynara.dev",
             Password).ConfigureAwait(false);
         Guid currentId = await AddAsync(client, member.Id, "doctor-stale")
@@ -365,10 +365,10 @@ public sealed partial class MembershipAdminLifecycleTests : IDisposable
     public async Task List_IncludesHistoryNewestFirstWithStatus()
     {
         HttpClient client = await SeedAdminAsync().ConfigureAwait(false);
-        IdentityUser<Guid> active = await Factory.CreateUserAsync(
+        CynaraUser active = await Factory.CreateUserAsync(
             "listed-active@cynara.dev",
             Password).ConfigureAwait(false);
-        IdentityUser<Guid> historic = await Factory.CreateUserAsync(
+        CynaraUser historic = await Factory.CreateUserAsync(
             "listed-history@cynara.dev",
             Password).ConfigureAwait(false);
         _ = await AddAsync(client, active.Id, "doctor-listed")
