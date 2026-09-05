@@ -2,6 +2,7 @@ using Cynara.Application.Failures;
 using Cynara.Application.Modules.Hospitals;
 using Cynara.Application.Modules.Invitations;
 using Cynara.Application.Modules.Invitations.Persistence;
+using Cynara.Application.Modules.Memberships;
 using Cynara.Application.Modules.Users.Persistence;
 using Cynara.Application.Persistence;
 using Cynara.Application.Schemas;
@@ -18,6 +19,7 @@ using Cynara.Infrastructure.Modules.Forms;
 using Cynara.Infrastructure.Modules.Hospitals;
 using Cynara.Infrastructure.Modules.Identity;
 using Cynara.Infrastructure.Modules.Invitations;
+using Cynara.Infrastructure.Modules.Memberships;
 using Cynara.Infrastructure.Modules.Patients;
 using Cynara.Infrastructure.Modules.Tasks;
 using Cynara.Infrastructure.Modules.Workflows;
@@ -184,6 +186,10 @@ public static partial class InfrastructureServiceCollectionExtensions
         _ = services.AddScoped<
             IInvitationAcceptanceTransaction,
             InvitationAcceptanceTransaction>();
+        _ = services.AddScoped<
+            ICrossTrackTransaction,
+            CrossTrackTransaction>();
+        _ = services.AddScoped<IMembershipRepository, MembershipRepository>();
         _ = services.AddSingleton<
             IProfileSnapshotValidator,
             ProfileSnapshotValidator>();
