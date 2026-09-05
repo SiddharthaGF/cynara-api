@@ -11,8 +11,8 @@ using Npgsql;
 namespace Cynara.Api.Modules.Memberships;
 
 /// <summary>
-/// HTTP surface of membership administration (slice 2: list, add, update;
-/// revoke/reactivate arrive in slice 3). Routes carry the capability-code
+/// HTTP surface of membership administration (list, add, update,
+/// revoke, reactivate). Routes carry the capability-code
 /// authorization policy so denials short-circuit into the shared 403
 /// envelope before any data is touched, and the workflow re-checks
 /// tenant context and capability so denial never leaks resource
@@ -50,6 +50,25 @@ internal static class MembershipsEndpoints
             .RequireAuthorization(CapabilityCodes.MembershipsWrite)
             .WithName("UpdateMembership")
             .WithSummary("Replace the actor id of an active membership")
+            .Produces<MembershipView>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        _ = memberships.MapPost("/{id:guid}/revoke", RevokeAsync)
+            .RequireAuthorization(CapabilityCodes.MembershipsWrite)
+            .WithName("RevokeMembership")
+            .WithSummary("Revoke an active membership")
+            .Produces<MembershipView>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        _ = memberships.MapPost("/{id:guid}/reactivate", ReactivateAsync)
+            .RequireAuthorization(CapabilityCodes.MembershipsWrite)
+            .WithName("ReactivateMembership")
+            .WithSummary("Reactivate a revoked membership as a new row")
             .Produces<MembershipView>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -109,6 +128,44 @@ internal static class MembershipsEndpoints
                 http.GetActorId(),
                 cancellationToken).ConfigureAwait(false);
             return Results.Ok(updated);
+        }
+        catch (DbUpdateException exception)
+            when (IsUniqueViolation(exception))
+        {
+            return ProblemDetailsMapping.FromException(
+                new ConflictException(
+                    "The actor id already exists in this hospital."));
+        }
+    }
+
+    private static async Task<IResult> RevokeAsync(
+        Guid id,
+        MembershipAdminWorkflow workflow,
+        HttpContext http,
+        CancellationToken cancellationToken)
+    {
+        MembershipView revoked = await workflow.RevokeAsync(
+            id,
+            http.GetActorId(),
+            cancellationToken).ConfigureAwait(false);
+        return Results.Ok(revoked);
+    }
+
+    private static async Task<IResult> ReactivateAsync(
+        Guid id,
+        ReactivateMembershipRequest request,
+        MembershipAdminWorkflow workflow,
+        HttpContext http,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            MembershipView next = await workflow.ReactivateAsync(
+                id,
+                request,
+                http.GetActorId(),
+                cancellationToken).ConfigureAwait(false);
+            return Results.Ok(next);
         }
         catch (DbUpdateException exception)
             when (IsUniqueViolation(exception))
